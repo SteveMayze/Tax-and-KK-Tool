@@ -211,3 +211,12 @@ class AggregationTests(TestCase):
         avg = agg.year_average_of_actuals(year)
         self.assertEqual(avg['gross_eur'], D('2000') / 12)
         self.assertIn('not a recurring figure', avg['basis'])
+
+    def test_average_counts_unconverted_and_missing_net(self):
+        a = self.add(gross='1200', net='1000')
+        self.add(gross='600')                      # converted, no net
+        self.add(gross='50', convert=False)        # unconverted: excluded from sums
+        avg = agg.year_average_of_actuals(a.month.year)
+        self.assertEqual(avg['gross_eur'], D('1800') / 12)
+        self.assertEqual(avg['net_eur'], D('1000') / 12)
+        self.assertEqual((avg['net_missing_count'], avg['unconverted_count']), (1, 1))

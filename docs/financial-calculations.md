@@ -21,5 +21,5 @@ Two modes, always labelled in the result's `basis`:
 
 Gross and net are summed separately. Net totals include only payments that have a net amount; `net_missing_count` reports the rest. Payments without a stored conversion are excluded from all sums and reported as `unconverted_count`. Nothing is treated as zero silently.
 
-## Not yet decided
-How the opening page's "estimated monthly figure" for a year should be derived from recurring payments across several months (see the Phase 2 report).
+## Opening-page monthly figure (decided)
+The estimated monthly figure per year is the annual actual total / 12, shown for gross and net separately and labelled "annual total / 12 (average of actuals)". This mirrors how the health insurance assessment is understood to work (annual income / 12). The divisor is always 12, even for a partial year; the UI shows how many months contain payments. It is not a recurring-income figure and not an official SBK calculation (legal rules are Phase 7). The normalised per-month view remains available separately.

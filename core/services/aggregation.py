@@ -91,9 +91,10 @@ def year_actual(year) -> ActualTotals:
     return actual_totals(year_payments(year))
 
 
-def year_average_of_actuals(year) -> dict:
-    """Annual actual total / 12. An average of actuals, NOT a recurring monthly figure."""
-    t = year_actual(year)
+def average_of_actuals(t: ActualTotals) -> dict:
+    """Annual actual total / 12, the figure shown on the opening page. The divisor is always 12,
+    even for a partial year. An average of actuals, NOT a recurring monthly figure, and not an
+    official SBK calculation."""
     return {
         'basis': 'annual actual total / 12 (average of actuals, not a recurring figure)',
         'gross_eur': t.gross_eur / 12,
@@ -101,3 +102,7 @@ def year_average_of_actuals(year) -> dict:
         'net_missing_count': t.net_missing_count,
         'unconverted_count': t.unconverted_count,
     }
+
+
+def year_average_of_actuals(year) -> dict:
+    return average_of_actuals(year_actual(year))
