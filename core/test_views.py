@@ -385,3 +385,70 @@ class PaymentEditDeleteTests(AuthedTestCase):
         r = self.client.post(reverse('payment_delete', args=[self.p.pk]), follow=True)
         self.assertContains(r, 'cannot be deleted')
         self.assertTrue(Payment.objects.filter(pk=self.p.pk).exists())
+
+
+class EditConvertedPaymentRegressionTests(AuthedTestCase):
+    """Editing a converted payment must not validate the form against its stale stored conversion."""
+
+    def setUp(self):
+        super().setUp()
+        ReportingMonth.for_date(DAY)
+        with mock.patch(PROVIDER, return_value=fake()):
+            # converted without a net amount
+            self.client.post(reverse('payment_add', args=[2024, 3]),
+                             payment_post(currency='GBP', gross_amount='1000', net_amount=''))
+        self.p = Payment.objects.get()
+        self.url = reverse('payment_edit', args=[self.p.pk])
+        self.assertIsNone(self.p.net_eur)
+
+    def test_adding_net_amount_uses_stored_rate(self):
+        prov = fake()
+        with mock.patch(PROVIDER, return_value=prov):
+            r = self.client.post(self.url, payment_post(currency='GBP', gross_amount='1000', net_amount='800'))
+        self.assertEqual(r.status_code, 302)
+        self.p.refresh_from_db()
+        self.assertEqual((self.p.net_amount, self.p.net_eur, self.p.rate), (D('800'), D('960'), D('1.2')))
+        self.assertEqual(prov.calls, [])
+        self.assertEqual(self.p.conversion_events.last().kind, 'amounts_edited')
+
+    def test_removing_net_amount(self):
+        self.client.post(self.url, payment_post(currency='GBP', gross_amount='1000', net_amount='800'))
+        self.client.post(self.url, payment_post(currency='GBP', gross_amount='1000', net_amount=''))
+        self.p.refresh_from_db()
+        self.assertEqual((self.p.net_amount, self.p.net_eur), (None, None))
+
+    def test_changing_currency_to_eur(self):
+        r = self.client.post(self.url, payment_post(currency='EUR', gross_amount='1000'))
+        self.assertEqual(r.status_code, 302)
+        self.p.refresh_from_db()
+        self.assertEqual((self.p.currency, self.p.rate, self.p.gross_eur), ('EUR', D('1'), D('1000')))
+        self.assertEqual(self.p.conversion_events.last().kind, 'basis_changed')
+
+    def test_changing_currency_from_eur_to_foreign(self):
+        eur = make_payment(date=DAY, gross='100'); eur.save()
+        from core.services.conversion import convert_payment
+        convert_payment(eur)
+        with mock.patch(PROVIDER, return_value=fake()):
+            r = self.client.post(reverse('payment_edit', args=[eur.pk]),
+                                 payment_post(currency='GBP', gross_amount='100', organisation_name='Acme Test GmbH'))
+        self.assertEqual(r.status_code, 302)
+        eur.refresh_from_db()
+        self.assertEqual((eur.currency, eur.rate, eur.gross_eur), ('GBP', D('1.2'), D('120')))
+
+    def test_failed_basis_change_keeps_stored_data_and_note(self):
+        r = self.client.post(self.url, payment_post(currency='USD', gross_amount='1000'))  # manual-only provider
+        self.assertContains(r, 'nothing was saved')
+        self.assertContains(r, 'Stored rate: 1.2')   # edit page still describes the stored rate
+        self.p.refresh_from_db()
+        self.assertEqual((self.p.currency, self.p.rate, self.p.gross_eur), ('GBP', D('1.2'), D('1200')))
+
+    def test_form_never_raises_for_non_form_model_errors(self):
+        # Every combination of editing a converted payment should return 200/302, never 500.
+        for cur in ('EUR', 'GBP', 'USD'):
+            for net in ('', '500'):
+                for date in ('2024-03-15', '2024-04-01'):
+                    with mock.patch(PROVIDER, return_value=FakeRateProvider(
+                            {(c, datetime.date.fromisoformat(d)): D('1.1') for c in ('GBP', 'USD')
+                             for d in ('2024-03-15', '2024-04-01')})):
+                        r = self.client.post(self.url, payment_post(currency=cur, net_amount=net, payment_date=date))
+                    self.assertIn(r.status_code, (200, 302), (cur, net, date))

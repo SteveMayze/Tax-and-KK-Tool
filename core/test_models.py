@@ -1,5 +1,6 @@
 import datetime
 from decimal import Decimal
+D = Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -121,3 +122,28 @@ class PrecisionTests(TestCase):
         p.refresh_from_db()
         self.assertEqual(p.gross_amount, Decimal('12345.6789'))
         self.assertEqual(p.net_amount, Decimal('9876.5432'))
+
+
+class ConversionConsistencyOnSaveTests(TestCase):
+    def test_save_still_rejects_inconsistent_conversion(self):
+        from core.services.conversion import convert_payment
+        p = make_payment(currency='USD', net=None); p.save()
+        convert_payment(p, manual_rate='0.9')
+        p.net_amount = D('50')            # net added but net_eur not recomputed
+        with self.assertRaises(ValidationError) as cm:
+            p.save()
+        self.assertIn('net_eur', cm.exception.message_dict)
+        p.currency = 'EUR'                # EUR with a non-1 rate
+        p.net_amount = None
+        with self.assertRaises(ValidationError) as cm:
+            p.save()
+        self.assertIn('rate', cm.exception.message_dict)
+
+    def test_form_skip_flag_is_not_left_set(self):
+        from core.forms import PaymentForm
+        p = make_payment(); p.save()
+        form = PaymentForm(instance=p, data={
+            'payment_date': '2024-03-15', 'organisation_name': 'Acme Test GmbH', 'category_name': 'Salary',
+            'currency': 'EUR', 'gross_amount': '1', 'frequency': 'monthly'})
+        form.is_valid()
+        self.assertFalse(p._skip_conversion_checks)

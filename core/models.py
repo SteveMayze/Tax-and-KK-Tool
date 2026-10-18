@@ -188,6 +188,10 @@ class Payment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Set only by PaymentForm while it validates user input: at that point the stored conversion
+    # still reflects the OLD amounts/currency and is recomputed afterwards. save() always checks it.
+    _skip_conversion_checks = False
+
     class Meta:
         ordering = ['payment_date', 'id']
         constraints = [
@@ -232,7 +236,7 @@ class Payment(models.Model):
                 errors['currency'] = 'Must use the same currency as the payment it corrects.'
 
         # Stored conversion must be internally consistent.
-        if self.conversion_status == self.ConversionStatus.CONVERTED:
+        if self.conversion_status == self.ConversionStatus.CONVERTED and not self._skip_conversion_checks:
             if self.rate is None or self.rate <= 0 or self.rate_date is None or self.gross_eur is None:
                 errors['conversion_status'] = 'Converted payments need a positive rate, rate date and gross EUR.'
             elif self.currency == BASE_CURRENCY and self.rate != 1:

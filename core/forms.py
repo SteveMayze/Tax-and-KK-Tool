@@ -82,6 +82,15 @@ class PaymentForm(forms.ModelForm):
             self.fields['organisation_name'].initial = self.instance.organisation.name
             self.fields['category_name'].initial = self.instance.category.name
 
+    def _post_clean(self):
+        # Validate the user's input only. The stored conversion is stale until it is recomputed
+        # in the view; Payment.save() re-checks full consistency afterwards.
+        self.instance._skip_conversion_checks = True
+        try:
+            super()._post_clean()
+        finally:
+            self.instance._skip_conversion_checks = False
+
     def _check_name(self, model, field):
         name = self.cleaned_data[field]
         if not ' '.join(name.split()):
