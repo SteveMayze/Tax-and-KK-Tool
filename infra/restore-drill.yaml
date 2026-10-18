@@ -43,7 +43,9 @@
           - -e
           - "DJANGO_ALLOWED_HOSTS={{ public_host }},localhost,127.0.0.1"
           - -e
-          - "DJANGO_CSRF_TRUSTED_ORIGINS=https://{{ public_host }}:{{ public_port }}"
+          - "DJANGO_CSRF_TRUSTED_ORIGINS={{ public_scheme }}://{{ public_host }}:{{ app_port }}"
+          - -e
+          - "DJANGO_HTTPS={{ '1' if use_https else '0' }}"
           - -v
           - "{{ data_root }}/backups:/backups:ro"
           - "{{ image_repo }}:current"

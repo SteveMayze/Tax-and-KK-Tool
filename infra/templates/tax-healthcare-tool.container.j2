@@ -8,8 +8,8 @@ RequiresMountsFor={{ data_root }}
 [Container]
 Image={{ image_repo }}:current
 ContainerName={{ container_name }}
-# Loopback only: Caddy is the single way in.
-PublishPort=127.0.0.1:{{ app_port }}:8000
+# Reached directly over plain HTTP on the LAN (owner decision). Narrow with listen_address in group_vars.
+PublishPort={{ listen_address }}:{{ app_port }}:8000
 Volume={{ data_root }}/data:/data
 Volume={{ data_root }}/uploads:/uploads
 Volume={{ data_root }}/backups:/backups
@@ -20,13 +20,15 @@ Environment=DJANGO_DB_PATH=/data/db.sqlite3
 Environment=DJANGO_UPLOAD_DIR=/uploads
 Environment=DJANGO_BACKUP_DIR=/backups
 Environment=DJANGO_ALLOWED_HOSTS={{ public_host }},localhost,127.0.0.1
-Environment=DJANGO_CSRF_TRUSTED_ORIGINS=https://{{ public_host }}:{{ public_port }}
+Environment=DJANGO_CSRF_TRUSTED_ORIGINS={{ public_scheme }}://{{ public_host }}:{{ app_port }}
+Environment=DJANGO_HTTPS={{ '1' if use_https else '0' }}
 ReadOnly=true
 Tmpfs=/tmp
 NoNewPrivileges=true
 DropCapability=ALL
 PodmanArgs=--memory={{ memory_limit }} --pids-limit=256
-HealthCmd=python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=3)"
+# A script, not an inline command: Quadlet re-quotes inline commands and breaks them.
+HealthCmd=python /app/healthcheck.py
 HealthInterval=30s
 HealthTimeout=5s
 HealthRetries=3

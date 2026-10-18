@@ -6,7 +6,7 @@ HOST := $(shell awk 'NR==2 {print $$1}' infra/inventory.ini 2>/dev/null)
 USER_AT := $(shell awk 'NR==2 {for (i=2;i<=NF;i++) if ($$i ~ /^ansible_user=/) {sub("ansible_user=","",$$i); print $$i "@"}}' infra/inventory.ini 2>/dev/null)
 BACKUP_ARG := $(if $(BACKUP),-e backup_file=$(BACKUP),)
 
-.PHONY: setup test check ansible-setup syntax deploy caddy caddy-remove caddy-root-cert status backup-now \
+.PHONY: setup test check ansible-setup syntax deploy status backup-now \
         fetch-backup restore-drill restore rollback createsuperuser changepassword
 
 setup:
@@ -24,20 +24,11 @@ ansible-setup:
 	$(INFRA_PY)/pip install -r requirements-infra.txt
 
 syntax:
-	@for p in deploy caddy caddy-remove caddy-root-cert rollback restore restore-drill fetch-backup status; do \
+	@for p in deploy rollback restore restore-drill fetch-backup status; do \
 	  ANSIBLE_CONFIG=infra/ansible.cfg $(INFRA_PY)/ansible-playbook -i infra/inventory.ini --syntax-check infra/$$p.yaml >/dev/null && echo "ok  $$p" || exit 1; done
 
 deploy:                ## build and deploy the committed revision
 	$(ANSIBLE) infra/deploy.yaml -K
-
-caddy:                 ## add the site (own port) to Caddy via an import snippet
-	$(ANSIBLE) infra/caddy.yaml -K
-
-caddy-remove:          ## remove the snippet and the import line again
-	$(ANSIBLE) infra/caddy-remove.yaml -K
-
-caddy-root-cert:       ## copy Caddy's local root certificate to local/ so you can trust it
-	$(ANSIBLE) infra/caddy-root-cert.yaml -K
 
 status:                ## read-only overview
 	$(ANSIBLE) infra/status.yaml -K

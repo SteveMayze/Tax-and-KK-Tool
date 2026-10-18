@@ -1,6 +1,6 @@
 # Deployment (Phase 8)
 
-The app runs as its **own Podman container**, managed by **Quadlet/systemd**, behind the host's existing **Caddy**, with its own data directory and database. It runs next to the existing "Parts DB" app and never touches that app's container, data or database.
+The app runs as its **own Podman container**, managed by **Quadlet/systemd**, with its own data directory and database. It is reached **directly over plain HTTP on its own port**, like the existing "Parts DB" app next to which it runs; it never touches that app's container, data or database, and it does not use or change Caddy.
 
 Host and user names are not stored in the repository: they live in the git-ignored `infra/inventory.ini` (example: `infra/inventory.ini.example`). In this document `<server>` is the host in that file.
 
@@ -11,32 +11,29 @@ Host and user names are not stored in the repository: they live in the git-ignor
 | Access | SSH key login as an admin user in the `sudo` group; `sudo` needs a password, so privileged Ansible tasks run with `-K` |
 | Existing app | "Parts DB": **rootful** Podman container run as a system service from a Quadlet file in `/etc/containers/systemd/`, image built on the server from rsynced source, data under the admin user's home, published on port 8888 |
 | Existing Ansible | In the Parts DB project (`infra/`): `deploy-playbook-podman-quadlet.yaml`, `configure-caddy-playbook.yaml`, plain-text secrets in a git-ignored `group_vars/all.yml`, `-K` on the command line via Make |
-| Caddy | One shared `/etc/caddy/Caddyfile`, site `<server>` with routes `/parts*`, `/admin*`, `/static*` |
-| Ports in use | 22, 80, 443 (Caddy), 8888 (Parts DB), 2019 (Caddy admin, loopback) |
+| Caddy | Installed, but a leftover from earlier research work; **not used by this app** and not modified by it |
+| Ports in use | 22, 80, 443 (Caddy), 8888 (Parts DB), 2019 (Caddy admin, loopback); this app uses **8889** |
 
 This app follows the same conventions (rootful Podman, Quadlet in `/etc/containers/systemd/`, image built on the server, Ansible with `-K`) and deliberately differs where the existing setup is weaker (see ADR 0005).
 
-### Observations about the shared setup (nothing was changed by this phase)
-1. **The Parts DB Caddy playbook overwrites the whole Caddyfile** every time it runs. A route added directly to that file would silently disappear. This app therefore uses an `import` snippet (below), and the Parts DB template needs one extra line to keep it: add `import /etc/caddy/conf.d/*.caddy` at the end of its `infra/templates/Caddyfile.parts-db.j2`. I have not edited that project. Until that line is added, running the Parts DB Caddy playbook removes the import line and this app's HTTPS route (the app itself keeps running; `make caddy` restores the route).
-2. **HTTPS on port 443 is currently failing** for `<server>`: Caddy keeps trying to get a public certificate for a private name (the journal shows repeated ACME/NXDOMAIN errors) and a TLS handshake fails. The earlier Caddyfile (backup `Caddyfile.bak-20261007102054`) had a global `local_certs` option and an `/api/*` reverse proxy to another LAN host protected by an API token; the Parts DB playbook replaced it on 2026-10-07. Parts DB is still reachable on port 8888. This app asks Caddy for its own locally issued certificate (`tls internal`), so it does not depend on that state.
-3. Parts DB publishes port 8888 on all interfaces and there is no firewall, so it is reachable from the whole LAN. This app is published on the loopback interface only.
+### Plain HTTP (owner decision, 2026-10-18)
+No TLS and no reverse proxy: the app is served as plain HTTP on port 8889 of the server, like Parts DB on 8888. Consequences to be aware of: the login password, the session cookie and all financial data cross the home network **unencrypted**, and anyone on the LAN can reach the login page (there is no firewall on the host). Mitigations in place: login is required for every financial page, passwords are hashed, the container is hardened, and the port can be narrowed by setting `listen_address` in `infra/group_vars/all.yml` to the server's LAN address. If TLS is wanted later, set `use_https: true` and put a TLS-terminating proxy in front (the settings then switch to secure cookies).
 
 ## Design
 ```
-browser --HTTPS--> Caddy  <server>:8443 (tls internal) --> 127.0.0.1:8889 --> container (gunicorn, 2 workers)
-                                                                                  /data     SQLite database
-                                                                                  /uploads  imported CSV originals
-                                                                                  /backups  backup archives
+browser --HTTP--> <server>:8889 --> container (gunicorn, 2 workers)
+                                      /data     SQLite database
+                                      /uploads  imported CSV originals
+                                      /backups  backup archives
 ```
 | Aspect | Choice |
 |---|---|
 | Image | `localhost/tax-healthcare-tool:<commit>`, tagged `current` and `previous`; built on the server from `git archive HEAD` with `Containerfile`; base `python:3.14.5-slim-trixie`, packages pinned in `requirements.txt` |
-| Container | name `tax-healthcare-tool-web`; non-root uid 10001; read-only root file system; all capabilities dropped; no-new-privileges; 512 MB memory and 256 process limits; health check on `/health/` every 30 s with restart on failure |
-| Settings | `config.settings_prod`: everything from environment variables, start-up fails on a missing or weak value, `DEBUG` off, admin site off, secure cookies, `ALLOWED_HOSTS` and CSRF origins explicit, console logging at WARNING |
+| Container | name `tax-healthcare-tool-web`; non-root uid 10001; read-only root file system; all capabilities dropped; no-new-privileges; 512 MB memory and 256 process limits; health check (`python /app/healthcheck.py`, a script because Quadlet mangles inline commands) every 30 s with restart on failure |
+| Settings | `config.settings_prod`: everything from environment variables, start-up fails on a missing or weak value, `DEBUG` off, admin site off, `ALLOWED_HOSTS` and CSRF origins explicit, console logging at WARNING; `DJANGO_HTTPS=0` here (plain HTTP: cookies cannot be "secure"), default is HTTPS-hardened |
 | Secret | `DJANGO_SECRET_KEY` generated **on the server** on first deploy into `/etc/tax-healthcare-tool/env` (root, mode 0600), passed with `EnvironmentFile`; never in the repository, on the Mac, or in the unit file; never overwritten by later deploys |
 | Data | `/var/lib/tax-healthcare-tool/{data,uploads,backups}` owned by uid 10001, mode 0700; the database is `/var/lib/tax-healthcare-tool/data/db.sqlite3` |
-| Port | container 8000 published on `127.0.0.1:8889` only |
-| Proxy | Caddy site `<server>:8443` in `/etc/caddy/conf.d/tax-healthcare-tool.caddy`, imported by one line in the shared Caddyfile |
+| Port | container 8000 published on `<listen_address>:8889` (default all interfaces) |
 | Service names | `tax-healthcare-tool.service` (from the Quadlet file), `tax-healthcare-tool-backup.service` and `.timer` |
 | Wrapper | `/usr/local/sbin/tax-healthcare-tool-manage` runs a Django management command in a throw-away container with the real data (used for `createsuperuser`, `changepassword`, manual backups) |
 
@@ -50,11 +47,9 @@ make test
 Then, in order (each asks for the sudo password of the server user):
 ```
 make deploy             # directories, secret, pre-deploy backup (if any), build, migrate, service, backup timer
-make caddy              # adds the HTTPS site on port 8443 (validated; the Caddyfile is backed up first)
 make createsuperuser    # your login (prompted on the server)
-make caddy-root-cert    # optional: copies Caddy's local CA certificate to local/ so your Mac trusts the site
 ```
-Open `https://<server>:8443/`. Without trusting the certificate the browser shows a warning. To trust it on macOS: `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain local/caddy-local-root.crt`.
+Open `http://<server>:8889/`.
 
 Then prove the safety net works before relying on it:
 ```
@@ -91,8 +86,7 @@ To inspect a backup on your Mac without any server: `make fetch-backup`, then `.
 |---|---|
 | New release misbehaves, database unaffected | `make rollback` swaps `current` back to `previous` and restarts (after a `pre-rollback` backup) |
 | New release ran migrations the old code cannot use | `make rollback BACKUP=backup-<time>-pre-deploy.tar.gz` also restores the data from just before the deploy (changes made since the deploy are lost) |
-| Caddy change causes trouble | `make caddy-remove` removes the snippet and the import line, validates and reloads; the other app's routes are never touched. `caddy.yaml` itself restores the Caddyfile if validation fails |
-| Remove the app completely | manual and deliberately not automated: stop and disable `tax-healthcare-tool.service` and the backup timer, delete their unit files and `/usr/local/sbin/tax-healthcare-tool-manage`, remove the images, and only then (after fetching a backup) the data and `/etc/tax-healthcare-tool` |
+| Remove the app completely | manual and deliberately not automated: stop and disable `tax-healthcare-tool.service` and the backup timer, delete their unit files (`/etc/containers/systemd/tax-healthcare-tool.container`, `/etc/systemd/system/tax-healthcare-tool-backup.*`) and `/usr/local/sbin/tax-healthcare-tool-manage`, remove the images, and only then (after fetching a backup) the data and `/etc/tax-healthcare-tool` |
 
 ## Operations
 | Task | Command |
@@ -110,21 +104,21 @@ To inspect a backup on your Mac without any server: `make fetch-backup`, then `.
 |---|---|---|
 | `DJANGO_SETTINGS_MODULE=config.settings_prod` | image and unit | production settings |
 | `DJANGO_SECRET_KEY` | `/etc/tax-healthcare-tool/env` | session/CSRF signing key (at least 50 characters) |
-| `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` | unit | `<server>` plus loopback names for the health check; `https://<server>:8443` |
+| `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` | unit | `<server>` plus loopback names for the health check; `http://<server>:8889` |
+| `DJANGO_HTTPS` | unit | `0` for plain HTTP (secure cookies off), default `1` |
 | `DJANGO_DB_PATH`, `DJANGO_UPLOAD_DIR`, `DJANGO_BACKUP_DIR` | unit | absolute paths inside the container (`/data/db.sqlite3`, `/uploads`, `/backups`) |
 | `DJANGO_RATE_PROVIDER`, `FRANKFURTER_*` | optional | exchange-rate source (default Frankfurter/ECB; the container needs outbound HTTPS to `api.frankfurter.dev`) |
-| `DJANGO_HSTS_SECONDS` | optional | HSTS is off by default because the certificate comes from a local CA |
+| `DJANGO_HSTS_SECONDS` | optional | HSTS, off by default (only meaningful over HTTPS) |
 | `DJANGO_ENABLE_ADMIN` | optional | Django admin, off in production |
 
 ## What has and has not been verified
-Verified on the Mac (all in the test suite or run by hand):
-- production settings: each required variable is enforced, weak values are rejected, security headers/cookies/host checking behave, `check --deploy` has no errors (two accepted warnings, see `core/test_settings_prod.py`), a fresh database migrates;
-- gunicorn on Python 3.14 serves the app under those settings;
-- backup, retention, tamper/corruption detection, path-traversal protection and restore, including a restore into a new location compared with the original;
-- all playbooks pass `ansible-playbook --syntax-check`; all templates render correctly with Ansible's own template engine;
-- static guard-rail tests for the Containerfile, Quadlet file, playbooks and repository hygiene.
+Verified on the Mac (all in the test suite or run by hand): production settings in both HTTPS and plain-HTTP mode (each required variable is enforced, weak values rejected, host checking, a real login over plain HTTP with CSRF checks on, `check --deploy` without errors); gunicorn on Python 3.14; backup, retention, tamper/corruption detection, path-traversal protection and restore; the health-check script; the exact `git archive` the playbook ships; syntax and template rendering of all playbooks; static guard-rail tests for the Containerfile, Quadlet file and repository hygiene.
 
-**Not yet verified, because it needs the server and the sudo password:** the image build on the host, Quadlet generation and the systemd units, the Caddy snippet, the health check as Podman runs it, the backup timer, and the restore drill on the real host. The first `make deploy` is therefore the real test; the steps above end with commands that prove each part, and nothing is irreversible (a failed first deploy leaves only the new directories, image and unit files, which the removal steps above describe).
+Found only by running on the real server (both fixed, each with a regression test):
+1. `git archive` was run from `infra/`, which archived only that directory and left the build without a `Containerfile`. The playbook now archives the repository root and verifies the unpacked files before building.
+2. Quadlet re-quotes inline commands, which dropped the closing quote of an inline `python -c "..."` health check, so the container never became healthy and was restarted in a loop. The check is now a script.
+
+**Not yet verified on the server:** the backup timer's first run and the restore drill (run `make backup-now` and `make restore-drill` after the first successful deploy).
 
 ## Troubleshooting
 | Symptom | Likely cause / check |
@@ -132,7 +126,7 @@ Verified on the Mac (all in the test suite or run by hand):
 | `make deploy` stops at "Refuse to deploy uncommitted changes" | commit first, or `-e allow_dirty=true` to deploy HEAD anyway |
 | Container restarts in a loop | `sudo journalctl -u tax-healthcare-tool -n 50`: a missing/invalid environment value stops start-up with a clear message |
 | 400 "Bad Request" from the browser | the host name used in the URL is not in `DJANGO_ALLOWED_HOSTS` |
-| 403 on form submit | the origin is not in `DJANGO_CSRF_TRUSTED_ORIGINS` (must be `https://<server>:8443`) |
-| Browser certificate warning | expected until `make caddy-root-cert` and trusting that certificate |
+| 403 on form submit | the origin is not in `DJANGO_CSRF_TRUSTED_ORIGINS` (must be `http://<server>:8889`) |
+| Login page loads but login does nothing | secure cookies with plain HTTP: `DJANGO_HTTPS` must be `0` when served over HTTP |
+| `make deploy` waits then fails on "healthy" | `sudo journalctl -u tax-healthcare-tool -n 80` and `curl http://127.0.0.1:8889/health/` on the server; the second tells whether the app or only the check is failing |
 | Exchange-rate lookups fail | the container needs outbound HTTPS; manual rates still work |
-| `caddy.yaml` fails validation | it restored the Caddyfile and removed the snippet; read the Caddy error shown and fix the snippet template |

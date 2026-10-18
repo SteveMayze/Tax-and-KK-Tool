@@ -121,7 +121,7 @@
       ansible.builtin.stat:
         path: "{{ build_dir }}/src/{{ item }}"
       register: unpacked
-      loop: [Containerfile, manage.py, requirements.txt, config/settings_prod.py, core/models.py]
+      loop: [Containerfile, manage.py, healthcheck.py, requirements.txt, config/settings_prod.py, core/models.py]
       failed_when: not unpacked.stat.exists
 
     - name: Build the image (installs the pinned requirements from PyPI)
@@ -226,7 +226,7 @@
       ansible.builtin.command: "podman inspect --format {% raw %}'{{.State.Health.Status}}'{% endraw %} {{ container_name }}"
       register: health
       until: health.stdout == 'healthy'
-      retries: 30
+      retries: 45
       delay: 4
       changed_when: false
 
@@ -280,4 +280,5 @@
           - "Deployed commit {{ app_commit }}"
           - "Pre-deploy backup: {{ (pre_backup.stdout | default('none (first deploy)')).strip() }}"
           - "Migrations: {{ 'applied' if migrate.changed else 'already up to date' }}"
-          - "Next: make caddy (once), then create your login with: make createsuperuser"
+          - "Open {{ public_scheme }}://{{ public_host }}:{{ app_port }}/"
+          - "First deploy: create your login with: make createsuperuser"

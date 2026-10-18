@@ -36,9 +36,16 @@ ALLOWED_HOSTS = _required_list('DJANGO_ALLOWED_HOSTS')
 if '*' in ALLOWED_HOSTS:
     raise ImproperlyConfigured('DJANGO_ALLOWED_HOSTS must list explicit hosts, not "*".')
 
+# Whether the site is served over HTTPS. Default on (safe). The home-server deployment sets DJANGO_HTTPS=0 because
+# it is served as plain HTTP on the LAN, like the other app on that host. Plain HTTP means passwords and financial
+# data cross the network unencrypted; see docs/deployment.md.
+USE_HTTPS = os.environ.get('DJANGO_HTTPS', '1') == '1'
+
 CSRF_TRUSTED_ORIGINS = _required_list('DJANGO_CSRF_TRUSTED_ORIGINS')
-if not all(o.startswith('https://') for o in CSRF_TRUSTED_ORIGINS):
-    raise ImproperlyConfigured('DJANGO_CSRF_TRUSTED_ORIGINS entries must start with https://.')
+_schemes = ('https://',) if USE_HTTPS else ('https://', 'http://')
+if not all(o.startswith(_schemes) for o in CSRF_TRUSTED_ORIGINS):
+    raise ImproperlyConfigured(
+        'DJANGO_CSRF_TRUSTED_ORIGINS entries must start with ' + ' or '.join(_schemes) + '.')
 
 # Data lives outside the code tree, on dedicated paths (never repo-relative).
 DATABASES['default']['NAME'] = _absolute_path('DJANGO_DB_PATH')  # noqa: F405
@@ -47,19 +54,23 @@ BACKUP_DIR = _absolute_path('DJANGO_BACKUP_DIR')
 
 ENABLE_ADMIN = os.environ.get('DJANGO_ENABLE_ADMIN', '0') == '1'
 
-# TLS ends at Caddy, which forwards X-Forwarded-Proto. The container port is published on 127.0.0.1 only,
-# so only the local reverse proxy can set that header.
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = False        # the health check and Caddy talk plain HTTP on the loopback interface
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+if USE_HTTPS:
+    # TLS ends at a reverse proxy that forwards X-Forwarded-Proto (it must be the only way to reach the container).
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+else:
+    # Secure cookies would never be sent back over plain HTTP, which would make login impossible.
+    SECURE_PROXY_SSL_HEADER = None
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+SECURE_SSL_REDIRECT = False        # the health check talks plain HTTP on the loopback interface
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
 X_FRAME_OPTIONS = 'DENY'
-# HSTS is off unless explicitly enabled: the site uses a locally issued certificate, and HSTS would lock a
-# browser out if that certificate stops being trusted.
+# HSTS is off unless explicitly enabled (only meaningful when served over HTTPS).
 SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_HSTS_SECONDS', '0'))
 
 # Console logging only, warnings and above. Request paths are logged by gunicorn; payment details, form

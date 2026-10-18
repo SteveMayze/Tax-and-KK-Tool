@@ -50,7 +50,7 @@ The Reports page offers annual, monthly, payment-level, by-organisation, by-cate
 Map your categories (Categories page), set your circumstances (Assessment settings), enter annual costs/months earned where relevant, then open the SBK estimate (2026) and tax reports under Reports. These are planning aids, not an SBK assessment or a tax calculation; rule sources and open points are in `docs/rules/`.
 
 ## Deployment
-The app deploys as its own Podman container behind Caddy on the server, with daily verified backups. Steps, backup/restore and rollback: `docs/deployment.md`. In short: `make ansible-setup`, commit, `make deploy`, `make caddy`, `make createsuperuser`. Production uses `config.settings_prod`, which takes everything from environment variables.
+The app deploys as its own Podman container on the server (plain HTTP on its own port, no reverse proxy), with daily verified backups. Steps, backup/restore and rollback: `docs/deployment.md`. In short: `make ansible-setup`, commit, `make deploy`, `make createsuperuser`; then open `http://<server>:8889/`. Production uses `config.settings_prod`, which takes everything from environment variables.
 
 ## Test
 ```

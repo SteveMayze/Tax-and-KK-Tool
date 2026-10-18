@@ -20,7 +20,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir --no-compile -r requirements.txt
 
 # Application code only: no docs, infra, tests data, local/ or databases. Files stay root-owned and read-only to the app.
-COPY manage.py ./
+COPY manage.py healthcheck.py ./
 COPY config ./config
 COPY core ./core
 COPY templates ./templates
@@ -29,4 +29,5 @@ RUN echo "${GIT_COMMIT}" > /app/VERSION
 USER 10001:10001
 EXPOSE 8000
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", \
-     "--worker-tmp-dir", "/dev/shm", "--timeout", "60", "--access-logfile", "-", "--error-logfile", "-"]
+     "--worker-tmp-dir", "/dev/shm", "--timeout", "60", "--no-control-socket", \
+     "--access-logfile", "-", "--error-logfile", "-"]

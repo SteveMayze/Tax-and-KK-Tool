@@ -82,6 +82,22 @@ class ProductionSettingsTests(SimpleTestCase):
         self.assertFalse(self.values()['ENABLE_ADMIN'])
         self.assertTrue(self.values(env_overrides={'DJANGO_ENABLE_ADMIN': '1'})['ENABLE_ADMIN'])
 
+    def test_plain_http_mode_for_the_lan_deployment(self):
+        env = {'DJANGO_HTTPS': '0', 'DJANGO_CSRF_TRUSTED_ORIGINS': 'http://app.example.test:8889'}
+        v = self.values(env_overrides=env)
+        self.assertEqual(v['CSRF_TRUSTED_ORIGINS'], ['http://app.example.test:8889'])
+        self.assertFalse(v['SESSION_COOKIE_SECURE'] or v['CSRF_COOKIE_SECURE'])       # secure cookies would break login over http
+        self.assertIsNone(v['SECURE_PROXY_SSL_HEADER'])
+
+    def test_https_is_the_default_and_rejects_http_origins(self):
+        r = run('import django; django.setup()', env_overrides={'DJANGO_CSRF_TRUSTED_ORIGINS': 'http://app.example.test:8889'})
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn('must start with https://', r.stderr)
+
+    def test_http_mode_still_rejects_other_schemes(self):
+        r = run('import django; django.setup()', env_overrides={'DJANGO_HTTPS': '0', 'DJANGO_CSRF_TRUSTED_ORIGINS': 'ftp://x.test'})
+        self.assertNotEqual(r.returncode, 0)
+
     def test_hsts_is_opt_in(self):
         self.assertEqual(self.values(env_overrides={'DJANGO_HSTS_SECONDS': '3600'})['SECURE_HSTS_SECONDS'], 3600)
 
@@ -119,6 +135,38 @@ class DeploymentCheckTests(SimpleTestCase):
             r = run(code, env_overrides=env)
             self.assertEqual(r.returncode, 0, r.stderr[-500:])
             self.assertEqual(r.stdout.strip(), '200 ok 302 /accounts/login/?next=/ 404')   # admin is off in production
+
+    def test_login_works_over_plain_http(self):
+        # The deployed configuration: HTTP, no TLS. A user can log in and reach the app (cookies must not be 'secure').
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {'DJANGO_DB_PATH': f'{tmp}/db.sqlite3', 'DJANGO_UPLOAD_DIR': f'{tmp}/up', 'DJANGO_BACKUP_DIR': f'{tmp}/bk',
+                   'DJANGO_HTTPS': '0', 'DJANGO_CSRF_TRUSTED_ORIGINS': 'http://app.example.test:8889'}
+            self.assertEqual(run(None, env_overrides=env, extra_args=['migrate', '--noinput']).returncode, 0)
+            code = (
+                "import django; django.setup(); "
+                "from django.contrib.auth import get_user_model; "
+                "get_user_model().objects.create_user('tester', password='pw-for-tests-123'); "
+                "from django.test import Client; "
+                "c = Client(HTTP_HOST='app.example.test:8889', enforce_csrf_checks=True); "
+                "page = c.get('/accounts/login/'); token = c.cookies['csrftoken'].value; "
+                "secure = bool(c.cookies['csrftoken']['secure']); "
+                "r = c.post('/accounts/login/', {'username': 'tester', 'password': 'pw-for-tests-123', 'csrfmiddlewaretoken': token}, "
+                "HTTP_ORIGIN='http://app.example.test:8889'); "
+                "home = c.get('/'); "
+                "print(page.status_code, secure, r.status_code, home.status_code)")
+            r = run(code, env_overrides=env)
+            self.assertEqual(r.returncode, 0, r.stderr[-600:])
+            self.assertEqual(r.stdout.strip(), '200 False 302 200')
+
+    def test_check_deploy_in_http_mode_has_only_the_expected_warnings(self):
+        env = {'DJANGO_HTTPS': '0', 'DJANGO_CSRF_TRUSTED_ORIGINS': 'http://app.example.test:8889'}
+        r = run(None, env_overrides=env, extra_args=['check', '--deploy', '--fail-level', 'WARNING'])
+        errors = [line for line in r.stderr.splitlines() if 'ERRORS:' in line or '(security.E' in line]
+        self.assertEqual(errors, [])
+        for expected in ('W004', 'W008', 'W012', 'W016'):               # HSTS, ssl redirect, secure cookies: all off by design in http mode
+            self.assertIn(f'security.{expected}', r.stderr)
+        for unexpected in ('W009', 'W018', 'W007', 'W006'):             # secret key strength, DEBUG, content-type, XSS filter
+            self.assertNotIn(f'security.{unexpected}', r.stderr)
 
     def test_secure_cookies_and_host_checking_behind_the_proxy(self):
         with tempfile.TemporaryDirectory() as tmp:

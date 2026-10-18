@@ -36,14 +36,18 @@ class ContainerfileTests(SimpleTestCase):
 
     def test_only_application_code_is_copied(self):
         copies = [l for l in self.lines if l.startswith('COPY ')]
-        sources = {c.split()[1] for c in copies}
-        self.assertEqual(sources, {'requirements.txt', 'manage.py', 'config', 'core', 'templates'})
+        sources = {src for c in copies for src in c.split()[1:-1]}          # every source between COPY and the destination
+        self.assertEqual(sources, {'requirements.txt', 'manage.py', 'healthcheck.py', 'config', 'core', 'templates'})
         self.assertFalse(any(re.search(r'COPY\s+(\.|local|docs|infra)\b', c) for c in copies))
 
     def test_uses_gunicorn_not_the_development_server(self):
         cmd = ' '.join(l for l in self.text.splitlines() if 'gunicorn' in l or 'runserver' in l)
         self.assertIn('gunicorn', cmd)
         self.assertNotIn('runserver', self.text)
+
+    def test_gunicorn_control_socket_is_disabled(self):
+        # gunicorn 26 otherwise tries to create a socket under $HOME, which is read-only in this container
+        self.assertIn('--no-control-socket', self.text)
 
     def test_production_settings_and_no_secrets_baked_in(self):
         self.assertIn('DJANGO_SETTINGS_MODULE=config.settings_prod', self.text)
@@ -72,22 +76,35 @@ class QuadletTests(SimpleTestCase):
         self.assertIn('EnvironmentFile={{ etc_dir }}/env', self.text)
         self.assertNotIn('DJANGO_SECRET_KEY', self.text)
 
-    def test_port_is_loopback_only(self):
+    def test_port_is_published_on_the_configured_address(self):
         ports = re.findall(r'^PublishPort=(.+)$', self.text, re.M)
-        self.assertEqual(ports, ['127.0.0.1:{{ app_port }}:8000'])
+        self.assertEqual(ports, ['{{ listen_address }}:{{ app_port }}:8000'])
+        groups = read('infra/group_vars/all.yml')
+        self.assertRegex(groups, r'listen_address: 0\.0\.0\.0')            # owner decision: reachable on the LAN, like the other app
+        self.assertIn('use_https: false', groups)
 
     def test_hardening(self):
         for line in ('ReadOnly=true', 'NoNewPrivileges=true', 'DropCapability=ALL', 'Tmpfs=/tmp', 'Restart=always'):
             self.assertIn(line, self.text)
         self.assertIn('--memory=', self.text)
 
-    def test_health_check_and_data_volumes(self):
-        self.assertIn('HealthCmd=', self.text)
-        self.assertIn('/health/', self.text)
+    def test_health_check_is_a_quote_free_script(self):
+        # Regression: an inline `python -c "..."` was re-quoted by Quadlet (closing quote lost), so the check always failed.
+        cmds = re.findall(r'^HealthCmd=(.+)$', self.text, re.M)
+        self.assertEqual(cmds, ['python /app/healthcheck.py'])
+        for ch in ('"', "'", ';', '`', '$'):
+            self.assertNotIn(ch, cmds[0])
         self.assertIn('HealthOnFailure=restart', self.text)
+        self.assertIn('COPY manage.py healthcheck.py', read('Containerfile'))
+
+    def test_data_volumes(self):
         mounts = re.findall(r'^Volume=(.+)$', self.text, re.M)
         self.assertEqual([m.split(':')[1] for m in mounts], ['/data', '/uploads', '/backups'])
         self.assertTrue(all('{{ data_root }}' in m for m in mounts))
+
+    def test_http_mode_is_passed_to_the_app(self):
+        self.assertIn("Environment=DJANGO_HTTPS={{ '1' if use_https else '0' }}", self.text)
+        self.assertIn('DJANGO_CSRF_TRUSTED_ORIGINS={{ public_scheme }}://{{ public_host }}:{{ app_port }}', self.text)
 
     def test_uses_the_current_tag_and_production_settings(self):
         self.assertIn('Image={{ image_repo }}:current', self.text)
@@ -131,24 +148,18 @@ class AnsibleFilesTests(SimpleTestCase):
         self.assertIn('/health/', text)
 
     def test_nothing_is_installed_or_upgraded_on_the_shared_host(self):
-        for name in ('deploy', 'caddy', 'rollback', 'restore'):
+        for name in ('deploy', 'rollback', 'restore'):
             text = read(f'infra/{name}.yaml')
             self.assertNotIn('ansible.builtin.apt', text, name)
             self.assertNotIn('update_cache', text, name)
 
-    def test_caddy_change_is_scoped_validated_and_reversible(self):
-        text = read('infra/caddy.yaml')
-        self.assertIn('backup: true', text)
-        self.assertIn('caddy validate', text)
-        self.assertIn('rescue:', text)
-        self.assertIn('state: reloaded', text)
-        self.assertNotIn('state: restarted', text)                       # never restart the shared Caddy
-        self.assertNotIn('Caddyfile.parts', text)
-        snippet = read('infra/templates/caddy-site.caddy.j2')
-        self.assertIn('tls internal', snippet)
-        self.assertIn('{{ public_host }}:{{ public_port }}', snippet)
-        self.assertIn('reverse_proxy 127.0.0.1:{{ app_port }}', snippet)
-        self.assertTrue((ROOT / 'infra/caddy-remove.yaml').exists())
+    def test_no_reverse_proxy_configuration_is_managed(self):
+        # Owner decision 2026-10-18: Caddy is legacy and not used; the app is served directly over plain HTTP.
+        names = {p.name for p in (ROOT / 'infra').rglob('*') if p.is_file()}
+        self.assertFalse([n for n in names if 'caddy' in n.lower()])
+        for name in ('deploy', 'rollback', 'restore', 'status'):
+            self.assertNotIn('/etc/caddy', read(f'infra/{name}.yaml'))
+        self.assertNotIn('caddy', read('Makefile').lower())
 
     def test_restore_is_confirmed_and_never_deletes(self):
         text = read('infra/restore.yaml')
@@ -189,7 +200,7 @@ class DeployArchiveTests(SimpleTestCase):
 
     def test_archive_contains_everything_the_image_build_needs(self):
         names = self.archive_names()
-        for needed in ('Containerfile', 'manage.py', 'requirements.txt', 'config/settings_prod.py', 'config/wsgi.py',
+        for needed in ('Containerfile', 'manage.py', 'healthcheck.py', 'requirements.txt', 'config/settings_prod.py', 'config/wsgi.py',
                        'core/models.py', 'templates/base.html'):
             self.assertIn(f'src/{needed}', names, f'{needed} missing from the deployment archive')
 
@@ -230,7 +241,7 @@ class RepositoryHygieneTests(SimpleTestCase):
         self.assertEqual(offenders, [])
 
     def test_private_paths_are_ignored(self):
-        for path in ('infra/inventory.ini', 'local/backups/backup-20260101-000000.tar.gz', 'local/caddy-local-root.crt',
+        for path in ('infra/inventory.ini', 'local/backups/backup-20260101-000000.tar.gz',
                      '.venv-infra/bin/ansible', 'local/db.sqlite3'):
             r = subprocess.run(['git', 'check-ignore', '-q', path], cwd=ROOT)
             self.assertEqual(r.returncode, 0, f'{path} is not git-ignored')

@@ -15,7 +15,7 @@
           echo "--- last backup run"; systemctl show {{ app_name }}-backup.service -p Result -p ExecMainExitTimestamp 2>&1
           echo "--- backups (newest first)"; ls -lt {{ data_root }}/backups 2>&1 | head -8
           echo "--- disk"; du -sh {{ data_root }}/data {{ data_root }}/uploads {{ data_root }}/backups 2>&1
-          echo "--- caddy snippet"; ls -l /etc/caddy/conf.d/{{ app_name }}.caddy 2>&1
+          echo "--- http probe"; curl -s -m 5 -w " [http=%{http_code}]" http://127.0.0.1:{{ app_port }}/health/ 2>&1; echo
           echo "--- images"; podman images {{ image_repo }} --format {% raw %}'{{.Tag}}  {{.CreatedAt}}  {{.Size}}'{% endraw %} 2>&1
         executable: /bin/bash
       register: status

@@ -5,9 +5,11 @@ app_name: tax-healthcare-tool
 container_name: tax-healthcare-tool-web
 image_repo: localhost/tax-healthcare-tool
 app_uid: 10001                       # must match the user in Containerfile
-app_port: 8889                       # published on 127.0.0.1 only
+app_port: 8889                       # the app is reached directly on this port (no reverse proxy)
+listen_address: 0.0.0.0              # all interfaces, like the other app on this host; use the server's LAN IP to narrow it
 public_host: "{{ inventory_hostname }}"
-public_port: 8443                    # Caddy listens here (HTTPS)
+use_https: false                     # plain HTTP on the LAN (owner decision); set true only behind a TLS-terminating proxy
+public_scheme: "{{ 'https' if use_https else 'http' }}"
 data_root: /var/lib/tax-healthcare-tool
 etc_dir: /etc/tax-healthcare-tool
 memory_limit: 512m
@@ -21,5 +23,6 @@ podman_run_flags: >-
   -e DJANGO_SETTINGS_MODULE=config.settings_prod
   -e DJANGO_DB_PATH=/data/db.sqlite3 -e DJANGO_UPLOAD_DIR=/uploads -e DJANGO_BACKUP_DIR=/backups
   -e DJANGO_ALLOWED_HOSTS={{ public_host }},localhost,127.0.0.1
-  -e DJANGO_CSRF_TRUSTED_ORIGINS=https://{{ public_host }}:{{ public_port }}
+  -e DJANGO_CSRF_TRUSTED_ORIGINS={{ public_scheme }}://{{ public_host }}:{{ app_port }}
+  -e DJANGO_HTTPS={{ '1' if use_https else '0' }}
   -v {{ data_root }}/data:/data -v {{ data_root }}/uploads:/uploads -v {{ data_root }}/backups:/backups
