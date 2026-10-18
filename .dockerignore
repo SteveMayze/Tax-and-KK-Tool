@@ -1,0 +1,17 @@
+# Defence in depth: deployments use `git archive`, which only contains tracked files, but a manual
+# `podman build .` must never pick up private data either.
+.git
+.venv
+.venv-infra
+venv
+__pycache__
+*.pyc
+*.sqlite3
+*.sqlite3-*
+*.db
+.env
+.env.*
+local
+infra
+docs
+.DS_Store

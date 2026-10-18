@@ -2,7 +2,7 @@
 
 Django app to record, convert and report personal income for German statutory health insurance (SBK) income assessments and the annual tax return. It produces general financial summaries only; it is **not** an official SBK assessment or tax calculation.
 
-Status: Phase 7 (legal rules register, SBK estimate, tax information). See `CLAUDE.md` for standing instructions and `docs/` (`architecture.md`, `data-model.md`, `financial-calculations.md`, `exchange-rates.md`, `imports.md`, `reporting.md`, `rules/`, `decisions/`).
+Status: Phase 8 (container deployment). See `CLAUDE.md` for standing instructions and `docs/` (`architecture.md`, `data-model.md`, `financial-calculations.md`, `exchange-rates.md`, `imports.md`, `reporting.md`, `deployment.md`, `rules/`, `decisions/`).
 
 ## Requirements
 - Python 3.14 (developed on 3.14.5; Django 5.2 supports 3.10–3.14)
@@ -48,6 +48,9 @@ The Reports page offers annual, monthly, payment-level, by-organisation, by-cate
 
 ## SBK estimate and tax information
 Map your categories (Categories page), set your circumstances (Assessment settings), enter annual costs/months earned where relevant, then open the SBK estimate (2026) and tax reports under Reports. These are planning aids, not an SBK assessment or a tax calculation; rule sources and open points are in `docs/rules/`.
+
+## Deployment
+The app deploys as its own Podman container behind Caddy on the server, with daily verified backups. Steps, backup/restore and rollback: `docs/deployment.md`. In short: `make ansible-setup`, commit, `make deploy`, `make caddy`, `make createsuperuser`. Production uses `config.settings_prod`, which takes everything from environment variables.
 
 ## Test
 ```

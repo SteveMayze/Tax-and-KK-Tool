@@ -1,0 +1,25 @@
+---
+# Non-secret deployment settings. Secrets are NOT stored here: the Django SECRET_KEY is generated on the
+# server on first deploy (see docs/deployment.md). Host name and user come from the git-ignored inventory.
+app_name: tax-healthcare-tool
+container_name: tax-healthcare-tool-web
+image_repo: localhost/tax-healthcare-tool
+app_uid: 10001                       # must match the user in Containerfile
+app_port: 8889                       # published on 127.0.0.1 only
+public_host: "{{ inventory_hostname }}"
+public_port: 8443                    # Caddy listens here (HTTPS)
+data_root: /var/lib/tax-healthcare-tool
+etc_dir: /etc/tax-healthcare-tool
+memory_limit: 512m
+backup_time: "03:15:00"
+keep_images: 5
+
+# Flags shared by every one-off `podman run` (migrate, backup, restore): same mounts and environment as the service.
+podman_run_flags: >-
+  --rm --read-only --tmpfs /tmp --cap-drop=ALL --security-opt=no-new-privileges
+  --env-file {{ etc_dir }}/env
+  -e DJANGO_SETTINGS_MODULE=config.settings_prod
+  -e DJANGO_DB_PATH=/data/db.sqlite3 -e DJANGO_UPLOAD_DIR=/uploads -e DJANGO_BACKUP_DIR=/backups
+  -e DJANGO_ALLOWED_HOSTS={{ public_host }},localhost,127.0.0.1
+  -e DJANGO_CSRF_TRUSTED_ORIGINS=https://{{ public_host }}:{{ public_port }}
+  -v {{ data_root }}/data:/data -v {{ data_root }}/uploads:/uploads -v {{ data_root }}/backups:/backups

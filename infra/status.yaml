@@ -1,0 +1,27 @@
+---
+# Read-only overview of the deployment (no changes).  make status
+- name: Status of tax-healthcare-tool
+  hosts: taxtool
+  gather_facts: false
+  tasks:
+    - name: Gather facts about the service, the container, the timer and the backups
+      become: true
+      ansible.builtin.shell:
+        cmd: |
+          echo "--- deployed"; cat {{ data_root }}/DEPLOYED 2>&1
+          echo "--- service";  systemctl is-active {{ app_name }}.service
+          echo "--- container health"; podman inspect --format {% raw %}'{{.State.Health.Status}}'{% endraw %} {{ container_name }} 2>&1
+          echo "--- backup timer"; systemctl list-timers {{ app_name }}-backup.timer --no-pager 2>&1 | head -3
+          echo "--- last backup run"; systemctl show {{ app_name }}-backup.service -p Result -p ExecMainExitTimestamp 2>&1
+          echo "--- backups (newest first)"; ls -lt {{ data_root }}/backups 2>&1 | head -8
+          echo "--- disk"; du -sh {{ data_root }}/data {{ data_root }}/uploads {{ data_root }}/backups 2>&1
+          echo "--- caddy snippet"; ls -l /etc/caddy/conf.d/{{ app_name }}.caddy 2>&1
+          echo "--- images"; podman images {{ image_repo }} --format {% raw %}'{{.Tag}}  {{.CreatedAt}}  {{.Size}}'{% endraw %} 2>&1
+        executable: /bin/bash
+      register: status
+      changed_when: false
+      failed_when: false
+
+    - name: Show
+      ansible.builtin.debug:
+        msg: "{{ status.stdout_lines }}"

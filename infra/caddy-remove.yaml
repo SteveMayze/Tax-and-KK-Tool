@@ -1,0 +1,46 @@
+---
+# Undo of caddy.yaml: removes the snippet and the import line, validates, reloads. Other sites are untouched.
+- name: Remove the tax-healthcare-tool Caddy configuration
+  hosts: taxtool
+  gather_facts: false
+  vars:
+    caddyfile: /etc/caddy/Caddyfile
+    conf_dir: /etc/caddy/conf.d
+    snippet: "{{ conf_dir }}/{{ app_name }}.caddy"
+  tasks:
+    - name: Remove the snippet
+      become: true
+      ansible.builtin.file:
+        path: "{{ snippet }}"
+        state: absent
+      register: snippet_gone
+
+    - name: Is another snippet still using the import line?
+      become: true
+      ansible.builtin.find:
+        paths: "{{ conf_dir }}"
+        patterns: "*.caddy"
+      register: remaining
+
+    - name: Remove the import line only when no other snippet remains
+      become: true
+      ansible.builtin.lineinfile:
+        path: "{{ caddyfile }}"
+        line: "import {{ conf_dir }}/*.caddy"
+        state: absent
+        backup: true
+      register: import_gone
+      when: remaining.matched == 0
+
+    - name: Validate
+      become: true
+      become_user: caddy
+      ansible.builtin.command: "caddy validate --config {{ caddyfile }} --adapter caddyfile"
+      changed_when: false
+
+    - name: Reload Caddy
+      become: true
+      ansible.builtin.systemd:
+        name: caddy
+        state: reloaded
+      when: snippet_gone is changed or (import_gone is defined and import_gone is changed)

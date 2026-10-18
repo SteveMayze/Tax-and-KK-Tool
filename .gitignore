@@ -48,3 +48,7 @@ staticfiles/
 .DS_Store
 .idea/
 .vscode/
+
+# Deployment: real inventory (host and user names); virtualenv for Ansible
+infra/inventory.ini
+.venv-infra/

@@ -1,0 +1,42 @@
+# Managed by Ansible (infra/deploy.yaml). Do not edit by hand: changes are overwritten on the next deploy.
+[Unit]
+Description=Tax and Healthcare Tool web app (Podman Quadlet)
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor={{ data_root }}
+
+[Container]
+Image={{ image_repo }}:current
+ContainerName={{ container_name }}
+# Loopback only: Caddy is the single way in.
+PublishPort=127.0.0.1:{{ app_port }}:8000
+Volume={{ data_root }}/data:/data
+Volume={{ data_root }}/uploads:/uploads
+Volume={{ data_root }}/backups:/backups
+# SECRET_KEY lives only in this root-owned 0600 file, never in this unit file.
+EnvironmentFile={{ etc_dir }}/env
+Environment=DJANGO_SETTINGS_MODULE=config.settings_prod
+Environment=DJANGO_DB_PATH=/data/db.sqlite3
+Environment=DJANGO_UPLOAD_DIR=/uploads
+Environment=DJANGO_BACKUP_DIR=/backups
+Environment=DJANGO_ALLOWED_HOSTS={{ public_host }},localhost,127.0.0.1
+Environment=DJANGO_CSRF_TRUSTED_ORIGINS=https://{{ public_host }}:{{ public_port }}
+ReadOnly=true
+Tmpfs=/tmp
+NoNewPrivileges=true
+DropCapability=ALL
+PodmanArgs=--memory={{ memory_limit }} --pids-limit=256
+HealthCmd=python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=3)"
+HealthInterval=30s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=20s
+HealthOnFailure=restart
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

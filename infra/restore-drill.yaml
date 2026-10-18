@@ -1,0 +1,68 @@
+---
+# Proves a backup is restorable WITHOUT touching live data: restores into a temporary in-memory directory inside a
+# throw-away container, checks integrity, and confirms the restored database is a valid, fully migrated app database.
+# make restore-drill                      (newest backup)      make restore-drill BACKUP=backup-....tar.gz
+- name: Restore drill (non-destructive)
+  hosts: taxtool
+  gather_facts: false
+  tasks:
+    - name: Find the newest backup
+      become: true
+      ansible.builtin.find:
+        paths: "{{ data_root }}/backups"
+        patterns: "backup-*.tar.gz"
+      register: found
+      when: backup_file is not defined
+
+    - name: Choose the backup
+      ansible.builtin.set_fact:
+        drill_file: "{{ backup_file | default((found.files | sort(attribute='mtime') | last).path | basename) }}"
+
+    - name: Verify and restore into a temporary directory, then check the restored database
+      become: true
+      ansible.builtin.command:
+        argv:
+          - podman
+          - run
+          - --rm
+          - --read-only
+          - --tmpfs
+          - /tmp
+          - --cap-drop=ALL
+          - --security-opt=no-new-privileges
+          - --env-file
+          - "{{ etc_dir }}/env"
+          - -e
+          - DJANGO_SETTINGS_MODULE=config.settings_prod
+          - -e
+          - DJANGO_DB_PATH=/data/db.sqlite3
+          - -e
+          - DJANGO_UPLOAD_DIR=/uploads
+          - -e
+          - DJANGO_BACKUP_DIR=/backups
+          - -e
+          - "DJANGO_ALLOWED_HOSTS={{ public_host }},localhost,127.0.0.1"
+          - -e
+          - "DJANGO_CSRF_TRUSTED_ORIGINS=https://{{ public_host }}:{{ public_port }}"
+          - -v
+          - "{{ data_root }}/backups:/backups:ro"
+          - "{{ image_repo }}:current"
+          - sh
+          - -c
+          - >-
+            python manage.py restore_backup "$1" &&
+            python manage.py restore_backup "$1" --target-db /tmp/drill/db.sqlite3 --target-uploads /tmp/drill/up &&
+            DJANGO_DB_PATH=/tmp/drill/db.sqlite3 DJANGO_UPLOAD_DIR=/tmp/drill/up python manage.py migrate --check &&
+            echo DRILL_OK
+          - sh
+          - "{{ drill_file }}"
+      register: drill
+      changed_when: false
+
+    - name: Result
+      ansible.builtin.debug:
+        msg: "{{ drill.stdout_lines }}"
+
+    - name: The drill must end with DRILL_OK
+      ansible.builtin.assert:
+        that: "'DRILL_OK' in drill.stdout"

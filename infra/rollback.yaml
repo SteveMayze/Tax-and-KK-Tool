@@ -1,0 +1,74 @@
+---
+# Rolls the application back to the image deployed before the current one ('previous').
+# Code only by default. If the failed release ran migrations that the old code cannot work with, also restore the
+# pre-deploy backup:  make rollback BACKUP=backup-YYYYMMDD-HHMMSS-pre-deploy.tar.gz
+- name: Roll back tax-healthcare-tool
+  hosts: taxtool
+  gather_facts: false
+  vars:
+    restore_backup: "{{ backup_file | default('') }}"
+  tasks:
+    - name: A previous image must exist
+      become: true
+      ansible.builtin.command: "podman image exists {{ image_repo }}:previous"
+      changed_when: false
+
+    - name: Is there a database to protect?
+      become: true
+      ansible.builtin.stat:
+        path: "{{ data_root }}/data/db.sqlite3"
+      register: db_file
+
+    - name: Safety backup of the current state first
+      become: true
+      ansible.builtin.command: >-
+        podman run {{ podman_run_flags }} {{ image_repo }}:current
+        python manage.py backup_db --label pre-rollback
+      when: db_file.stat.exists
+      changed_when: true
+
+    - name: Keep the image being rolled back under its own tag
+      become: true
+      ansible.builtin.command: "podman tag {{ image_repo }}:current {{ image_repo }}:rolled-back"
+      changed_when: true
+
+    - name: Make 'previous' the current image
+      become: true
+      ansible.builtin.command: "podman tag {{ image_repo }}:previous {{ image_repo }}:current"
+      changed_when: true
+
+    - name: Stop the service before restoring data
+      become: true
+      ansible.builtin.systemd:
+        name: "{{ app_name }}.service"
+        state: stopped
+      when: restore_backup | length > 0
+
+    - name: Restore the chosen backup (existing data is moved aside, never deleted)
+      become: true
+      ansible.builtin.command: >-
+        podman run {{ podman_run_flags }} {{ image_repo }}:current
+        python manage.py restore_backup {{ restore_backup | quote }}
+        --target-db /data/db.sqlite3 --target-uploads /uploads --force
+      when: restore_backup | length > 0
+      changed_when: true
+
+    - name: Start the service on the previous image
+      become: true
+      ansible.builtin.systemd:
+        name: "{{ app_name }}.service"
+        state: restarted
+
+    - name: Wait until the container reports healthy
+      become: true
+      ansible.builtin.command: "podman inspect --format {% raw %}'{{.State.Health.Status}}'{% endraw %} {{ container_name }}"
+      register: health
+      until: health.stdout == 'healthy'
+      retries: 30
+      delay: 4
+      changed_when: false
+
+    - name: Health endpoint
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/health/"
+        status_code: 200

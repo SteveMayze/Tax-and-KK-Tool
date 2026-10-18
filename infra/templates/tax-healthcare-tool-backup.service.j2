@@ -1,0 +1,8 @@
+# Managed by Ansible (infra/deploy.yaml).
+[Unit]
+Description=Tax and Healthcare Tool: database and uploads backup
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/podman run {{ podman_run_flags }} {{ image_repo }}:current python manage.py backup_db --prune

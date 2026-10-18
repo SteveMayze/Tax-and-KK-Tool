@@ -1,0 +1,13 @@
+# Managed by Ansible (infra/caddy.yaml). Imported from /etc/caddy/Caddyfile.
+# Own port so it cannot clash with the routes of the other app on this host.
+# `tls internal` = a certificate from Caddy's local CA, independent of the shared Caddyfile's global options.
+{{ public_host }}:{{ public_port }} {
+	tls internal
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:{{ app_port }}
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		-Server
+	}
+}

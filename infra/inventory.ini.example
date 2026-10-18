@@ -1,0 +1,2 @@
+[taxtool]
+your-host.example.com ansible_user=your-user

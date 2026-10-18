@@ -1,4 +1,4 @@
-# Architecture (through Phase 7)
+# Architecture (through Phase 8)
 
 Single Django project (`config`) with one app (`core`), SQLite, server-rendered templates, no JavaScript.
 
@@ -33,3 +33,6 @@ Editing: if only amounts/text change, EUR amounts are recomputed with the stored
 
 ## Display currency
 Stored per session and shown in the header. Totals still display in EUR: display-currency conversion was not part of Phase 4 and no rates are invented. The UI says so when a non-EUR display currency is chosen.
+
+## Deployment (Phase 8)
+Two settings modules: `config.settings` (development, safe defaults) and `config.settings_prod` (container; everything from the environment, refuses to start on missing or weak values). The container runs gunicorn as an unprivileged user with a read-only root file system; data lives on three mounted directories (`/data`, `/uploads`, `/backups`). Backup and restore logic is in `core/services/backup.py` with the management commands `backup_db` and `restore_backup`. Infrastructure code is in `infra/` (Ansible playbooks and templates) and the `Makefile`. Details: `docs/deployment.md`.

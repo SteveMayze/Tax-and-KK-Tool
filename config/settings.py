@@ -127,6 +127,12 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
+# Backups (database + uploads archives, see docs/deployment.md). Use an absolute path in production.
+BACKUP_DIR = os.environ.get('DJANGO_BACKUP_DIR', str(BASE_DIR / 'local' / 'backups'))
+
+# The Django admin is not used by the app. It is on in development, off in production (no static files are served there).
+ENABLE_ADMIN = os.environ.get('DJANGO_ENABLE_ADMIN', '1' if DEBUG else '0') == '1'
+
 # Uploaded import files live here (git-ignored, never served publicly). Use an absolute path in production.
 UPLOAD_DIR = os.environ.get('DJANGO_UPLOAD_DIR', str(BASE_DIR / 'local' / 'uploads'))
 IMPORT_MAX_BYTES = 2 * 1024 * 1024
