@@ -1,0 +1,103 @@
+"""Totals over stored payments (EUR). Sums are done in Python Decimals, not SQL, because SQLite
+aggregates DECIMAL columns as floating point.
+
+Two separate, always-labelled views:
+  * actual   - payments received in the period (gross and net as stored).
+  * normalised - monthly equivalents of recurring payments (one-off items excluded).
+Gross and net are never mixed: net totals only include payments that have a net amount and
+report how many were missing it. Unconverted payments are excluded and counted.
+"""
+from dataclasses import dataclass
+from decimal import Decimal
+
+from core.models import Payment, ReportingMonth
+
+from .normalisation import is_recurring, monthly_equivalent
+
+ZERO = Decimal(0)
+
+
+@dataclass
+class ActualTotals:
+    basis: str
+    payment_count: int
+    gross_eur: Decimal
+    net_eur: Decimal
+    net_missing_count: int      # converted payments with no net amount (not in net_eur)
+    unconverted_count: int      # payments without a stored EUR conversion (excluded from all sums)
+
+
+@dataclass
+class NormalisedTotals:
+    basis: str
+    gross_monthly_eur: Decimal
+    net_monthly_eur: Decimal
+    recurring_count: int
+    one_off_excluded_count: int
+    net_missing_count: int
+    unconverted_count: int
+
+
+def _split(payments):
+    converted = [p for p in payments if p.conversion_status == Payment.ConversionStatus.CONVERTED]
+    return converted, len(payments) - len(converted)
+
+
+def actual_totals(payments) -> ActualTotals:
+    payments = list(payments)
+    converted, unconverted = _split(payments)
+    gross = sum((p.gross_eur for p in converted), ZERO)
+    with_net = [p for p in converted if p.net_eur is not None]
+    net = sum((p.net_eur for p in with_net), ZERO)
+    return ActualTotals('actual payments received, EUR, stored rates', len(payments), gross, net,
+                        len(converted) - len(with_net), unconverted)
+
+
+def normalised_monthly_totals(payments) -> NormalisedTotals:
+    """Sum of monthly equivalents of the given recurring payments.
+
+    Intended for a single month's payments. For a whole year this would over-count
+    repeated monthly payments, so use `year_average_of_actuals` for annual / 12.
+    """
+    payments = list(payments)
+    converted, unconverted = _split(payments)
+    recurring = [p for p in converted if is_recurring(p.frequency)]
+    gross = sum((monthly_equivalent(p.gross_eur, p.frequency) for p in recurring), ZERO)
+    with_net = [p for p in recurring if p.net_eur is not None]
+    net = sum((monthly_equivalent(p.net_eur, p.frequency) for p in with_net), ZERO)
+    return NormalisedTotals(
+        'normalised recurring monthly equivalents, EUR, stored rates; one-off items excluded',
+        gross, net, len(recurring), len(converted) - len(recurring),
+        len(recurring) - len(with_net), unconverted)
+
+
+def month_payments(month: ReportingMonth):
+    return Payment.objects.filter(month=month)
+
+
+def year_payments(year):
+    return Payment.objects.filter(month__year=year)
+
+
+def month_actual(month: ReportingMonth) -> ActualTotals:
+    return actual_totals(month_payments(month))
+
+
+def month_normalised(month: ReportingMonth) -> NormalisedTotals:
+    return normalised_monthly_totals(month_payments(month))
+
+
+def year_actual(year) -> ActualTotals:
+    return actual_totals(year_payments(year))
+
+
+def year_average_of_actuals(year) -> dict:
+    """Annual actual total / 12. An average of actuals, NOT a recurring monthly figure."""
+    t = year_actual(year)
+    return {
+        'basis': 'annual actual total / 12 (average of actuals, not a recurring figure)',
+        'gross_eur': t.gross_eur / 12,
+        'net_eur': t.net_eur / 12,
+        'net_missing_count': t.net_missing_count,
+        'unconverted_count': t.unconverted_count,
+    }
