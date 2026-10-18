@@ -29,6 +29,8 @@ class RateQuote:
     rate_date: datetime.date  # date the rate applies to; may differ from requested_date
     rate: Decimal             # EUR per 1 unit of currency
     provider: str
+    source_url: str = ''      # provenance: exact request URL
+    raw_response: str = ''    # provenance: provider response body
 
     @property
     def date_differs(self) -> bool:

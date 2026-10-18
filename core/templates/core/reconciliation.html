@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Reconciliation{% endblock %}
+{% block content %}
+<h1>Missing rates and incomplete records</h1>
+<p class="note">Read-only checks over stored data{% if year %} for {{ year }}{% endif %}. Nothing here changes a stored rate; fixing a record is an explicit action on that payment.</p>
+<form method="get">
+  <label for="year" class="inline">Year</label>
+  <select name="year" id="year"><option value="">All</option>{% for y in years %}<option value="{{ y.year }}" {% if y.year == year %}selected{% endif %}>{{ y.year }}</option>{% endfor %}</select>
+  <button type="submit">Filter</button>
+</form>
+<p><strong>{{ report.issue_count }}</strong> item(s) flagged.</p>
+
+<h2>Not converted ({{ report.pending|length }})</h2>
+<p class="note">Excluded from every EUR total.</p>
+{% if report.pending %}
+<form method="post" action="{% url 'convert_pending' %}">{% csrf_token %}{% if year %}<input type="hidden" name="year" value="{{ year }}">{% endif %}
+  <button type="submit">Try automatic conversion for all of these</button>
+  <span class="note">Foreign payments are looked up at the exchange-rate source; failures stay unconverted.</span></form>
+{% include "core/_payment_rows.html" with rows=report.pending %}
+{% else %}<p>None.</p>{% endif %}
+
+<h2>Manually entered rates ({{ report.manual_rates|length }})</h2>
+<p class="note">Converted with a rate typed in rather than retrieved from the source. Review for correctness.</p>
+{% if report.manual_rates %}{% include "core/_payment_rows.html" with rows=report.manual_rates %}{% else %}<p>None.</p>{% endif %}
+
+<h2>Rate date differs from payment date ({{ report.date_differs|length }})</h2>
+<p class="note">Normally a weekend or holiday, where the nearest earlier ECB rate was used and labelled.</p>
+{% if report.date_differs %}{% include "core/_payment_rows.html" with rows=report.date_differs %}{% else %}<p>None.</p>{% endif %}
+
+<h2>No net amount ({{ report.missing_net|length }})</h2>
+<p class="note">Not counted in net totals.</p>
+{% if report.missing_net %}{% include "core/_payment_rows.html" with rows=report.missing_net %}{% else %}<p>None.</p>{% endif %}
+
+<h2>Inconsistent stored values ({{ report.inconsistent|length }})</h2>
+<p class="note">Stored EUR amounts or rate do not match the original amount &times; the linked rate record. Should always be empty.</p>
+{% if report.inconsistent %}{% include "core/_payment_rows.html" with rows=report.inconsistent %}{% else %}<p>None.</p>{% endif %}
+{% endblock %}

@@ -1,4 +1,4 @@
-# Architecture (through Phase 3)
+# Architecture (through Phase 4)
 
 Single Django project (`config`) with one app (`core`), SQLite, server-rendered templates, no JavaScript.
 
@@ -14,7 +14,9 @@ Single Django project (`config`) with one app (`core`), SQLite, server-rendered 
 | `/years/<y>/` | 12 months (existing or "Add month"), year totals, notes, delete year (confirm) |
 | `/years/<y>/months/<m>/` | Payments table, actual and normalised totals, add/edit/delete |
 | `/payments/<id>/` | Confirmation/detail: original amount, rate, rate date and source, EUR amount |
-| `/payments/<id>/recalculate/` | The only way to replace a stored rate |
+| `/payments/<id>/recalculate/` | Explicit recalculation from the rate source (replaces the stored rate; history kept) |
+| `/payments/<id>/correct-rate/` | Manual rate entry/correction; reason mandatory |
+| `/reconciliation/` | Unconverted, manual-rate, date-differs, no-net and inconsistent payments; explicit bulk "convert pending" action |
 | `/organisations/`, `/categories/` | List, add, edit (incl. deactivate), delete (only if unused) |
 | `/display-currency/` | POST: store display currency in the session |
 
@@ -24,7 +26,7 @@ Validate form -> resolve organisation/category (existing, case-insensitive, or n
 Editing: if only amounts/text change, EUR amounts are recomputed with the stored rate (the rate is untouched). If currency or payment date changes, a new rate is required through the same flow. A manual rate on an edit where the basis is unchanged is refused; use Recalculate.
 
 ## Rate provider
-`settings.RATE_PROVIDER` names the provider class. Phase 3 uses `ManualOnlyProvider` (always "unavailable", so foreign payments need a manual rate). Phase 4 swaps in Frankfurter/ECB.
+`settings.RATE_PROVIDER` names the provider class. Default `FrankfurterProvider` (ECB via Frankfurter v2; see exchange-rates.md); `ManualOnlyProvider` works offline. Conversion reuses stored rates, writes provenance records and an audit trail (`core/services/conversion.py`). Reconciliation queries live in `core/services/reconciliation.py`.
 
 ## Display currency
-Stored per session and shown in the header. No exchange-rate source for display conversion exists before Phase 4, so totals stay in EUR and the UI says so. No rates are invented.
+Stored per session and shown in the header. Totals still display in EUR: display-currency conversion was not part of Phase 4 and no rates are invented. The UI says so when a non-EUR display currency is chosen.

@@ -9,11 +9,12 @@ from django.db.models import ProtectedError
 from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import ConfirmRecalculateForm, PaymentForm
-from .models import Payment, ReportingMonth
+from .forms import ManualCorrectionForm, PaymentForm
+from .models import ConversionEvent, Payment, ReportingMonth
 from .services import lookups
-from .services.conversion import ConversionError, convert_payment, reapply_stored_rate
+from .services.conversion import ConversionError, convert_payment, correct_rate_manually, reapply_stored_rate
 from .services.rates import get_provider
+from .templatetags.money import rate
 
 
 def _persist(form, payment, keep_stored_rate):
@@ -27,10 +28,13 @@ def _persist(form, payment, keep_stored_rate):
         if keep_stored_rate:
             reapply_stored_rate(payment)
         else:
+            was_converted = payment.conversion_status == Payment.ConversionStatus.CONVERTED
             convert_payment(
                 payment, get_provider(), manual_rate=form.manual_rate_value,
                 manual_rate_date=cd.get('manual_rate_date'), manual_note=cd.get('manual_note', ''),
-                recalculate=True)
+                recalculate=was_converted,
+                kind=ConversionEvent.Kind.BASIS_CHANGED if was_converted else None,
+                reason='Currency or payment date edited. ' + cd.get('manual_note', '') if was_converted else cd.get('manual_note', ''))
     return payment
 
 
@@ -111,22 +115,50 @@ def payment_delete(request, pk):
 
 @login_required
 def payment_recalculate(request, pk):
-    """Explicit recalculation: the only way to replace a stored rate."""
+    """Explicit recalculation from the provider (re-requests the rate). The only automatic way
+    to replace a stored rate; the previous rate stays on record and in the audit trail."""
     payment = get_object_or_404(Payment.objects.select_related('month__year', 'organisation'), pk=pk)
     ctx = {'p': payment}
+    if payment.currency == 'EUR':
+        messages.info(request, 'EUR payments always use rate 1; there is nothing to recalculate.')
+        return redirect('payment_detail', pk=pk)
     if request.method == 'POST':
-        form = ConfirmRecalculateForm(request.POST)
-        if form.is_valid():
-            cd = form.cleaned_data
-            try:
-                convert_payment(
-                    payment, get_provider(), manual_rate=(cd['manual_rate'] or '').strip() or None,
-                    manual_rate_date=cd['manual_rate_date'], manual_note=cd['manual_note'], recalculate=True)
-            except ConversionError as e:
-                ctx['rate_error'] = str(e)
+        old_rate = payment.rate
+        try:
+            convert_payment(payment, get_provider(), recalculate=True, refresh=True,
+                            reason=request.POST.get('reason', ''))
+        except ConversionError as e:
+            ctx['rate_error'] = str(e)
+        else:
+            if old_rate is None:
+                messages.success(request, 'Payment converted.')
             else:
-                messages.success(request, 'Payment recalculated. The previous rate remains on record.')
-                return redirect('payment_detail', pk=pk)
-    else:
-        form = ConfirmRecalculateForm()
-    return render(request, 'core/payment_recalculate.html', {'form': form, **ctx})
+                messages.success(request, f'Recalculated: rate {rate(old_rate)} -> {rate(payment.rate)}. '
+                                 'The previous rate remains on record.')
+            return redirect('payment_detail', pk=pk)
+    return render(request, 'core/payment_recalculate.html', ctx)
+
+
+@login_required
+def payment_correct_rate(request, pk):
+    """Manual correction of the stored rate; a reason is mandatory and is audited."""
+    payment = get_object_or_404(Payment.objects.select_related('month__year', 'organisation'), pk=pk)
+    if payment.currency == 'EUR':
+        messages.info(request, 'EUR payments always use rate 1.')
+        return redirect('payment_detail', pk=pk)
+    converted = payment.conversion_status == Payment.ConversionStatus.CONVERTED
+    form = ManualCorrectionForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        cd = form.cleaned_data
+        try:
+            if converted:
+                correct_rate_manually(payment, cd['rate'], cd['reason'], cd['rate_date'])
+            else:
+                convert_payment(payment, manual_rate=cd['rate'], manual_rate_date=cd['rate_date'],
+                                manual_note=cd['reason'], reason=cd['reason'])
+        except ConversionError as e:
+            form.add_error('rate', str(e))
+        else:
+            messages.success(request, 'Rate saved. The change is recorded in the payment history.')
+            return redirect('payment_detail', pk=pk)
+    return render(request, 'core/payment_correct_rate.html', {'p': payment, 'form': form, 'converted': converted})

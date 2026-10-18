@@ -1,6 +1,20 @@
 {% extends "base.html" %}
 {% load money %}
-{% block title %}Payment{% endblock %}
+{% block title %}Payment<h2>Conversion history</h2>
+{% if p.conversion_events.all %}
+<table>
+  <thead><tr><th>When (UTC)</th><th>Event</th><th class="num">Rate</th><th>Rate date</th><th class="num">Gross EUR</th><th>Replaced</th><th>Reason / note</th></tr></thead>
+  <tbody>
+  {% for e in p.conversion_events.all %}
+  <tr><td>{{ e.created_at|date:"Y-m-d H:i" }}</td><td>{{ e.get_kind_display }}</td>
+    <td class="num">{{ e.rate|rate }}</td><td>{{ e.rate_date|date:"Y-m-d" }}</td><td class="num">{{ e.gross_eur|money }}</td>
+    <td>{% if e.previous_rate %}rate {{ e.previous_rate|rate }}, gross {{ e.previous_gross_eur|money }} EUR{% else %}&mdash;{% endif %}</td>
+    <td>{{ e.reason }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="note">No conversion yet.</p>{% endif %}
+{% endblock %}
 {% block content %}
 <p><a href="{% url 'month_detail' p.month.year.year p.month.month %}">&larr; {{ month_name }} {{ p.month.year.year }}</a></p>
 <h1>Payment</h1>
@@ -15,6 +29,7 @@
   {% if p.conversion_status == 'converted' %}
   <tr><th>Rate used</th><td>{{ p.rate|rate }} EUR per 1 {{ p.currency }} (rate date {{ p.rate_date|date:"Y-m-d" }}, source: {{ p.rate_source }})</td></tr>
   <tr><th>EUR amount</th><td>Gross {{ p.gross_eur|money }} EUR{% if p.net_eur is not None %}; net {{ p.net_eur|money }} EUR{% endif %}</td></tr>
+  {% if p.rate_record.source_url %}<tr><th>Rate provenance</th><td class="note">Retrieved {{ p.rate_record.created_at|date:"Y-m-d H:i" }} UTC from <code>{{ p.rate_record.source_url }}</code></td></tr>{% endif %}
   {% if p.conversion_notes %}<tr><th>Rate notes</th><td>{{ p.conversion_notes }}</td></tr>{% endif %}
   {% else %}
   <tr><th>EUR amount</th><td><em>Not converted</em> &mdash; excluded from totals.</td></tr>
@@ -23,7 +38,22 @@
 </table>
 <p>
   <a href="{% url 'payment_edit' p.pk %}">Edit</a> &middot;
-  <a href="{% url 'payment_recalculate' p.pk %}">{% if p.conversion_status == 'converted' %}Recalculate (replace rate){% else %}Convert{% endif %}</a> &middot;
+  {% if p.currency != 'EUR' %}<a href="{% url 'payment_recalculate' p.pk %}">{% if p.conversion_status == 'converted' %}Recalculate from source{% else %}Convert{% endif %}</a> &middot;
+  <a href="{% url 'payment_correct_rate' p.pk %}">{% if p.conversion_status == 'converted' %}Correct rate manually{% else %}Enter rate manually{% endif %}</a> &middot;{% endif %}
   <a href="{% url 'payment_delete' p.pk %}">Delete</a>
 </p>
+<h2>Conversion history</h2>
+{% if p.conversion_events.all %}
+<table>
+  <thead><tr><th>When (UTC)</th><th>Event</th><th class="num">Rate</th><th>Rate date</th><th class="num">Gross EUR</th><th>Replaced</th><th>Reason / note</th></tr></thead>
+  <tbody>
+  {% for e in p.conversion_events.all %}
+  <tr><td>{{ e.created_at|date:"Y-m-d H:i" }}</td><td>{{ e.get_kind_display }}</td>
+    <td class="num">{{ e.rate|rate }}</td><td>{{ e.rate_date|date:"Y-m-d" }}</td><td class="num">{{ e.gross_eur|money }}</td>
+    <td>{% if e.previous_rate %}rate {{ e.previous_rate|rate }}, gross {{ e.previous_gross_eur|money }} EUR{% else %}&mdash;{% endif %}</td>
+    <td>{{ e.reason }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="note">No conversion yet.</p>{% endif %}
 {% endblock %}

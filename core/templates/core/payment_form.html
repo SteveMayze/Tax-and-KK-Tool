@@ -33,7 +33,7 @@
     {% if editing and payment.conversion_status == 'converted' %}
     <p class="note">Stored rate: {{ payment.rate|rate }} ({{ payment.rate_source }}, {{ payment.rate_date|date:"Y-m-d" }}). It is kept when only amounts change; if you change the currency or payment date a new rate is required. To replace a rate otherwise, use Recalculate on the payment.</p>
     {% else %}
-    <p class="note">EUR payments always use rate 1. For other currencies the rate for the payment date is looked up; if none is available, enter one here.</p>
+    <p class="note">EUR payments always use rate 1. For other currencies the ECB reference rate for the payment date is looked up; if none is available, enter one here.</p>
     {% endif %}
     {% for field in form %}
       {% if field.name == 'manual_rate' or field.name == 'manual_rate_date' or field.name == 'manual_note' %}

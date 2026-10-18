@@ -124,11 +124,15 @@ class ExchangeRateRecord(models.Model):
     """
     currency = models.CharField(max_length=3, validators=[currency_code_validator])
     rate_date = models.DateField(help_text='Date the rate applies to, as stated by the source.')
+    requested_date = models.DateField(
+        null=True, blank=True, help_text='Date that was asked for (the payment date); may differ from rate_date.')
     rate = models.DecimalField(**RATE, validators=[MinValueValidator(Decimal('0.0000000001'))])
     provider = models.CharField(max_length=50, help_text='e.g. frankfurter, fake, manual, identity')
     is_manual = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    source_url = models.CharField(max_length=500, blank=True, help_text='Exact request URL for provider rates.')
+    raw_response = models.TextField(blank=True, help_text='Provider response body, kept as provenance.')
+    created_at = models.DateTimeField(auto_now_add=True, help_text='When the rate was retrieved/entered.')
 
     class Meta:
         ordering = ['-created_at', '-id']
@@ -243,3 +247,36 @@ class Payment(models.Model):
         self.currency = (self.currency or '').strip().upper()
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class ConversionEvent(models.Model):
+    """Append-only audit trail of every conversion or rate change on a payment.
+
+    Stores the values that took effect and the values they replaced, so any change
+    to a stored rate or EUR amount can be reconstructed.
+    """
+    class Kind(models.TextChoices):
+        INITIAL = 'initial', 'Initial conversion'
+        RECALCULATED = 'recalculated', 'Recalculated from provider'
+        MANUAL_CORRECTION = 'manual_correction', 'Manual rate correction'
+        BASIS_CHANGED = 'basis_changed', 'Currency or date edited'
+        AMOUNTS_EDITED = 'amounts_edited', 'Amounts edited (stored rate kept)'
+
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='conversion_events')
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    rate_record = models.ForeignKey(ExchangeRateRecord, on_delete=models.PROTECT, related_name='+')
+    rate = models.DecimalField(**RATE)
+    rate_date = models.DateField()
+    gross_eur = models.DecimalField(**EUR_AMOUNT)
+    net_eur = models.DecimalField(**EUR_AMOUNT, null=True, blank=True)
+    previous_rate = models.DecimalField(**RATE, null=True, blank=True)
+    previous_gross_eur = models.DecimalField(**EUR_AMOUNT, null=True, blank=True)
+    previous_net_eur = models.DecimalField(**EUR_AMOUNT, null=True, blank=True)
+    reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+    def __str__(self):
+        return f'{self.get_kind_display()} {self.rate} ({self.created_at:%Y-%m-%d})'

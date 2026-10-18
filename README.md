@@ -2,7 +2,7 @@
 
 Django app to record, convert and report personal income for German statutory health insurance (SBK) income assessments and the annual tax return. It produces general financial summaries only; it is **not** an official SBK assessment or tax calculation.
 
-Status: Phase 3 (manual entry UI). Years, months and payments can be entered and managed by hand; foreign-currency payments need a manual exchange rate until the live provider arrives in Phase 4. See `CLAUDE.md` for standing instructions and `docs/` (`architecture.md`, `data-model.md`, `financial-calculations.md`, `decisions/`).
+Status: Phase 4 (ECB exchange rates via Frankfurter, audit trail, reconciliation). See `CLAUDE.md` for standing instructions and `docs/` (`architecture.md`, `data-model.md`, `financial-calculations.md`, `exchange-rates.md`, `decisions/`).
 
 ## Requirements
 - Python 3.14 (developed on 3.14.5; Django 5.2 supports 3.10–3.14)
@@ -22,6 +22,9 @@ pip install -r requirements.txt
 | `DJANGO_DEBUG` | `0` | `1` enables debug mode |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated |
 | `DJANGO_DB_PATH` | `local/db.sqlite3` | SQLite file; use an absolute path in production |
+| `DJANGO_RATE_PROVIDER` | Frankfurter/ECB | Set to `core.services.rates.ManualOnlyProvider` to work offline (manual rates only) |
+| `FRANKFURTER_BASE_URL` / `FRANKFURTER_TIMEOUT` | `https://api.frankfurter.dev` / `10` | Rate service URL (https) and timeout in seconds |
+| `RATE_MAX_LOOKBACK_DAYS` | `7` | Oldest acceptable rate date before a payment date |
 
 See `.env.example`. Django does not load `.env` itself; export the variables in your shell.
 
@@ -32,6 +35,9 @@ python manage.py createsuperuser
 DJANGO_DEBUG=1 python manage.py runserver
 ```
 Open http://127.0.0.1:8000/ (redirects to login). `GET /health/` is unauthenticated and returns `{"status": "ok"}`.
+
+## Exchange rates
+Foreign-currency payments are converted with the ECB reference rate for the payment date (via Frankfurter); see `docs/exchange-rates.md`. On macOS with python.org Python, run `/Applications/Python 3.14/Install Certificates.command` once (or set `SSL_CERT_FILE=/etc/ssl/cert.pem`), otherwise lookups fail and you must enter rates manually.
 
 ## Test
 ```

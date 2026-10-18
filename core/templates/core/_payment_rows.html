@@ -1,0 +1,15 @@
+{% load money %}
+<table>
+  <thead><tr><th>Date</th><th>Organisation</th><th class="num">Original</th><th>Rate</th><th>Rate date</th><th></th></tr></thead>
+  <tbody>
+  {% for p in rows %}
+  <tr>
+    <td>{{ p.payment_date|date:"Y-m-d" }}</td><td>{{ p.organisation }}</td>
+    <td class="num">{{ p.gross_amount|money }} {{ p.currency }}</td>
+    <td>{% if p.conversion_status == 'converted' %}{{ p.rate|rate }} ({{ p.rate_source }}){% else %}&mdash;{% endif %}</td>
+    <td>{{ p.rate_date|date:"Y-m-d" }}</td>
+    <td><a href="{% url 'payment_detail' p.pk %}">Open</a></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>

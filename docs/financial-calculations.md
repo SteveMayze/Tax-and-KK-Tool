@@ -4,10 +4,14 @@ Code: `core/services/` (`money`, `rates`, `conversion`, `normalisation`, `aggreg
 
 ## Conversion
 - `EUR amount = original amount x rate`, rate = EUR per 1 unit of original currency. EUR uses rate 1 (source `identity`, no provider call).
-- The rate comes from a `RateProvider` for the payment date. `FakeRateProvider` exists for tests; Frankfurter/ECB arrives in Phase 4 behind the same interface.
+- The rate comes from a `RateProvider` for the payment date: `FrankfurterProvider` (ECB reference rates, see exchange-rates.md) in the app, `FakeRateProvider` in tests, `ManualOnlyProvider` for offline use.
 - A provider returns the date its rate applies to. If that differs from the payment date, the difference is recorded in `conversion_notes`; nothing is substituted silently.
 - Failure (provider error, no rate, invalid manual rate) raises `ConversionError` and leaves the payment unchanged, so the caller can show the error, offer manual entry and keep form input. A manual rate must be positive and is stored with source `manual`.
-- Each applied rate is appended as an `ExchangeRateRecord`. Converting an already-converted payment fails unless `recalculate=True`, which is an explicit action and leaves earlier records intact.
+- Each applied rate is stored as an `ExchangeRateRecord` (with provenance) and every conversion or change is appended to the payment's `ConversionEvent` trail. A rate already retrieved for the same currency and date is reused (no repeat HTTP call).
+- Converting an already-converted payment fails unless `recalculate=True`, an explicit action. Recalculation asks the provider again (`refresh`); earlier records and events stay.
+- Manual correction (`correct_rate_manually`) replaces a stored rate with a typed one; a reason is mandatory and is stored in the audit trail.
+- Editing only amounts keeps the stored rate and recomputes EUR with it (logged). Changing currency or payment date requires a new rate.
+- Weekend/holiday dates: the provider's nearest earlier ECB rate is used only within a 7-day lookback, and the difference is recorded and surfaced on the Reconciliation page.
 - EUR results are computed exactly, then quantised to 6 dp for storage only.
 
 ## Normalisation

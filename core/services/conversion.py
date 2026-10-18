@@ -1,4 +1,5 @@
-"""EUR conversion of payments. Originals are never modified; the rate used is stored and audited."""
+"""EUR conversion of payments. Originals are never modified; every rate applied is stored with
+provenance and every change is appended to the payment's audit trail (ConversionEvent)."""
 import datetime
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
@@ -6,10 +7,12 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db import transaction
 
 from core.currencies import BASE_CURRENCY
-from core.models import ExchangeRateRecord, Payment
+from core.models import ConversionEvent, ExchangeRateRecord, Payment
 
 from .money import MoneyError, to_decimal
-from .rates import RateError, RateProvider
+from .rates import RateError, RateProvider, RateQuote
+
+STORAGE_QUANTUM = Decimal(1).scaleb(-6)  # matches Payment.gross_eur/net_eur decimal_places
 
 
 class ConversionError(Exception):
@@ -29,14 +32,8 @@ class Conversion:
     notes: str
     gross_eur: Decimal
     net_eur: Decimal | None
-
-
-def eur_amount(amount: Decimal | None, rate: Decimal) -> Decimal | None:
-    """EUR amount = original amount x rate, at full Decimal precision (no rounding)."""
-    return None if amount is None else amount * rate
-
-
-STORAGE_QUANTUM = Decimal(1).scaleb(-6)  # matches Payment.gross_eur/net_eur decimal_places
+    source_url: str = ''
+    raw_response: str = ''
 
 
 def for_storage(amount: Decimal | None) -> Decimal | None:
@@ -45,68 +42,147 @@ def for_storage(amount: Decimal | None) -> Decimal | None:
     return None if amount is None else amount.quantize(STORAGE_QUANTUM, rounding=ROUND_HALF_UP)
 
 
+def eur_amount(amount: Decimal | None, rate: Decimal) -> Decimal | None:
+    """EUR amount = original amount x rate, at full Decimal precision (no rounding)."""
+    return None if amount is None else amount * rate
+
+
+def stored_quote(provider: RateProvider, currency, on_date) -> RateQuote | None:
+    """A rate this provider already returned for exactly this currency and requested date.
+    Reusing it means repeat requests don't hit the service again."""
+    rec = (ExchangeRateRecord.objects
+           .filter(provider=provider.name, currency=currency, requested_date=on_date, is_manual=False)
+           .order_by('-created_at', '-id').first())
+    if rec is None:
+        return None
+    return RateQuote(currency, on_date, rec.rate_date, rec.rate, rec.provider, rec.source_url, rec.raw_response)
+
+
 def compute_conversion(payment: Payment, provider: RateProvider | None = None, manual_rate=None,
-                       manual_rate_date: datetime.date | None = None, manual_note: str = '') -> Conversion:
-    """Work out the conversion without touching the database."""
+                       manual_rate_date: datetime.date | None = None, manual_note: str = '',
+                       refresh: bool = False) -> Conversion:
+    """Work out the conversion without saving. `refresh` bypasses previously retrieved rates."""
     if payment.currency == BASE_CURRENCY:
-        rate, rate_date, source, manual, notes = Decimal(1), payment.payment_date, 'identity', False, ''
-    elif manual_rate is not None:
+        return Conversion(Decimal(1), payment.payment_date, 'identity', False, '',
+                          for_storage(payment.gross_amount), for_storage(payment.net_amount))
+    if manual_rate is not None:
         try:
             rate = to_decimal(manual_rate)
         except MoneyError as e:
             raise ConversionError(f'Invalid manual rate: {e}') from e
         if rate <= 0:
             raise ConversionError('Manual rate must be positive.')
-        rate_date = manual_rate_date or payment.payment_date
-        source, manual = 'manual', True
-        notes = manual_note or 'Manually entered rate.'
-    else:
-        if provider is None:
-            raise ConversionError('No rate provider configured.')
+        return Conversion(
+            rate, manual_rate_date or payment.payment_date, 'manual', True,
+            manual_note or 'Manually entered rate.',
+            for_storage(eur_amount(payment.gross_amount, rate)), for_storage(eur_amount(payment.net_amount, rate)))
+
+    if provider is None:
+        raise ConversionError('No rate provider configured.')
+    quote = None if refresh else stored_quote(provider, payment.currency, payment.payment_date)
+    if quote is None:
         try:
             quote = provider.get_rate(payment.currency, payment.payment_date)
         except RateError as e:
             raise ConversionError(f'Could not obtain {payment.currency} rate for {payment.payment_date}: {e}') from e
-        if quote.rate <= 0:
-            raise ConversionError(f'Provider returned an invalid rate ({quote.rate}).')
-        rate, rate_date, source, manual = quote.rate, quote.rate_date, quote.provider, False
-        notes = (f'Rate date {quote.rate_date} differs from payment date {quote.requested_date} '
-                 f'(supplied by provider).' if quote.date_differs else '')
-    return Conversion(rate, rate_date, source, manual, notes,
-                      for_storage(eur_amount(payment.gross_amount, rate)),
-                      for_storage(eur_amount(payment.net_amount, rate)))
+    if quote.rate <= 0:
+        raise ConversionError(f'Provider returned an invalid rate ({quote.rate}).')
+    notes = (f'Rate date {quote.rate_date} differs from payment date {quote.requested_date} '
+             f'(nearest earlier rate supplied by provider).' if quote.date_differs else '')
+    return Conversion(
+        quote.rate, quote.rate_date, quote.provider, False, notes,
+        for_storage(eur_amount(payment.gross_amount, quote.rate)),
+        for_storage(eur_amount(payment.net_amount, quote.rate)), quote.source_url, quote.raw_response)
+
+
+def _record_for(payment: Payment, c: Conversion) -> ExchangeRateRecord:
+    """Append a manual record; reuse an identical provider record rather than duplicating it."""
+    fields = dict(currency=payment.currency, rate_date=c.rate_date, requested_date=payment.payment_date,
+                  rate=c.rate, provider=c.provider, is_manual=c.is_manual)
+    defaults = dict(notes=c.notes, source_url=c.source_url, raw_response=c.raw_response)
+    if c.is_manual:
+        return ExchangeRateRecord.objects.create(**fields, **defaults)
+    rec = ExchangeRateRecord.objects.filter(**fields).order_by('id').first()
+    return rec or ExchangeRateRecord.objects.create(**fields, **defaults)
+
+
+def _log(payment, kind, record, previous, reason):
+    ConversionEvent.objects.create(
+        payment=payment, kind=kind, rate_record=record, rate=payment.rate, rate_date=payment.rate_date,
+        gross_eur=payment.gross_eur, net_eur=payment.net_eur,
+        previous_rate=previous[0], previous_gross_eur=previous[1], previous_net_eur=previous[2], reason=reason)
+
+
+def _snapshot(payment):
+    return (payment.rate, payment.gross_eur, payment.net_eur)
 
 
 @transaction.atomic
 def convert_payment(payment: Payment, provider: RateProvider | None = None, manual_rate=None,
-                    manual_rate_date=None, manual_note: str = '', recalculate: bool = False) -> Payment:
-    """Convert and save a payment.
+                    manual_rate_date=None, manual_note: str = '', recalculate: bool = False,
+                    refresh: bool = False, kind: str | None = None, reason: str = '') -> Payment:
+    """Convert and save a payment, appending an audit event.
 
-    A payment that is already converted is left alone unless recalculate=True (an explicit action).
+    An already-converted payment is left alone unless recalculate=True (an explicit action).
     On failure nothing is saved or changed, so the caller can offer manual entry and keep form input.
-    Every rate applied is appended as an ExchangeRateRecord, so earlier rates stay on record.
+    `refresh` re-requests the rate from the provider instead of reusing one already retrieved.
+    A manual rate on an already-converted payment is a correction and needs a reason.
     """
-    if payment.conversion_status == Payment.ConversionStatus.CONVERTED and not recalculate:
+    converted = payment.conversion_status == Payment.ConversionStatus.CONVERTED
+    if converted and not recalculate:
         raise ConversionError('Payment already converted; recalculation must be requested explicitly.',
                               manual_rate_possible=False)
-    c = compute_conversion(payment, provider, manual_rate, manual_rate_date, manual_note)
-    record = ExchangeRateRecord.objects.create(
-        currency=payment.currency, rate_date=c.rate_date, rate=c.rate, provider=c.provider,
-        is_manual=c.is_manual, notes=c.notes)
+    if kind is None:
+        if not converted:
+            kind = ConversionEvent.Kind.INITIAL
+        elif manual_rate is not None:
+            kind = ConversionEvent.Kind.MANUAL_CORRECTION
+        else:
+            kind = ConversionEvent.Kind.RECALCULATED
+    reason = (reason or '').strip()
+    if kind == ConversionEvent.Kind.MANUAL_CORRECTION and not reason:
+        raise ConversionError('A reason is required when manually correcting a stored rate.')
+
+    previous = _snapshot(payment)
+    c = compute_conversion(payment, provider, manual_rate, manual_rate_date, manual_note,
+                           refresh=refresh or (recalculate and manual_rate is None))
+    record = _record_for(payment, c)
     payment.rate, payment.rate_date, payment.rate_source, payment.rate_record = c.rate, c.rate_date, c.provider, record
     payment.gross_eur, payment.net_eur, payment.conversion_notes = c.gross_eur, c.net_eur, c.notes
     payment.conversion_status = Payment.ConversionStatus.CONVERTED
     payment.save()
+    _log(payment, kind, record, previous if converted else (None, None, None), reason or c.notes)
     return payment
+
+
+def correct_rate_manually(payment: Payment, rate, reason: str, rate_date=None) -> Payment:
+    """Explicit manual correction of a stored rate. A reason is mandatory; the old rate stays on record."""
+    return convert_payment(payment, manual_rate=rate, manual_rate_date=rate_date, manual_note=reason,
+                           recalculate=True, kind=ConversionEvent.Kind.MANUAL_CORRECTION, reason=reason)
 
 
 @transaction.atomic
 def reapply_stored_rate(payment: Payment) -> Payment:
     """After amounts change (same currency and payment date), recompute EUR with the STORED rate.
-    The rate itself is not replaced."""
+    The rate itself is not replaced; the change is logged."""
     if payment.conversion_status != Payment.ConversionStatus.CONVERTED or payment.rate is None:
         raise ConversionError('Payment has no stored rate to reapply.')
+    previous = _snapshot(payment)
     payment.gross_eur = for_storage(eur_amount(payment.gross_amount, payment.rate))
     payment.net_eur = for_storage(eur_amount(payment.net_amount, payment.rate))
     payment.save()
+    if (payment.gross_eur, payment.net_eur) != previous[1:]:
+        _log(payment, ConversionEvent.Kind.AMOUNTS_EDITED, payment.rate_record, previous, 'Amounts edited; stored rate kept.')
     return payment
+
+
+def convert_pending(provider: RateProvider, payments) -> list[tuple[Payment, str | None]]:
+    """Try the automatic provider for each unconverted payment. Failures leave that payment pending."""
+    results = []
+    for p in payments:
+        try:
+            convert_payment(p, provider)
+            results.append((p, None))
+        except ConversionError as e:
+            results.append((p, str(e)))
+    return results

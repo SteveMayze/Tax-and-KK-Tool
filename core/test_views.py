@@ -3,7 +3,7 @@ from decimal import Decimal as D
 from unittest import mock
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from core.models import ExchangeRateRecord, IncomeCategory, Organisation, Payment, ReportingMonth, ReportingYear
@@ -19,6 +19,7 @@ def fake(**kw):
     return FakeRateProvider({('GBP', DAY): D('1.2')}, **kw)
 
 
+@override_settings(RATE_PROVIDER='core.services.rates.ManualOnlyProvider')
 class AuthedTestCase(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user('tester', password='pw-for-tests-123')
@@ -327,19 +328,49 @@ class PaymentEditDeleteTests(AuthedTestCase):
         self.p.refresh_from_db()
         self.assertEqual((str(self.p.month), self.p.rate), ('2024-05', D('1.3')))
 
-    def test_explicit_recalculation(self):
-        r = self.client.get(reverse('payment_recalculate', args=[self.p.pk]))
-        self.assertContains(r, 'Current stored rate: 1.2')
-        # failure leaves everything unchanged
-        r = self.client.post(reverse('payment_recalculate', args=[self.p.pk]), {})
+    def test_explicit_recalculation_from_source(self):
+        url = reverse('payment_recalculate', args=[self.p.pk])
+        self.assertContains(self.client.get(url), 'Current stored rate: 1.2')
+        # failure leaves everything unchanged and points to manual entry
+        with mock.patch(PROVIDER, return_value=fake(fail=True)):
+            r = self.client.post(url, {})
         self.assertContains(r, 'Nothing was changed')
         self.p.refresh_from_db()
         self.assertEqual(self.p.rate, D('1.2'))
-        # explicit manual recalculation replaces, history kept
-        self.client.post(reverse('payment_recalculate', args=[self.p.pk]), {'manual_rate': '1.5', 'manual_note': 'fix'})
+        # success replaces the rate; the old one stays on record
+        newer = FakeRateProvider({('GBP', DAY): D('1.25')})
+        with mock.patch(PROVIDER, return_value=newer):
+            r = self.client.post(url, {'reason': 'ECB revised'}, follow=True)
+        self.assertContains(r, 'rate 1.2 -&gt; 1.25')
         self.p.refresh_from_db()
-        self.assertEqual((self.p.rate, self.p.gross_eur), (D('1.5'), D('1500')))
-        self.assertEqual(sorted(ExchangeRateRecord.objects.values_list('rate', flat=True)), [D('1.2'), D('1.5')])
+        self.assertEqual((self.p.rate, self.p.gross_eur), (D('1.25'), D('1250')))
+        self.assertEqual(sorted(ExchangeRateRecord.objects.values_list('rate', flat=True)), [D('1.2'), D('1.25')])
+
+    def test_manual_correction_requires_reason_and_is_audited(self):
+        url = reverse('payment_correct_rate', args=[self.p.pk])
+        r = self.client.post(url, {'rate': '1.5', 'reason': '  '})
+        self.assertContains(r, 'This field is required')
+        r = self.client.post(url, {'rate': '-1', 'reason': 'x'})
+        self.assertContains(r, 'must be positive')
+        self.p.refresh_from_db()
+        self.assertEqual(self.p.rate, D('1.2'))
+        self.client.post(url, {'rate': '1.5', 'reason': 'rate on bank statement'})
+        self.p.refresh_from_db()
+        self.assertEqual((self.p.rate, self.p.gross_eur, self.p.rate_source), (D('1.5'), D('1500'), 'manual'))
+        r = self.client.get(reverse('payment_detail', args=[self.p.pk]))
+        self.assertContains(r, 'Manual rate correction')
+        self.assertContains(r, 'rate on bank statement')
+        self.assertContains(r, 'Initial conversion')
+        ev = list(self.p.conversion_events.all())
+        self.assertEqual([e.kind for e in ev], ['initial', 'manual_correction'])
+        self.assertEqual((ev[1].previous_rate, ev[1].previous_gross_eur), (D('1.2'), D('1200')))
+
+    def test_eur_payment_has_no_recalculate_or_correction_pages(self):
+        make_payment().save()
+        eur = Payment.objects.get(currency='EUR')
+        for name in ('payment_recalculate', 'payment_correct_rate'):
+            self.assertRedirects(self.client.get(reverse(name, args=[eur.pk])),
+                                 reverse('payment_detail', args=[eur.pk]), fetch_redirect_response=False)
 
     def test_delete_requires_confirmation(self):
         url = reverse('payment_delete', args=[self.p.pk])

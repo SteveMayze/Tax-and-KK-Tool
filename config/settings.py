@@ -127,7 +127,14 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
-# Exchange-rate provider (dotted path). Phase 3: manual entry only; Phase 4 adds the live provider.
-RATE_PROVIDER = 'core.services.rates.ManualOnlyProvider'
+# Exchange-rate provider (dotted path). Default: ECB reference rates via Frankfurter.
+# Set DJANGO_RATE_PROVIDER=core.services.rates.ManualOnlyProvider to work offline (manual rates only).
+RATE_PROVIDER = os.environ.get('DJANGO_RATE_PROVIDER', 'core.services.frankfurter.FrankfurterProvider')
+FRANKFURTER_BASE_URL = os.environ.get('FRANKFURTER_BASE_URL', 'https://api.frankfurter.dev')
+FRANKFURTER_TIMEOUT = float(os.environ.get('FRANKFURTER_TIMEOUT', '10'))
+# A rate more than this many days before the payment date is treated as unavailable, not substituted.
+RATE_MAX_LOOKBACK_DAYS = int(os.environ.get('RATE_MAX_LOOKBACK_DAYS', '7'))
+
+TEST_RUNNER = 'config.testrunner.NoNetworkRunner'
 
 TEMPLATES[0]['OPTIONS']['context_processors'].append('core.context_processors.display_currency')

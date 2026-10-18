@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Manual rate{% endblock %}
+{% block content %}
+<p><a href="{% url 'payment_detail' p.pk %}">&larr; Payment</a></p>
+<h1>{% if converted %}Manually correct rate{% else %}Enter rate manually{% endif %}</h1>
+<p>{{ p.payment_date|date:"Y-m-d" }}, {{ p.organisation }}: gross {{ p.gross_amount|money }} {{ p.currency }}. EUR = original amount &times; rate.</p>
+{% if converted %}<p class="warn">Current stored rate: {{ p.rate|rate }} ({{ p.rate_source }}, {{ p.rate_date|date:"Y-m-d" }}). The correction replaces it for this payment; the old rate stays on record and in the history, together with your reason.</p>{% endif %}
+<form method="post" novalidate>{% csrf_token %}
+  {% for field in form %}<div class="field">{{ field.label_tag }}{{ field }}{% if field.help_text %}<span class="note">{{ field.help_text }}</span>{% endif %}{{ field.errors }}</div>{% endfor %}
+  <button type="submit">Save rate</button>
+</form>
+{% endblock %}

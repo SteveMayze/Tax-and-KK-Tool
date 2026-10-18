@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_lookups, views_payments
+from . import views, views_lookups, views_payments, views_reconciliation
 
 urlpatterns = [
     path('health/', views.health, name='health'),
@@ -20,6 +20,10 @@ urlpatterns = [
     path('payments/<int:pk>/edit/', views_payments.payment_edit, name='payment_edit'),
     path('payments/<int:pk>/delete/', views_payments.payment_delete, name='payment_delete'),
     path('payments/<int:pk>/recalculate/', views_payments.payment_recalculate, name='payment_recalculate'),
+
+    path('payments/<int:pk>/correct-rate/', views_payments.payment_correct_rate, name='payment_correct_rate'),
+    path('reconciliation/', views_reconciliation.reconciliation, name='reconciliation'),
+    path('reconciliation/convert-pending/', views_reconciliation.convert_pending_view, name='convert_pending'),
 
     path('organisations/', views_lookups.lookup_list, {'kind': 'organisation'}, name='organisation_list'),
     path('organisations/new/', views_lookups.lookup_edit, {'kind': 'organisation'}, name='organisation_add'),

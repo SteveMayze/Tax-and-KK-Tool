@@ -140,7 +140,7 @@ class ConversionTests(TestCase):
         p = make_payment(gross='100', currency='GBP'); p.save()
         convert_payment(p, self.provider())
         first = p.rate_record_id
-        convert_payment(p, manual_rate='1.30', recalculate=True)
+        convert_payment(p, manual_rate='1.30', recalculate=True, reason='statement')
         self.assertEqual(p.gross_eur, D('130.00'))
         self.assertEqual(ExchangeRateRecord.objects.count(), 2)
         self.assertNotEqual(p.rate_record_id, first)

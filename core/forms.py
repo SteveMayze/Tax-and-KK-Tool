@@ -115,8 +115,15 @@ class PaymentForm(forms.ModelForm):
         return bool((self.data.get('manual_rate') or '').strip())
 
 
-class ConfirmRecalculateForm(forms.Form):
-    manual_rate = forms.CharField(label='Manual rate (EUR per 1 unit)', required=False,
-                                  help_text='Leave empty to try the automatic source.')
-    manual_rate_date = forms.DateField(label='Rate date', required=False, widget=DATE)
-    manual_note = forms.CharField(label='Rate source / note', required=False, max_length=300)
+class ManualCorrectionForm(forms.Form):
+    rate = forms.CharField(label='Rate (EUR per 1 unit of the payment currency)')
+    rate_date = forms.DateField(label='Rate date', required=False, widget=DATE,
+                                help_text='Date the rate applies to; defaults to the payment date.')
+    reason = forms.CharField(label='Reason / source', max_length=300,
+                             help_text='Required; kept in the payment history (e.g. "rate on bank statement").')
+
+    def clean_reason(self):
+        reason = ' '.join(self.cleaned_data['reason'].split())
+        if not reason:
+            raise forms.ValidationError('A reason is required.')
+        return reason
