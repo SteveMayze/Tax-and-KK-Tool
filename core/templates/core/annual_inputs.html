@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Annual inputs {{ year.year }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'assessment_settings' %}">&larr; Assessment settings</a> &middot; <a href="{% url 'report_view' 'sbk' %}?year={{ year.year }}">SBK estimate {{ year.year }}</a></p>
+<h1>Annual inputs {{ year.year }}</h1>
+<p class="note">Used only for the SBK estimate. Costs: Werbungskosten (rental, capital) or Betriebsausgaben (self-employed), in EUR. Months earned: first to last month in which the income was earned (default January to December). Capital income uses the flat 51 EUR unless your costs are higher. Saving an existing treatment replaces it.</p>
+{% if inputs %}
+<table>
+  <thead><tr><th>Treatment</th><th class="num">Costs EUR</th><th>Months</th><th>Note</th><th></th></tr></thead>
+  <tbody>
+  {% for i in inputs %}<tr><td>{{ i.get_treatment_display }}</td><td class="num">{{ i.costs_eur }}</td><td>{{ i.first_month }} to {{ i.last_month }} ({{ i.months_earned }})</td><td>{{ i.note }}</td>
+    <td><form method="post" action="{% url 'annual_input_delete' year.year i.pk %}" class="inline">{% csrf_token %}<button type="submit">Remove</button></form></td></tr>{% endfor %}
+  </tbody>
+</table>
+{% else %}<p>None entered: defaults apply (January to December, no costs).</p>{% endif %}
+<h2>Add or replace</h2>
+<form method="post" novalidate>{% csrf_token %}
+  {% for field in form %}<div class="field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+  {{ form.non_field_errors }}
+  <button type="submit">Save</button>
+</form>
+{% endblock %}

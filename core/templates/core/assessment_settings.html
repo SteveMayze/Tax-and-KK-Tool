@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Assessment settings{% endblock %}
+{% block content %}
+<h1>Assessment settings</h1>
+<p class="note">These describe your own circumstances for the SBK estimate and the tax checks. The estimate is a planning figure, not an SBK assessment. Rule sources and verification status: <code>docs/rules/</code>.</p>
+{% if not form.instance.kv_rate_confirmed %}
+<p class="warn">The health-insurance rate is <strong>not confirmed with SBK</strong>. While unconfirmed and set to the general rate, the estimate is labelled as an upper-bound "affordability" figure.</p>
+{% endif %}
+<form method="post" novalidate>{% csrf_token %}
+  {% for field in form %}<div class="field">{{ field.label_tag }}{{ field }}{% if field.help_text %}<span class="note">{{ field.help_text }}</span>{% endif %}{{ field.errors }}</div>{% endfor %}
+  <button type="submit">Save</button>
+</form>
+<h2>Parameters in use</h2>
+<table>
+  <thead><tr><th>Year</th><th class="num">Ceiling/month</th><th class="num">Minimum base/month</th><th class="num">Health general</th><th class="num">Health reduced</th><th class="num">Additional</th><th class="num">Care base</th><th>Version</th></tr></thead>
+  <tbody>
+  {% for y, p in params.items %}<tr><td>{{ y }}</td><td class="num">{{ p.bbg_monthly }}</td><td class="num">{{ p.min_monthly|floatformat:2 }}</td><td class="num">{{ p.kv_general_pct }}%</td><td class="num">{{ p.kv_reduced_pct }}%</td><td class="num">{{ p.zusatz_pct }}%</td><td class="num">{{ p.pflege_base_pct }}%</td><td class="note">{{ p.version }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+<p class="note">Only years with verified parameters can be estimated. Care insurance for several children (reduced rate) is not implemented until verified.</p>
+<h2>Per-year inputs</h2>
+<p>Costs and months earned for self-employed, rental and capital income:
+  {% for y in years %}<a href="{% url 'annual_inputs' y.year %}">{{ y.year }}</a>{% if not forloop.last %}, {% endif %}{% empty %}no years yet{% endfor %}.</p>
+<p>Map categories to SBK and tax treatments on the <a href="{% url 'category_list' %}">Categories</a> page.</p>
+{% endblock %}

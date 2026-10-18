@@ -2,7 +2,7 @@
 
 Django app to record, convert and report personal income for German statutory health insurance (SBK) income assessments and the annual tax return. It produces general financial summaries only; it is **not** an official SBK assessment or tax calculation.
 
-Status: Phase 6 (reports and CSV export). See `CLAUDE.md` for standing instructions and `docs/` (`architecture.md`, `data-model.md`, `financial-calculations.md`, `exchange-rates.md`, `imports.md`, `reporting.md`, `decisions/`).
+Status: Phase 7 (legal rules register, SBK estimate, tax information). See `CLAUDE.md` for standing instructions and `docs/` (`architecture.md`, `data-model.md`, `financial-calculations.md`, `exchange-rates.md`, `imports.md`, `reporting.md`, `rules/`, `decisions/`).
 
 ## Requirements
 - Python 3.14 (developed on 3.14.5; Django 5.2 supports 3.10–3.14)
@@ -45,6 +45,9 @@ Upload a CSV on the Imports page, review and fix rows, then confirm. The format 
 
 ## Reports
 The Reports page offers annual, monthly, payment-level, by-organisation, by-category, original-currency, normalised-monthly and reconciliation reports, each with a stated basis and a CSV download. See `docs/reporting.md`. Downloads are generated on demand and not stored on the server; keep saved files out of the repository.
+
+## SBK estimate and tax information
+Map your categories (Categories page), set your circumstances (Assessment settings), enter annual costs/months earned where relevant, then open the SBK estimate (2026) and tax reports under Reports. These are planning aids, not an SBK assessment or a tax calculation; rule sources and open points are in `docs/rules/`.
 
 ## Test
 ```

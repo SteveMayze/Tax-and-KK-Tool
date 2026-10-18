@@ -13,6 +13,7 @@
 </form>
 <a href="{% url 'report_csv' report.key %}?year={{ year|default:'all' }}">Download CSV</a>
 
+{% if report.key == 'sbk' or report.key == 'tax_checks' %}<p><a href="{% url 'assessment_settings' %}">Assessment settings</a>{% if year %} &middot; <a href="{% url 'annual_inputs' year %}">Annual costs and months earned {{ year }}</a>{% endif %} &middot; <a href="{% url 'category_list' %}">Map categories</a></p>{% endif %}
 <h2>Basis</h2>
 <dl>
   {% for label, text in report.basis %}<dt><strong>{{ label }}</strong></dt><dd>{{ text }}</dd>{% endfor %}

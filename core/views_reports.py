@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET
 from .models import ReportingYear
 from .services import report_csv
 from .services.money import round_for_display
+from .services.policies.sbk import PolicyUnavailable
 from .services.reports import REPORTS, available_years
 
 
@@ -35,7 +36,10 @@ def _build(request, spec):
         return None, None, error
     if spec.needs_year and year is None:
         return None, None, f'"{spec.title}" needs a specific year.'
-    return spec.build(year), year, None
+    try:
+        return spec.build(year), year, None
+    except PolicyUnavailable as e:
+        return None, None, str(e)
 
 
 def _display(value, kind):

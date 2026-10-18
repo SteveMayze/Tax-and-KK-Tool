@@ -2,7 +2,7 @@ from django import forms
 from django.conf import settings
 
 from .currencies import BASE_CURRENCY, SUPPORTED_CURRENCIES
-from .models import IncomeCategory, Organisation, Payment, ReportingYear
+from .models import AnnualInput, AssessmentSettings, IncomeCategory, Organisation, Payment, ReportingYear
 from .services import lookups
 
 DATE = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
@@ -45,7 +45,11 @@ class OrganisationForm(UniqueNameMixin, forms.ModelForm):
 class CategoryForm(UniqueNameMixin, forms.ModelForm):
     class Meta:
         model = IncomeCategory
-        fields = ['name', 'active']
+        fields = ['name', 'active', 'sbk_treatment', 'tax_income_type']
+        help_texts = {
+            'sbk_treatment': 'How SBK treats this income (docs/rules). Leave blank if unsure: it is then left out of the SBK estimate and flagged.',
+            'tax_income_type': 'Einkunftsart for the tax information summary. Leave blank if unsure.',
+        }
 
 
 class PaymentForm(forms.ModelForm):
@@ -159,3 +163,35 @@ class ImportRowForm(forms.Form):
             self.fields[name] = forms.CharField(
                 required=False, label=name + (' *' if name in REQUIRED else ''), max_length=1000,
                 widget=forms.Textarea(attrs={'rows': 2}) if name == 'comment' else forms.TextInput())
+
+
+class AssessmentSettingsForm(forms.ModelForm):
+    class Meta:
+        model = AssessmentSettings
+        fields = ['kv_rate', 'kv_rate_confirmed', 'pflege', 'joint_assessment']
+        labels = {'kv_rate': 'Health-insurance rate', 'kv_rate_confirmed': 'Rate confirmed with SBK',
+                  'pflege': 'Care-insurance rate', 'joint_assessment': 'Joint income-tax assessment'}
+
+
+class AnnualInputForm(forms.ModelForm):
+    class Meta:
+        model = AnnualInput
+        fields = ['treatment', 'costs_eur', 'first_month', 'last_month', 'note']
+        labels = {'costs_eur': 'Annual costs EUR (Werbungskosten / Betriebsausgaben)',
+                  'first_month': 'First month earned (1-12)', 'last_month': 'Last month earned (1-12)'}
+
+    ALLOWED = ('self_employed', 'rental', 'capital')
+
+    def __init__(self, *args, year=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.year = year
+        # Only these income types use costs and months earned; others are rejected as invalid choices.
+        self.fields['treatment'].choices = [
+            (v, l) for v, l in AnnualInput._meta.get_field('treatment').choices if v in self.ALLOWED]
+
+    def _post_clean(self):
+        self.instance.year = self.year        # needed for clean(); uniqueness is handled by upsert in the view
+        super()._post_clean()
+
+    def validate_unique(self):
+        pass

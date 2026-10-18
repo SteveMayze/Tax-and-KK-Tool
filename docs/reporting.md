@@ -12,6 +12,9 @@ Reports are general financial summaries from saved data. They are **not** an off
 | `category` | By category | same | Actual |
 | `currency` | Original-currency summary | per currency: original gross/net (all payments) next to EUR gross/net (converted payments) | Actual |
 | `normalised` | Normalised monthly recurring income (needs a year) | per month: sum of monthly equivalents of recurring payments, recurring count, one-offs excluded | Normalised |
+| `sbk` | SBK contribution estimate (needs a year; 2026 only) | month by month: base per SBK income type, assessed base, health, care, total | Estimate (docs/rules) |
+| `tax_summary` | Tax information summary | income type x organisation country | Information only |
+| `tax_checks` | Tax checks (verified rules, needs a year) | Sparer-Pauschbetrag usage, private-sale Freigrenze, flat-tax reference | Rule checks |
 | `reconciliation` | Missing data and reconciliation | one row per flagged payment and issue (same checks as the Reconciliation page) | Data quality |
 
 Period: a specific calendar year or all years (reports marked "needs a year" require one). Year is the reporting year of the payment (its payment date's year).

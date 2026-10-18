@@ -78,13 +78,38 @@ class Organisation(models.Model):
         return self.name
 
 
+class SbkTreatment(models.TextChoices):
+    """How SBK treats an income type (docs/rules/sbk-contribution-rules.md). Blank = not mapped yet."""
+    EMPLOYMENT = 'employment', 'Employment income (Arbeitsentgelt): month of receipt'
+    PENSION = 'pension', 'Pension / Versorgungsbezug: month of receipt'
+    SELF_EMPLOYED = 'self_employed', 'Self-employment profit (Arbeitseinkommen): annual / months earned'
+    RENTAL = 'rental', 'Rental income: annual surplus / months earned'
+    CAPITAL = 'capital', 'Capital income (interest, dividends): annual surplus / months earned'
+    ONE_OFF = 'one_off', 'One-off income: 1/12 per month for 12 months'
+    EXCLUDED = 'excluded', 'Not contribution-relevant (excluded)'
+
+
+class TaxIncomeType(models.TextChoices):
+    """Einkunftsart per section 2(1) EStG, plus private sale gains (section 22 no. 2 / 23). Blank = not mapped."""
+    EMPLOYMENT = 'employment', 'Non-self-employed work (section 19)'
+    SELF_EMPLOYED = 'self_employed', 'Self-employment / business (sections 15, 18)'
+    CAPITAL = 'capital', 'Capital assets (section 20)'
+    RENTAL = 'rental', 'Rental and leasing (section 21)'
+    OTHER = 'other', 'Other income, e.g. pensions (section 22)'
+    PRIVATE_SALE = 'private_sale', 'Private sale gains (sections 22 no. 2, 23): enter the gain, not the proceeds'
+    NOT_TAXABLE = 'not_taxable', 'Not income for tax (excluded)'
+
+
 class IncomeCategory(models.Model):
     """Configurable. Deactivate rather than delete (PROTECT prevents deleting referenced rows).
 
-    No tax or SBK meaning is attached here; legal rules come in Phase 7.
+    The SBK and tax mappings are chosen by the user and never guessed; a blank mapping means the
+    category is left out of the SBK assessment / tax summary and flagged there.
     """
     name = models.CharField(max_length=100)
     active = models.BooleanField(default=True)
+    sbk_treatment = models.CharField(max_length=15, choices=SbkTreatment.choices, blank=True)
+    tax_income_type = models.CharField(max_length=15, choices=TaxIncomeType.choices, blank=True)
 
     class Meta:
         ordering = ['name']
@@ -346,3 +371,62 @@ class ConversionEvent(models.Model):
 
     def __str__(self):
         return f'{self.get_kind_display()} {self.rate} ({self.created_at:%Y-%m-%d})'
+
+
+class AssessmentSettings(models.Model):
+    """The user's own circumstances for the SBK estimate (single row). Defaults record the owner's
+    decisions of Phase 7: general rate as an unconfirmed upper-bound "affordability" figure; childless."""
+    class KvRate(models.TextChoices):
+        GENERAL = 'general', 'General rate (with sick-pay entitlement)'
+        REDUCED = 'reduced', 'Reduced rate (no sick-pay entitlement)'
+
+    class Pflege(models.TextChoices):
+        CHILDLESS = 'childless', 'Age 23 or over, no children (surcharge)'
+        BASE = 'base', 'One child, or under 23 (base rate)'
+
+    kv_rate = models.CharField(max_length=10, choices=KvRate.choices, default=KvRate.GENERAL)
+    kv_rate_confirmed = models.BooleanField(
+        default=False, help_text='Tick once SBK has confirmed which rate applies to you.')
+    pflege = models.CharField(max_length=10, choices=Pflege.choices, default=Pflege.CHILDLESS)
+    joint_assessment = models.BooleanField(
+        default=False, help_text='Jointly assessed for income tax (doubles the Sparer-Pauschbetrag).')
+
+    class Meta:
+        verbose_name_plural = 'assessment settings'
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+
+class AnnualInput(models.Model):
+    """Per year and SBK treatment: annual costs and the months the income was earned.
+
+    Costs are Werbungskosten / Betriebsausgaben in EUR (only used for self-employed, rental and
+    capital income). Months earned are explicit user data, never inferred from payment dates.
+    """
+    year = models.ForeignKey(ReportingYear, on_delete=models.CASCADE, related_name='annual_inputs')
+    treatment = models.CharField(max_length=15, choices=SbkTreatment.choices)
+    costs_eur = models.DecimalField(max_digits=14, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    first_month = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(12)])
+    last_month = models.PositiveSmallIntegerField(default=12, validators=[MinValueValidator(1), MaxValueValidator(12)])
+    note = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['year', 'treatment'], name='unique_annual_input')]
+        ordering = ['year__year', 'treatment']
+
+    def clean(self):
+        if self.first_month and self.last_month and self.last_month < self.first_month:
+            raise ValidationError({'last_month': 'Last month is before the first month.'})
+        if self.treatment in (SbkTreatment.EMPLOYMENT, SbkTreatment.PENSION, SbkTreatment.ONE_OFF, SbkTreatment.EXCLUDED):
+            raise ValidationError({'treatment': 'Costs and months earned apply only to self-employed, rental and capital income.'})
+
+    @property
+    def months_earned(self):
+        return self.last_month - self.first_month + 1

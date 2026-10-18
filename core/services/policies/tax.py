@@ -1,0 +1,109 @@
+"""Income-tax information and the three verified checks (policy `tax-information`).
+
+Rules: docs/rules/income-tax-rules.md. Implemented: TAX-02 Sparer-Pauschbetrag (section 20(9) EStG),
+TAX-04 Freigrenze for private sale gains (section 23(3) EStG), TAX-03 flat-tax rate as a reference only.
+No tax amount is computed. Treaty rules, foreign-tax credit, progression reservation, currency-conversion
+rules and Anlage mapping are NOT implemented (unverified).
+"""
+from collections import defaultdict
+from dataclasses import dataclass
+from decimal import Decimal
+
+from core.models import AssessmentSettings, IncomeCategory, Payment, TaxIncomeType
+
+POLICY_NAME = 'tax-information'
+POLICY_VERSION = f'{POLICY_NAME} 1.0 (verified 2026-10-18; statute text read, no treaty rules)'
+ZERO = Decimal(0)
+SPARER_PAUSCHBETRAG = Decimal('1000')          # section 20(9) EStG; 2,000 for joint assessment
+FREIGRENZE_PRIVATE_SALES = Decimal('1000')     # section 23(3) EStG, from 2024
+FLAT_TAX_PCT = Decimal('25')                   # section 32d(1) EStG, reference only
+NOT_APPLIED = [
+    'Double-taxation treaties (UK, Australia, USA), foreign-tax credit and progression reservation are not applied.',
+    'Currency conversion: the app uses the ECB rate of the payment date; whether the tax authorities require another rate is not verified.',
+    'No tax amount is calculated. Expenses, Anlage mapping and church tax/solidarity surcharge are not handled.',
+]
+
+
+@dataclass
+class CheckResult:
+    check: str
+    amount: Decimal | None
+    limit: str
+    result: str
+    note: str
+
+
+def _typed_payments(year, types):
+    cats = {c.pk: c.tax_income_type for c in IncomeCategory.objects.all()}
+    qs = Payment.objects.filter(month__year__year=year).select_related('organisation')
+    return [p for p in qs if cats[p.category_id] in types]
+
+
+def _converted(payments):
+    return [p for p in payments if p.conversion_status == Payment.ConversionStatus.CONVERTED]
+
+
+def tax_checks(year: int, settings: AssessmentSettings | None = None):
+    settings = settings or AssessmentSettings.load()
+    results = []
+
+    capital = _typed_payments(year, {TaxIncomeType.CAPITAL})
+    income = sum((p.gross_eur for p in _converted(capital)), ZERO)
+    allowance = SPARER_PAUSCHBETRAG * (2 if settings.joint_assessment else 1)
+    used = min(allowance, max(income, ZERO))
+    results.append(CheckResult(
+        'Sparer-Pauschbetrag (section 20(9) EStG)', income,
+        f'Allowance {allowance:,.0f} EUR ({"joint" if settings.joint_assessment else "single"} assessment)',
+        f'Allowance used {used:,.2f} EUR, remaining {allowance - used:,.2f} EUR; capital income above the allowance {max(income - allowance, ZERO):,.2f} EUR',
+        'Gross EUR capital income of all mapped capital categories, including foreign. Tax already withheld and foreign tax are not modelled. '
+        'Actual costs cannot be deducted for capital income.'))
+
+    sales = _typed_payments(year, {TaxIncomeType.PRIVATE_SALE})
+    total = sum((p.gross_eur for p in _converted(sales)), ZERO)
+    if total < FREIGRENZE_PRIVATE_SALES:
+        outcome = ('Net loss for the year: it can only offset private sale gains of the same year.' if total < 0 else
+                   'Below the Freigrenze: no tax under section 23 on these gains.')
+    else:
+        outcome = 'At or above the Freigrenze: the WHOLE gain is taxable under section 23 (holding-period conditions not checked).'
+    results.append(CheckResult(
+        'Private sale gains Freigrenze (section 23(3) EStG)', total, f'Freigrenze {FREIGRENZE_PRIVATE_SALES:,.0f} EUR per person (all-or-nothing)',
+        outcome, 'Enter the GAIN (proceeds minus cost) as the payment amount, and losses as corrections. Holding periods (1 year / 10 years) are not checked.'))
+
+    results.append(CheckResult(
+        'Flat tax on capital income (section 32d(1) EStG)', None, f'Rate {FLAT_TAX_PCT} % (reference)',
+        'No amount calculated', 'Reduced by creditable foreign tax per section 32d(5); surcharges and exceptions not applied.'))
+    return results
+
+
+def tax_summary_rows(year=None):
+    """One row per income type and country (information only)."""
+    cats = {c.pk: c.tax_income_type for c in IncomeCategory.objects.all()}
+    qs = Payment.objects.select_related('organisation')
+    if year:
+        qs = qs.filter(month__year__year=year)
+    groups = defaultdict(list)
+    for p in qs:
+        groups[(cats[p.category_id], p.organisation.country)].append(p)
+    labels = dict(TaxIncomeType.choices)
+    rows = []
+    for (itype, country), group in groups.items():
+        converted = _converted(group)
+        by_ccy = defaultdict(lambda: ZERO)
+        for p in group:
+            by_ccy[p.currency] += p.gross_amount
+        flags = []
+        if not itype:
+            flags.append('Category not mapped to an income type: left out of the checks.')
+        if not country:
+            flags.append('Organisation country not set.')
+        elif country != 'DE':
+            flags.append('Foreign source: treaty treatment and foreign-tax credit not applied.')
+        rows.append({
+            'income_type': labels.get(itype, 'Not mapped'), 'country': country or '(not set)', 'payments': len(group),
+            'gross_eur': sum((p.gross_eur for p in converted), ZERO),
+            'original': '; '.join(f'{c} {a:,.2f}' for c, a in sorted(by_ccy.items())),
+            'unconverted': len(group) - len(converted),
+            'manual_rates': sum(1 for p in converted if p.rate_source == 'manual'),
+            'flags': ' '.join(flags)})
+    rows.sort(key=lambda r: (r['income_type'] == 'Not mapped', r['income_type'], r['country']))
+    return rows, qs

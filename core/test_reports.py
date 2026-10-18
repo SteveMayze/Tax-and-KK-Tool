@@ -53,6 +53,15 @@ def build_dataset():
     return p
 
 
+# The Phase 6 reports. Policy-based reports (SBK, tax) are tested in test_policies_*.py: the SBK
+# estimate exists only for years with verified parameters (2026).
+BASE_KEYS = ['annual', 'monthly', 'payments', 'organisation', 'category', 'currency', 'normalised', 'reconciliation']
+
+
+def base_specs():
+    return [reports.REPORTS[k] for k in BASE_KEYS]
+
+
 def wipe(keep=()):
     """Delete payments except `keep`, corrections first (corrected payments are protected)."""
     Payment.objects.exclude(pk__in=keep).exclude(kind='normal').delete()
@@ -207,7 +216,7 @@ class ReportNumbersTests(TestCase):
 
     def test_reports_are_reproducible_and_read_only(self):
         before = (Payment.objects.count(), list(Payment.objects.values_list('gross_eur', 'rate')))
-        for spec in reports.REPORTS.values():
+        for spec in base_specs():
             year = 2024 if spec.needs_year else None
             a, b = spec.build(year), spec.build(year)
             self.assertEqual((a.rows, a.totals, a.basis), (b.rows, b.totals, b.basis), spec.key)
@@ -215,7 +224,7 @@ class ReportNumbersTests(TestCase):
 
     def test_empty_database_reports(self):
         wipe()
-        for spec in reports.REPORTS.values():
+        for spec in base_specs():
             rep = spec.build(2024 if spec.needs_year else None)
             self.assertIsNotNone(rep.basis, spec.key)
         self.assertEqual(reports.annual_summary().rows, [])
@@ -318,7 +327,7 @@ class ReportViewTests(TestCase):
 
     def test_login_required_everywhere(self):
         self.client.logout()
-        urls = [reverse('report_index')] + [reverse(n, args=[k]) for k in reports.REPORTS for n in ('report_view', 'report_csv')]
+        urls = [reverse('report_index')] + [reverse(n, args=[k]) for k in reports.REPORTS for n in ('report_view', 'report_csv')]  # all, incl. policy reports
         for url in urls:
             r = self.client.get(url)
             self.assertEqual(r.status_code, 302, url)
@@ -332,7 +341,7 @@ class ReportViewTests(TestCase):
         self.assertContains(r, 'not stored on the server')
 
     def test_every_report_renders_and_downloads(self):
-        for key, spec in reports.REPORTS.items():
+        for key, spec in [(k, reports.REPORTS[k]) for k in BASE_KEYS]:
             q = '?year=2024'
             r = self.client.get(reverse('report_view', args=[key]) + q)
             self.assertEqual(r.status_code, 200, key)
@@ -395,7 +404,7 @@ class ReportViewTests(TestCase):
         from pathlib import Path
         with tempfile.TemporaryDirectory() as tmp, override_settings(UPLOAD_DIR=tmp):
             counts = Payment.objects.count()
-            for key in reports.REPORTS:
+            for key in BASE_KEYS:
                 self.client.get(reverse('report_csv', args=[key]) + '?year=2024')
             self.assertEqual(Payment.objects.count(), counts)
             self.assertEqual(list(Path(tmp).rglob('*')), [])

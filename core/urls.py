@@ -1,6 +1,7 @@
 from django.urls import path
 
-from . import views, views_lookups, views_imports, views_payments, views_reconciliation, views_reports
+from . import (
+    views, views_assessment, views_imports, views_lookups, views_payments, views_reconciliation, views_reports)
 
 urlpatterns = [
     path('health/', views.health, name='health'),
@@ -35,6 +36,10 @@ urlpatterns = [
     path('imports/<int:pk>/discard/', views_imports.import_discard, name='import_discard'),
     path('imports/<int:pk>/rows/<int:line>/edit/', views_imports.import_row_edit, name='import_row_edit'),
     path('imports/<int:pk>/rows/<int:line>/<str:action>/', views_imports.import_row_toggle, name='import_row_toggle'),
+
+    path('assessment/settings/', views_assessment.assessment_settings, name='assessment_settings'),
+    path('assessment/<int:year>/inputs/', views_assessment.annual_inputs, name='annual_inputs'),
+    path('assessment/<int:year>/inputs/<int:pk>/delete/', views_assessment.annual_input_delete, name='annual_input_delete'),
 
     path('reports/', views_reports.report_index, name='report_index'),
     path('reports/<str:key>/', views_reports.report_view, name='report_view'),

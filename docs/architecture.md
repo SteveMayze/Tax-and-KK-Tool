@@ -1,10 +1,10 @@
-# Architecture (through Phase 6)
+# Architecture (through Phase 7)
 
 Single Django project (`config`) with one app (`core`), SQLite, server-rendered templates, no JavaScript.
 
 ## Layers
 - `core/models.py`: data and invariants (see data-model.md).
-- `core/services/`: calculation and workflow logic, independent of views (`money`, `rates`, `conversion`, `normalisation`, `aggregation`, `lookups`, `reconciliation`, `imports`, `reports`, `report_csv`). Templates only display values.
+- `core/services/`: calculation and workflow logic, independent of views (`money`, `rates`, `conversion`, `normalisation`, `aggregation`, `lookups`, `reconciliation`, `imports`, `reports`, `report_csv`, `policy_reports`) and `core/services/policies/` (`sbk`, `tax`: versioned rule policies, see docs/rules/). Templates only display values.
 - `core/forms.py`: validation of user input. `core/views*.py`: thin request handlers. `core/templates/core/`: pages.
 
 ## Pages (all require login except `/health/`)
@@ -19,6 +19,7 @@ Single Django project (`config`) with one app (`core`), SQLite, server-rendered 
 | `/reconciliation/` | Unconverted, manual-rate, date-differs, no-net and inconsistent payments; explicit bulk "convert pending" action |
 | `/imports/` and `/imports/<id>/...` | CSV import: upload, review/edit rows, confirm, history, original-file download (see imports.md) |
 | `/reports/`, `/reports/<key>/`, `/reports/<key>.csv` | Reports and CSV export (see reporting.md) |
+| `/assessment/settings/`, `/assessment/<y>/inputs/` | Assessment settings (rates, care rate, joint assessment) and per-year costs/months earned |
 | `/organisations/`, `/categories/` | List, add, edit (incl. deactivate), delete (only if unused) |
 | `/display-currency/` | POST: store display currency in the session |
 

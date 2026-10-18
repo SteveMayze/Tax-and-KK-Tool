@@ -39,11 +39,7 @@ Sources (retrieved 2026-10-18):
 ## What I can and cannot say about the "annual total / 12" figure
 Phase 2 decided the opening-page estimate is annual total / 12. SBK-05 and SBK-06 show the assessed monthly amount is built per income type and is **not** always annual / 12. Annual / 12 equals the SBK result only when each income stream was earned in all 12 months and nothing is one-off. The app's figure must therefore stay labelled "average of actuals, not an SBK assessment" until you decide (see below).
 
-## Open items for you
-1. **Rate:** do you have a sick-pay (Krankengeld) entitlement through SBK (general rate 18.4 %), or not (reduced 17.8 %)? Or a mix by income type? YOUR INPUT.
-2. **Care insurance rate:** your child situation (childless 4.2 %, one child 3.6 %, two or more reduced). YOUR INPUT. Plus confirmation of the 3.6 % base (SBK-11 CONFLICT).
-3. **Spouse/partner** statutory-insured or not (SBK-14). YOUR INPUT.
-4. **Monthly figure:** implement SBK-05/SBK-06 per income type (needs a category-to-treatment mapping from you), or keep annual / 12 only.
-5. **Expenses:** rental and other Werbungskosten need recording; capital income uses 51 EUR flat unless you document higher costs.
-6. **Foreign currency:** ask SBK which exchange rate it accepts for foreign income (not found in S2/S3).
-7. **Newer rules:** check whether a BVSz amendment after 2024-03-20 or a new Katalog exists.
+## Implementation status (policy `sbk-contribution-estimate` 1.0)
+Implemented: SBK-01 to SBK-10 and SBK-17 (SBK-11 with SBK's published 3.6 % / 4.2 %). The category-to-treatment mapping, annual costs and months earned are user data. Estimate year: 2026 only. Open items are tracked in [README.md](README.md#still-open-your-input-or-verification).
+
+Interpretation made in code (flagged in every output, to be confirmed with SBK): the annual surplus of self-employed, rental and capital income is divided by the months from "first month" to "last month" entered (default 1 to 12) and applied to those months only. One-off income is spread over the 12 months starting with the month of receipt, including one-offs of the previous year. Negative surpluses count as 0.

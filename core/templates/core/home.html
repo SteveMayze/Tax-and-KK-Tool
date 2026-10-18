@@ -3,7 +3,7 @@
 {% block title %}Years{% endblock %}
 {% block content %}
 <h1>Years</h1>
-<p class="note">Totals: actual payments received, EUR, using each payment's stored exchange rate. Estimated monthly = annual total ÷ 12 (an average of actuals, not a recurring figure; always ÷ 12 even for partial years).</p>
+<p class="note">Totals: actual payments received, EUR, using each payment's stored exchange rate. Estimated monthly = annual total ÷ 12 (an average of actuals, not a recurring figure; always ÷ 12 even for partial years). It is <strong>not</strong> the figure SBK assesses: see the <a href="{% url 'report_view' 'sbk' %}?year=2026">SBK contribution estimate</a>, which follows SBK's allocation rules per income type.</p>
 {% if summaries %}
 <table>
   <thead><tr><th>Year</th><th class="num">Payments</th><th class="num">Gross EUR</th><th class="num">Net EUR</th><th class="num">Est. monthly gross ÷ 12</th><th class="num">Est. monthly net ÷ 12</th><th>Notes</th><th></th></tr></thead>

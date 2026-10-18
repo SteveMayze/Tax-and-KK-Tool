@@ -7,7 +7,9 @@ All models live in `core/models.py`. Money uses `Decimal` (see decisions/0001-de
 | `ReportingYear` | Unique `year`, `notes`. |
 | `ReportingMonth` | FK year, `month` 1-12, unique (year, month). `ReportingMonth.for_date(d)` gets or creates month and year. |
 | `Organisation` | `name`, `country` (ISO alpha-2, optional), `active`. Names are whitespace-normalised and unique case-insensitively, which prevents duplicate spellings. |
-| `IncomeCategory` | Configurable `name`, `active`. Seeded: Salary, Pension, Rental, Interest, Dividends, Capital gains, Other. No taxable/exempt/SBK meaning is attached (Phase 7). |
+| `IncomeCategory` | Configurable `name`, `active`. Seeded: Salary, Pension, Rental, Interest, Dividends, Capital gains, Other. Optional user-chosen `sbk_treatment` and `tax_income_type` mappings; blank = unmapped (never guessed). |
+| `AssessmentSettings` | Single row: health-insurance rate choice and whether SBK confirmed it, care-insurance rate choice, joint tax assessment. |
+| `AnnualInput` | Per year and SBK treatment (self-employed, rental, capital): annual costs in EUR and first/last month earned. |
 | `ExchangeRateRecord` | Append-only rate record: currency, requested date, rate date, rate (EUR per 1 unit), provider, `is_manual`, notes, request URL, response body, retrieval time. Reused for identical provider requests; manual records are always new. |
 | `ConversionEvent` | Append-only audit trail per payment: kind (initial, recalculated, manual correction, currency/date edited, amounts edited), the rate record, rate, rate date and EUR amounts that took effect, the values they replaced, and a reason. Deleted with its payment (records are kept). |
 | `SourceDocument` | An original file a payment came from: name (display only), SHA-256. |

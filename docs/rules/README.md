@@ -27,14 +27,31 @@ Research date: **2026-10-18**. Rules change yearly (rates, limits) and sometimes
 | Currency | Contributions paid in EUR; conversion of foreign income not found (UNVERIFIED) | Conversion practice not verified (SECONDARY only) |
 | Limits | Min 1,318.33 and max 5,812.50 EUR per month in 2026 | Progressive tariff, allowances; not modelled |
 
-## Decisions and confirmations needed from you (blocking implementation)
-See the end of each document, summarised here:
-1. **Your SBK status** (which contribution rate applies, Pflegeversicherung child status, spouse income). YOUR INPUT.
-2. **Monthly figure rule.** The earlier "annual total / 12" decision does not match SBK's own rules (BVSz §5): rental and capital income are divided by the number of months in which it was earned; one-off income is 1/12 per month for 12 months. CONFLICT with the Phase 2 decision.
-3. **Category mapping.** Each income category must be mapped by you to an SBK treatment and a tax Einkunftsart/Anlage. The app will not guess.
-4. **Expenses.** SBK deducts Werbungskosten for rental/capital income; tax deducts expenses. The app has no expense data today.
-5. **Foreign currency conversion** for SBK and for the tax return: not verified. Ask SBK and/or your tax adviser which rate they accept.
-6. **Tax scope.** Treaty rules (UK, Australia, USA), foreign-tax credit and progression reservation are not verified and are not implemented.
+## Decisions made (2026-10-18) and what was implemented
+| Question | Your decision | Effect |
+|---|---|---|
+| Monthly figure | Implement SBK's rules per income type | `sbk-contribution-estimate` policy; the simple annual / 12 figure stays, labelled as an average of actuals |
+| Health-insurance rate | You are not employed and must ask SBK; meanwhile use the **general rate (18.4 %) as an "affordability rate"** (upper bound) | Setting "Rate confirmed with SBK" is off by default; every output says "NOT confirmed with SBK, upper-bound affordability figure" |
+| Care insurance | **4.2 %** (23 or over, no children) | Default setting; base 3.6 % selectable; reduced rates for several children are not implemented until verified |
+| Tax scope | Information summary + the verified checks | `tax-information` policy: Sparer-Pauschbetrag, private-sale Freigrenze, flat-tax rate as reference. **No tax amount**, no treaty logic |
 
-## How rules will be implemented (after confirmation)
-Each verified rule becomes a separate policy class with a name, version and validity period, its own tests, and the source reference in its docstring. Every result stores the policy versions and assumptions used. Unverified rules are listed in reports as "not applied".
+## Still open (your input or verification)
+1. **Category mapping.** Each category needs your SBK treatment and tax income type (Categories page). Unmapped categories are excluded and listed on every output.
+2. **Months earned.** BVSz section 5(2) divides annual rental/self-employed/capital income by the months it was earned. Which months receive the result is not spelled out; the policy applies it to the months you enter (default January to December). Please confirm this reading with SBK if your income does not run all year.
+3. **Care-insurance base rate (SBK-11 CONFLICT)** and which statute/ordinance sets 3.6 %. The policy uses SBK's published rate.
+4. **Spouse income** (SBK-14), **child deductions**, **ranking of income types** (SBK-16) are not modelled.
+5. **Foreign-currency conversion** for SBK and for tax (SBK-12, TAX-08): ask SBK / your adviser.
+6. **Costs**: enter annual Werbungskosten / Betriebsausgaben per year for rental, self-employed and capital income (Annual inputs page). Tax-side expenses are not modelled (TAX-10).
+7. **Years**: the SBK estimate exists for **2026 only**. Another year needs its parameters verified and added first.
+8. **Newer SBK rules**: check for a BVSz amendment after 2024-03-20 and for SBK rate changes during the year.
+
+## Implemented policies
+| Policy | Version | Rules | Tests |
+|---|---|---|---|
+| `sbk-contribution-estimate` | 1.0 (2026 parameters) | SBK-01 to SBK-10, SBK-17 (SBK-11 using SBK's published rate) | `core/test_policies_sbk.py` (hand-calculated) |
+| `tax-information` | 1.0 | TAX-01, TAX-02, TAX-03 (reference), TAX-04 | `core/test_policies_tax.py` |
+
+Not implemented (unverified or out of scope): TAX-05 to TAX-10, SBK-13 detail, SBK-14, SBK-15 workflow, SBK-16.
+
+## How rules are implemented
+Each verified rule lives in a policy module with a name, version and validity period, its own tests and source references (`core/services/policies/`). Every report built from a policy states the policy version, parameters, assumptions and what was not applied, both on screen and in the CSV. Unverified rules are never coded; they are listed as "not applied". Parameters exist only for verified years.

@@ -312,3 +312,5 @@ REPORTS = {s.key: s for s in [
 
 def available_years():
     return list(ReportingYear.objects.values_list('year', flat=True))
+
+from . import policy_reports  # noqa: E402,F401  registers the policy-based reports in REPORTS
