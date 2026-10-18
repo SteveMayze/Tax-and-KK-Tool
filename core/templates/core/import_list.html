@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Imports{% endblock %}
+{% block content %}
+<h1>CSV imports</h1>
+<p class="note">Nothing is imported at upload. You review every row, fix or exclude problems, and confirm before any payment is created.</p>
+
+<h2>Upload a CSV</h2>
+<form method="post" action="{% url 'import_upload' %}" enctype="multipart/form-data" novalidate>{% csrf_token %}
+  {% for field in form %}<div class="field">{{ field.label_tag }}{{ field }}{% if field.help_text %}<span class="note">{{ field.help_text }}</span>{% endif %}{{ field.errors }}</div>{% endfor %}
+  <button type="submit">Upload and preview</button>
+</form>
+
+<details>
+  <summary>Expected CSV format</summary>
+  <p>UTF-8, comma-separated, first row = column names (any order, case-insensitive). Dates as <code>YYYY-MM-DD</code>; amounts as plain numbers with a decimal point (<code>1234.56</code>, no thousands separators or currency symbols). Up to 5,000 rows and 2 MB.</p>
+  <p>Columns: {% for c in columns %}<code>{{ c }}</code>{% if c in required %}*{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %} (* required).</p>
+  <ul>
+    <li><code>currency</code>: EUR, GBP, AUD or USD. <code>frequency</code>: monthly, quarterly, half_yearly, yearly or one_off.</li>
+    <li><code>gross_amount</code> must be positive (corrections and reversals are entered in the app).</li>
+    <li><code>exchange_rate</code> (optional, EUR per 1 unit of the currency): stored as a manual rate; <code>rate_date</code> optional. Leave empty to have the ECB rate for the payment date looked up. EUR rows never need a rate.</li>
+    <li>Organisations and categories are matched ignoring case; unknown names are flagged as <em>new</em> in the preview.</li>
+  </ul>
+  <p><a href="{% url 'import_template' %}">Download a template with synthetic example rows</a>.</p>
+</details>
+
+<h2>History</h2>
+{% if batches %}
+<table>
+  <thead><tr><th>#</th><th>Uploaded (UTC)</th><th>File</th><th>Status</th><th class="num">Imported</th><th class="num">Skipped</th><th class="num">Unconverted</th><th></th></tr></thead>
+  <tbody>
+  {% for b in batches %}
+  <tr><td>{{ b.pk }}</td><td>{{ b.created_at|date:"Y-m-d H:i" }}</td><td>{{ b.file_name }}</td><td>{{ b.get_status_display }}</td>
+    <td class="num">{% if b.status == 'committed' %}{{ b.imported_count }}{% endif %}</td>
+    <td class="num">{% if b.status == 'committed' %}{{ b.skipped_count }}{% endif %}</td>
+    <td class="num">{% if b.status == 'committed' %}{{ b.unconverted_count }}{% endif %}</td>
+    <td><a href="{% url 'import_preview' b.pk %}">{% if b.status == 'preview' %}Review{% else %}View{% endif %}</a>{% if b.stored_path %} &middot; <a href="{% url 'import_file' b.pk %}">Original file</a>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p>No imports yet.</p>{% endif %}
+{% endblock %}

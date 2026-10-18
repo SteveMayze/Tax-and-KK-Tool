@@ -58,6 +58,12 @@ def stored_quote(provider: RateProvider, currency, on_date) -> RateQuote | None:
     return RateQuote(currency, on_date, rec.rate_date, rec.rate, rec.provider, rec.source_url, rec.raw_response)
 
 
+def quote_notes(quote: RateQuote) -> str:
+    """Label a provider rate whose date differs from the requested date."""
+    return (f'Rate date {quote.rate_date} differs from payment date {quote.requested_date} '
+            f'(nearest earlier rate supplied by provider).' if quote.date_differs else '')
+
+
 def compute_conversion(payment: Payment, provider: RateProvider | None = None, manual_rate=None,
                        manual_rate_date: datetime.date | None = None, manual_note: str = '',
                        refresh: bool = False) -> Conversion:
@@ -87,10 +93,8 @@ def compute_conversion(payment: Payment, provider: RateProvider | None = None, m
             raise ConversionError(f'Could not obtain {payment.currency} rate for {payment.payment_date}: {e}') from e
     if quote.rate <= 0:
         raise ConversionError(f'Provider returned an invalid rate ({quote.rate}).')
-    notes = (f'Rate date {quote.rate_date} differs from payment date {quote.requested_date} '
-             f'(nearest earlier rate supplied by provider).' if quote.date_differs else '')
     return Conversion(
-        quote.rate, quote.rate_date, quote.provider, False, notes,
+        quote.rate, quote.rate_date, quote.provider, False, quote_notes(quote),
         for_storage(eur_amount(payment.gross_amount, quote.rate)),
         for_storage(eur_amount(payment.net_amount, quote.rate)), quote.source_url, quote.raw_response)
 

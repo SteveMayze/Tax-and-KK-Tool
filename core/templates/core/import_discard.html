@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Discard import{% endblock %}
+{% block content %}
+<h1>Discard import #{{ batch.pk }}?</h1>
+<p class="warn">The staged rows and the stored copy of the uploaded file will be deleted. No payments exist from this import yet, so none are affected.</p>
+<form method="post">{% csrf_token %}<button type="submit" class="danger">Yes, discard</button> <a href="{% url 'import_preview' batch.pk %}">Cancel</a></form>
+{% endblock %}

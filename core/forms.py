@@ -1,4 +1,5 @@
 from django import forms
+from django.conf import settings
 
 from .currencies import BASE_CURRENCY, SUPPORTED_CURRENCIES
 from .models import IncomeCategory, Organisation, Payment, ReportingYear
@@ -136,3 +137,25 @@ class ManualCorrectionForm(forms.Form):
         if not reason:
             raise forms.ValidationError('A reason is required.')
         return reason
+
+
+class ImportUploadForm(forms.Form):
+    file = forms.FileField(label='CSV file', help_text='UTF-8 CSV with a header row; see the format description below.')
+
+    def clean_file(self):
+        f = self.cleaned_data['file']
+        if f.size > settings.IMPORT_MAX_BYTES:
+            raise forms.ValidationError(f'File is larger than {settings.IMPORT_MAX_BYTES // 1024 // 1024} MB.')
+        return f
+
+
+class ImportRowForm(forms.Form):
+    """One text field per CSV column; values are re-validated by the import service."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .services.imports import COLUMNS, REQUIRED
+        for name in COLUMNS:
+            self.fields[name] = forms.CharField(
+                required=False, label=name + (' *' if name in REQUIRED else ''), max_length=1000,
+                widget=forms.Textarea(attrs={'rows': 2}) if name == 'comment' else forms.TextInput())

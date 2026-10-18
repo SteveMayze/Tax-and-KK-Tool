@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Edit line {{ row.line_number }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'import_preview' batch.pk %}">&larr; Import #{{ batch.pk }}</a></p>
+<h1>Edit line {{ row.line_number }}</h1>
+<p class="note">Values are checked with the same rules as the payment form when you save. The original uploaded values stay on record.</p>
+{% for e in row.errors %}<div role="alert" class="msg error">{{ e }}</div>{% endfor %}
+<form method="post" novalidate>{% csrf_token %}
+  {% for field in form %}<div class="field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+  <button type="submit">Save and re-check</button>
+</form>
+{% endblock %}

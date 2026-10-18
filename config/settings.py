@@ -127,6 +127,11 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
+# Uploaded import files live here (git-ignored, never served publicly). Use an absolute path in production.
+UPLOAD_DIR = os.environ.get('DJANGO_UPLOAD_DIR', str(BASE_DIR / 'local' / 'uploads'))
+IMPORT_MAX_BYTES = 2 * 1024 * 1024
+IMPORT_MAX_ROWS = 5000
+
 # Exchange-rate provider (dotted path). Default: ECB reference rates via Frankfurter.
 # Set DJANGO_RATE_PROVIDER=core.services.rates.ManualOnlyProvider to work offline (manual rates only).
 RATE_PROVIDER = os.environ.get('DJANGO_RATE_PROVIDER', 'core.services.frankfurter.FrankfurterProvider')

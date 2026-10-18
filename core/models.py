@@ -100,21 +100,83 @@ class IncomeCategory(models.Model):
 
 
 class SourceDocument(models.Model):
-    """Minimal placeholder; fleshed out in Phase 5 (imports)."""
+    """An original file a payment came from (kept under UPLOAD_DIR, never publicly served)."""
     description = models.CharField(max_length=300, blank=True)
+    file_name = models.CharField(max_length=255, blank=True, help_text='Name as uploaded; display only.')
+    sha256 = models.CharField(max_length=64, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.description or f'Document {self.pk}'
+        return self.description or self.file_name or f'Document {self.pk}'
 
 
 class ImportBatch(models.Model):
-    """Minimal placeholder; fleshed out in Phase 5 (imports)."""
+    """One CSV upload: staged, reviewed, then committed or discarded (see docs/imports.md)."""
+    class Status(models.TextChoices):
+        PREVIEW = 'preview', 'Preview (not imported)'
+        COMMITTED = 'committed', 'Imported'
+        DISCARDED = 'discarded', 'Discarded'
+
     description = models.CharField(max_length=300, blank=True)
+    file_name = models.CharField(max_length=255, blank=True, help_text='Name as uploaded; display only.')
+    sha256 = models.CharField(max_length=64, blank=True)
+    stored_path = models.CharField(max_length=500, blank=True, help_text='Relative to UPLOAD_DIR.')
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PREVIEW)
+    warnings = models.JSONField(default=list, blank=True)
+    imported_count = models.PositiveIntegerField(default=0)
+    skipped_count = models.PositiveIntegerField(default=0)
+    unconverted_count = models.PositiveIntegerField(default=0)
+    source_document = models.ForeignKey(SourceDocument, null=True, blank=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)
+    committed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
 
     def __str__(self):
         return self.description or f'Import batch {self.pk}'
+
+
+class ImportRow(models.Model):
+    """A staged CSV row. Nothing here is a payment until the batch is committed."""
+    class Status(models.TextChoices):
+        VALID = 'valid', 'Valid'
+        INVALID = 'invalid', 'Invalid'
+        DUPLICATE = 'duplicate', 'Possible duplicate'
+
+    batch = models.ForeignKey(ImportBatch, on_delete=models.CASCADE, related_name='rows')
+    line_number = models.PositiveIntegerField(help_text='Line in the file (header is line 1).')
+    data = models.JSONField(help_text='Cell values as text, editable during review.')
+    original = models.JSONField(help_text='Cell values exactly as uploaded.')
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.VALID)
+    errors = models.JSONField(default=list, blank=True)
+    notes = models.JSONField(default=list, blank=True, help_text='Non-blocking flags, e.g. new organisation.')
+    excluded = models.BooleanField(default=False)
+    keep_duplicate = models.BooleanField(default=False)
+    duplicate_of_payment = models.ForeignKey(
+        'Payment', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    duplicate_of_line = models.PositiveIntegerField(null=True, blank=True)
+    # Proposed conversion shown in the preview and applied unchanged at commit.
+    rate_key = models.CharField(max_length=20, blank=True, help_text='currency|payment date the proposal was made for.')
+    rate = models.DecimalField(**RATE, null=True, blank=True)
+    rate_date = models.DateField(null=True, blank=True)
+    rate_provider = models.CharField(max_length=50, blank=True)
+    rate_is_manual = models.BooleanField(default=False)
+    rate_notes = models.TextField(blank=True)
+    rate_source_url = models.CharField(max_length=500, blank=True)
+    rate_raw_response = models.TextField(blank=True)
+    rate_error = models.TextField(blank=True)
+    created_payment = models.ForeignKey('Payment', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+
+    class Meta:
+        ordering = ['line_number']
+        constraints = [models.UniqueConstraint(fields=['batch', 'line_number'], name='unique_batch_line')]
+
+    @property
+    def will_import(self):
+        if self.excluded or self.status == self.Status.INVALID:
+            return False
+        return self.status != self.Status.DUPLICATE or self.keep_duplicate
 
 
 class ExchangeRateRecord(models.Model):

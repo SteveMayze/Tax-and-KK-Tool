@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_lookups, views_payments, views_reconciliation
+from . import views, views_lookups, views_imports, views_payments, views_reconciliation
 
 urlpatterns = [
     path('health/', views.health, name='health'),
@@ -24,6 +24,17 @@ urlpatterns = [
     path('payments/<int:pk>/correct-rate/', views_payments.payment_correct_rate, name='payment_correct_rate'),
     path('reconciliation/', views_reconciliation.reconciliation, name='reconciliation'),
     path('reconciliation/convert-pending/', views_reconciliation.convert_pending_view, name='convert_pending'),
+
+    path('imports/', views_imports.import_list, name='import_list'),
+    path('imports/upload/', views_imports.import_upload, name='import_upload'),
+    path('imports/template.csv', views_imports.import_template, name='import_template'),
+    path('imports/<int:pk>/', views_imports.import_preview, name='import_preview'),
+    path('imports/<int:pk>/file/', views_imports.import_file, name='import_file'),
+    path('imports/<int:pk>/refresh-rates/', views_imports.import_refresh_rates, name='import_refresh_rates'),
+    path('imports/<int:pk>/commit/', views_imports.import_commit, name='import_commit'),
+    path('imports/<int:pk>/discard/', views_imports.import_discard, name='import_discard'),
+    path('imports/<int:pk>/rows/<int:line>/edit/', views_imports.import_row_edit, name='import_row_edit'),
+    path('imports/<int:pk>/rows/<int:line>/<str:action>/', views_imports.import_row_toggle, name='import_row_toggle'),
 
     path('organisations/', views_lookups.lookup_list, {'kind': 'organisation'}, name='organisation_list'),
     path('organisations/new/', views_lookups.lookup_edit, {'kind': 'organisation'}, name='organisation_add'),

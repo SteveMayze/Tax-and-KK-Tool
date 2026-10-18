@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Import {{ batch.pk }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'import_list' %}">&larr; Imports</a></p>
+<h1>Import #{{ batch.pk }} <span class="note">({{ batch.get_status_display }})</span></h1>
+<p class="note">File: {{ batch.file_name }}, uploaded {{ batch.created_at|date:"Y-m-d H:i" }} UTC.{% if batch.stored_path %} <a href="{% url 'import_file' batch.pk %}">Original file</a>{% endif %}</p>
+{% for w in batch.warnings %}<p class="warn">{{ w }}</p>{% endfor %}
+
+<p>
+  {{ summary.total }} row(s): <strong>{{ summary.importing }}</strong> to import
+  ({{ summary.converted }} with a rate, {{ summary.unconverted }} without),
+  {{ summary.invalid }} invalid, {{ summary.duplicates_skipped }} duplicate(s) skipped, {{ summary.excluded }} excluded.
+</p>
+
+{% if editable %}
+<p>
+  <a href="{% url 'import_commit' batch.pk %}">Review and import&hellip;</a> &middot;
+  <a href="{% url 'import_discard' batch.pk %}">Discard</a> &middot;
+  <form method="post" action="{% url 'import_refresh_rates' batch.pk %}" class="inline">{% csrf_token %}<button type="submit">Request exchange rates again</button></form>
+</p>
+{% endif %}
+<p>Show: {% if show == 'problems' %}<a href="?show=all">all rows</a> | <strong>rows needing attention</strong>{% else %}<strong>all rows</strong> | <a href="?show=problems">rows needing attention</a>{% endif %}</p>
+
+<table>
+  <thead><tr><th>Line</th><th>Status</th><th>Date</th><th>Organisation / category</th><th class="num">Gross</th><th class="num">Net</th><th>Freq.</th><th>Proposed conversion</th><th>Messages</th>{% if editable %}<th></th>{% endif %}</tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr{% if r.excluded %} style="opacity:.55"{% endif %}>
+    <td>{{ r.line_number }}</td>
+    <td>{% if r.excluded %}Excluded{% elif r.created_payment %}<a href="{% url 'payment_detail' r.created_payment.pk %}">Imported</a>{% else %}{{ r.get_status_display }}{% if r.status == 'duplicate' %}{% if r.keep_duplicate %} (kept){% else %} (skipped){% endif %}{% endif %}{% endif %}</td>
+    <td>{{ r.data.payment_date }}</td>
+    <td>{{ r.data.organisation }}<br><span class="note">{{ r.data.category }}</span></td>
+    <td class="num">{{ r.data.gross_amount }} {{ r.data.currency }}</td>
+    <td class="num">{{ r.data.net_amount }}</td>
+    <td>{{ r.data.frequency }}</td>
+    <td>
+      {% if r.rate %}{{ r.rate|rate }} ({{ r.rate_provider }}{% if r.rate_date %}, {{ r.rate_date|date:"Y-m-d" }}{% endif %})<br>
+        {% if r.proposed_eur is not None %}= {{ r.proposed_eur|money }} EUR{% endif %}
+        {% if r.rate_notes %}<br><span class="note">{{ r.rate_notes }}</span>{% endif %}
+      {% elif r.rate_error %}<span class="note">{{ r.rate_error }}<br>Would be imported unconverted.</span>
+      {% elif r.excluded or r.status == 'invalid' %}&mdash;{% else %}&mdash;{% endif %}
+    </td>
+    <td>
+      {% for e in r.errors %}<div role="alert" class="msg error">{{ e }}</div>{% endfor %}
+      {% for n in r.notes %}<div class="note">{{ n }}</div>{% endfor %}
+      {% if r.status == 'duplicate' %}<div class="warn">Same date, organisation, currency and gross amount as
+        {% if r.duplicate_of_payment %}<a href="{% url 'payment_detail' r.duplicate_of_payment.pk %}">an existing payment</a>{% else %}line {{ r.duplicate_of_line }} of this file{% endif %}.</div>{% endif %}
+    </td>
+    {% if editable %}
+    <td>
+      <a href="{% url 'import_row_edit' batch.pk r.line_number %}">Edit</a>
+      <form method="post" action="{% url 'import_row_toggle' batch.pk r.line_number 'include' %}" class="inline" {% if not r.excluded %}hidden{% endif %}>{% csrf_token %}<button type="submit">Include</button></form>
+      <form method="post" action="{% url 'import_row_toggle' batch.pk r.line_number 'exclude' %}" class="inline" {% if r.excluded %}hidden{% endif %}>{% csrf_token %}<button type="submit">Exclude</button></form>
+      {% if r.status == 'duplicate' and not r.excluded %}
+        {% if r.keep_duplicate %}<form method="post" action="{% url 'import_row_toggle' batch.pk r.line_number 'skip' %}" class="inline">{% csrf_token %}<button type="submit">Skip duplicate</button></form>
+        {% else %}<form method="post" action="{% url 'import_row_toggle' batch.pk r.line_number 'keep' %}" class="inline">{% csrf_token %}<button type="submit">Keep anyway</button></form>{% endif %}
+      {% endif %}
+    </td>
+    {% endif %}
+  </tr>
+  {% empty %}<tr><td colspan="10">No rows to show.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
