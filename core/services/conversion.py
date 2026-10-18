@@ -98,3 +98,15 @@ def convert_payment(payment: Payment, provider: RateProvider | None = None, manu
     payment.conversion_status = Payment.ConversionStatus.CONVERTED
     payment.save()
     return payment
+
+
+@transaction.atomic
+def reapply_stored_rate(payment: Payment) -> Payment:
+    """After amounts change (same currency and payment date), recompute EUR with the STORED rate.
+    The rate itself is not replaced."""
+    if payment.conversion_status != Payment.ConversionStatus.CONVERTED or payment.rate is None:
+        raise ConversionError('Payment has no stored rate to reapply.')
+    payment.gross_eur = for_storage(eur_amount(payment.gross_amount, payment.rate))
+    payment.net_eur = for_storage(eur_amount(payment.net_amount, payment.rate))
+    payment.save()
+    return payment

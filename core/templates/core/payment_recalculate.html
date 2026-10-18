@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Recalculate payment{% endblock %}
+{% block content %}
+<p><a href="{% url 'payment_detail' p.pk %}">&larr; Payment</a></p>
+<h1>{% if p.conversion_status == 'converted' %}Recalculate{% else %}Convert{% endif %} payment</h1>
+<p>{{ p.payment_date|date:"Y-m-d" }}, {{ p.organisation }}: gross {{ p.gross_amount|money }} {{ p.currency }}.</p>
+{% if p.conversion_status == 'converted' %}
+<p class="warn">Current stored rate: {{ p.rate|rate }} ({{ p.rate_source }}, {{ p.rate_date|date:"Y-m-d" }}), giving {{ p.gross_eur|money }} EUR. Recalculating replaces it for this payment; the previous rate stays on record.</p>
+{% endif %}
+{% if rate_error %}<div role="alert" class="msg error"><strong>Nothing was changed.</strong> {{ rate_error }} You can enter a manual rate below.</div>{% endif %}
+{% if p.currency == 'EUR' %}<p class="note">EUR payments always use rate 1.</p>{% endif %}
+<form method="post" novalidate>{% csrf_token %}
+  {% for field in form %}<div class="field">{{ field.label_tag }}{{ field }}{% if field.help_text %}<span class="note">{{ field.help_text }}</span>{% endif %}{{ field.errors }}</div>{% endfor %}
+  <button type="submit">{% if p.conversion_status == 'converted' %}Recalculate{% else %}Convert{% endif %}</button>
+</form>
+{% endblock %}

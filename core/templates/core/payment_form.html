@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load money lookups %}
+{% block title %}{% if editing %}Edit payment{% else %}Add payment{% endif %}{% endblock %}
+{% block content %}
+<p><a href="{% url 'month_detail' month.year.year month.month %}">&larr; {{ month_name }} {{ month.year.year }}</a></p>
+<h1>{% if editing %}Edit payment{% else %}Add payment{% endif %}</h1>
+<p class="note">The payment date decides the reporting month. Organisation and category: pick an existing name or type a new one.</p>
+
+{% if rate_error %}
+<div role="alert" class="msg error">
+  <strong>No exchange rate could be applied; nothing was saved.</strong> {{ rate_error }}<br>
+  Your input has been kept. Enter a manual rate below and save again.
+</div>
+{% endif %}
+{% if form.non_field_errors %}<div role="alert" class="msg error">{{ form.non_field_errors }}</div>{% endif %}
+
+<form method="post" novalidate>{% csrf_token %}
+  {% for field in form %}
+    {% if field.name != 'manual_rate' and field.name != 'manual_rate_date' and field.name != 'manual_note' %}
+    <div class="field">
+      {{ field.label_tag }}{{ field }}
+      {% if field.help_text %}<span class="note">{{ field.help_text }}</span>{% endif %}
+      {{ field.errors }}
+    </div>
+    {% endif %}
+  {% endfor %}
+
+  <datalist id="organisation-options">{% active_names 'organisation' as orgs %}{% for n in orgs %}<option value="{{ n }}">{% endfor %}</datalist>
+  <datalist id="category-options">{% active_names 'category' as cats %}{% for n in cats %}<option value="{{ n }}">{% endfor %}</datalist>
+
+  <details {% if show_manual %}open{% endif %}>
+    <summary>Exchange rate (manual entry)</summary>
+    {% if editing and payment.conversion_status == 'converted' %}
+    <p class="note">Stored rate: {{ payment.rate|rate }} ({{ payment.rate_source }}, {{ payment.rate_date|date:"Y-m-d" }}). It is kept when only amounts change; if you change the currency or payment date a new rate is required. To replace a rate otherwise, use Recalculate on the payment.</p>
+    {% else %}
+    <p class="note">EUR payments always use rate 1. For other currencies the rate for the payment date is looked up; if none is available, enter one here.</p>
+    {% endif %}
+    {% for field in form %}
+      {% if field.name == 'manual_rate' or field.name == 'manual_rate_date' or field.name == 'manual_note' %}
+      <div class="field">{{ field.label_tag }}{{ field }}
+        {% if field.help_text %}<span class="note">{{ field.help_text }}</span>{% endif %}{{ field.errors }}</div>
+      {% endif %}
+    {% endfor %}
+  </details>
+  <p><button type="submit">Save payment</button></p>
+</form>
+{% endblock %}

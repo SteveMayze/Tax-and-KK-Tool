@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}{{ year.year }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'home' %}">&larr; All years</a></p>
+<h1>{{ year.year }}</h1>
+<p class="note">Basis: actual payments received, EUR, stored rates. Gross and net are separate; payments without a stored conversion are excluded and counted.</p>
+<p>
+  Year total: gross <strong>{{ summary.totals.gross_eur|money }}</strong> EUR, net <strong>{{ summary.totals.net_eur|money }}</strong> EUR
+  ({{ summary.totals.payment_count }} payments).<br>
+  Estimated monthly (annual total ÷ 12, average of actuals): gross <strong>{{ summary.avg.gross_eur|money }}</strong>, net <strong>{{ summary.avg.net_eur|money }}</strong> EUR.
+  {{ summary.months_with_payments }} of 12 months contain payments.
+</p>
+{% if summary.totals.unconverted_count %}<p class="warn">{{ summary.totals.unconverted_count }} payment(s) not converted to EUR are excluded from these totals.</p>{% endif %}
+{% if summary.totals.net_missing_count %}<p class="warn">{{ summary.totals.net_missing_count }} payment(s) have no net amount and are not in the net total.</p>{% endif %}
+
+<table>
+  <thead><tr><th>Month</th><th class="num">Payments</th><th class="num">Gross EUR</th><th class="num">Net EUR</th><th></th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td>{% if r.obj %}<a href="{% url 'month_detail' year.year r.number %}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</td>
+    <td class="num">{{ r.totals.payment_count }}</td>
+    <td class="num">{{ r.totals.gross_eur|money }}</td>
+    <td class="num">{{ r.totals.net_eur|money }}</td>
+    <td>
+      {% if r.obj %}<a href="{% url 'month_delete' year.year r.number %}">Delete month</a>
+      {% else %}<form method="post" action="{% url 'month_add' year.year r.number %}" class="inline">{% csrf_token %}<button type="submit">Add month</button></form>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Notes</h2>
+<form method="post" action="{% url 'year_notes' year.year %}">{% csrf_token %}
+  {{ notes_form.as_p }}<button type="submit">Save notes</button>
+</form>
+<p><a href="{% url 'year_delete' year.year %}">Delete this year&hellip;</a></p>
+{% endblock %}

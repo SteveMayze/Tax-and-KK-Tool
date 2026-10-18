@@ -1,5 +1,36 @@
 {% extends "base.html" %}
+{% load money %}
+{% block title %}Years{% endblock %}
 {% block content %}
-<h1>Welcome</h1>
-<p>Setup complete. Income tracking features are not built yet.</p>
+<h1>Years</h1>
+<p class="note">Totals: actual payments received, EUR, using each payment's stored exchange rate. Estimated monthly = annual total ÷ 12 (an average of actuals, not a recurring figure; always ÷ 12 even for partial years).</p>
+{% if summaries %}
+<table>
+  <thead><tr><th>Year</th><th class="num">Payments</th><th class="num">Gross EUR</th><th class="num">Net EUR</th><th class="num">Est. monthly gross ÷ 12</th><th class="num">Est. monthly net ÷ 12</th><th>Notes</th><th></th></tr></thead>
+  <tbody>
+  {% for s in summaries %}
+  <tr>
+    <td><a href="{% url 'year_detail' s.year.year %}">{{ s.year.year }}</a></td>
+    <td class="num">{{ s.totals.payment_count }}</td>
+    <td class="num">{{ s.totals.gross_eur|money }}</td>
+    <td class="num">{{ s.totals.net_eur|money }}</td>
+    <td class="num">{{ s.avg.gross_eur|money }}</td>
+    <td class="num">{{ s.avg.net_eur|money }}</td>
+    <td class="note">
+      {{ s.months_with_payments }} of 12 months with payments.
+      {% if s.totals.unconverted_count %}<br>Excluded: {{ s.totals.unconverted_count }} unconverted payment(s).{% endif %}
+      {% if s.totals.net_missing_count %}<br>{{ s.totals.net_missing_count }} payment(s) without net amount (not in net total).{% endif %}
+    </td>
+    <td><a href="{% url 'year_delete' s.year.year %}">Delete</a></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p>No years yet. Add one below.</p>{% endif %}
+
+<h2>Add year</h2>
+<form method="post" action="{% url 'year_add' %}">{% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Add year</button>
+</form>
 {% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Confirm delete{% endblock %}
+{% block content %}
+<h1>Delete {{ what }}?</h1>
+<p class="warn">{{ consequence }}</p>
+<form method="post">{% csrf_token %}
+  {% if not blocked %}<button type="submit" class="danger">Yes, delete</button>{% endif %}
+  <a href="{{ cancel_href }}">Cancel</a>
+</form>
+{% endblock %}

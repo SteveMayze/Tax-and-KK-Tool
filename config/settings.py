@@ -126,3 +126,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
+
+# Exchange-rate provider (dotted path). Phase 3: manual entry only; Phase 4 adds the live provider.
+RATE_PROVIDER = 'core.services.rates.ManualOnlyProvider'
+
+TEMPLATES[0]['OPTIONS']['context_processors'].append('core.context_processors.display_currency')

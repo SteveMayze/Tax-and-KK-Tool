@@ -5,22 +5,55 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Tax and Healthcare Tool{% endblock %}</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 1rem auto; padding: 0 1rem; }
-    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; }
-    .note { color: #555; font-size: 0.9rem; }
+    body { font-family: system-ui, sans-serif; max-width: 70rem; margin: 1rem auto; padding: 0 1rem; line-height: 1.4; }
+    header { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: .5rem; }
+    nav a { margin-right: 1rem; }
+    table { border-collapse: collapse; width: 100%; margin: .5rem 0 1rem; }
+    th, td { border-bottom: 1px solid #ddd; padding: .3rem .5rem; text-align: left; vertical-align: top; }
+    td.num, th.num { text-align: right; white-space: nowrap; }
+    .note { color: #555; font-size: .9rem; }
+    .msg { padding: .5rem .75rem; margin: .5rem 0; border-left: 4px solid #2a7; background: #eefaf3; }
+    .msg.error, .errorlist, [role=alert] { border-left-color: #c33; background: #fdeeee; color: #800; }
+    .warn { border-left: 4px solid #c90; background: #fff8e6; padding: .5rem .75rem; margin: .5rem 0; }
+    .inline { display: inline; }
+    form p, form div.field { margin: .6rem 0; }
+    label { display: block; font-weight: 600; }
+    :focus-visible { outline: 3px solid #05c; outline-offset: 2px; }
+    button.danger { color: #900; }
   </style>
 </head>
 <body>
   <header>
-    <strong>Tax and Healthcare Tool</strong>
+    <nav aria-label="Main">
+      <strong>Tax and Healthcare Tool</strong>
+      {% if user.is_authenticated %}
+      <a href="{% url 'home' %}">Years</a>
+      <a href="{% url 'organisation_list' %}">Organisations</a>
+      <a href="{% url 'category_list' %}">Categories</a>
+      {% endif %}
+    </nav>
     {% if user.is_authenticated %}
-    <form method="post" action="{% url 'logout' %}">{% csrf_token %}
-      <span class="note">{{ user.get_username }}</span>
-      <button type="submit">Log out</button>
-    </form>
+    <div>
+      <form method="post" action="{% url 'set_display_currency' %}" class="inline">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <label for="display_currency" class="inline">Display currency</label>
+        <select name="display_currency" id="display_currency">
+          {% for c in display_currencies %}<option value="{{ c }}" {% if c == display_currency %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select>
+        <button type="submit">Set</button>
+      </form>
+      <form method="post" action="{% url 'logout' %}" class="inline">{% csrf_token %}
+        <span class="note">{{ user.get_username }}</span>
+        <button type="submit">Log out</button>
+      </form>
+    </div>
     {% endif %}
   </header>
+  {% if user.is_authenticated and display_unconverted_note %}
+  <p class="warn">Display currency {{ display_currency }} is saved, but no exchange-rate source for display conversion exists yet, so all totals are shown in EUR. Original amounts are always shown in their own currency.</p>
+  {% endif %}
+  {% for m in messages %}<div class="msg {{ m.tags }}" role="status">{{ m }}</div>{% endfor %}
   <main>{% block content %}{% endblock %}</main>
-  <footer class="note">General financial summaries only. Not an official SBK assessment or tax calculation.</footer>
+  <footer class="note"><hr>General financial summaries only. Not an official SBK assessment or tax calculation.</footer>
 </body>
 </html>

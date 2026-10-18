@@ -62,3 +62,19 @@ class FakeRateProvider(RateProvider):
         if key not in self.rates:
             raise RateUnavailable(f'No fake rate for {currency} on {on_date}.')
         return RateQuote(currency, on_date, self.date_overrides.get(key, on_date), self.rates[key], self.name)
+
+
+class ManualOnlyProvider(RateProvider):
+    """Phase 3 default: no live source yet, so every foreign payment needs a manual rate.
+    Replaced by the Frankfurter/ECB provider in Phase 4."""
+    name = 'manual-only'
+
+    def get_rate(self, currency, on_date):
+        raise RateUnavailable('No automatic exchange-rate source is connected yet.')
+
+
+def get_provider() -> RateProvider:
+    """Provider configured by settings.RATE_PROVIDER (dotted path to a RateProvider class)."""
+    from django.conf import settings
+    from django.utils.module_loading import import_string
+    return import_string(settings.RATE_PROVIDER)()

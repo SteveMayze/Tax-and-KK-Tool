@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Payment{% endblock %}
+{% block content %}
+<p><a href="{% url 'month_detail' p.month.year.year p.month.month %}">&larr; {{ month_name }} {{ p.month.year.year }}</a></p>
+<h1>Payment</h1>
+<table>
+  <tr><th>Payment date</th><td>{{ p.payment_date|date:"Y-m-d" }} (reporting month {{ p.month }})</td></tr>
+  <tr><th>Organisation</th><td>{{ p.organisation }}</td></tr>
+  <tr><th>Category</th><td>{{ p.category }}</td></tr>
+  <tr><th>Type</th><td>{{ p.get_kind_display }}{% if p.corrects %} of payment <a href="{% url 'payment_detail' p.corrects.pk %}">#{{ p.corrects.pk }}</a>{% endif %}</td></tr>
+  <tr><th>Frequency</th><td>{{ p.get_frequency_display }}</td></tr>
+  {% if p.income_period_start or p.income_period_end %}<tr><th>Income period</th><td>{{ p.income_period_start|date:"Y-m-d" }} &ndash; {{ p.income_period_end|date:"Y-m-d" }}</td></tr>{% endif %}
+  <tr><th>Original amount</th><td>Gross {{ p.gross_amount|money }} {{ p.currency }}{% if p.net_amount is not None %}; net {{ p.net_amount|money }} {{ p.currency }}{% else %}; net not provided{% endif %}</td></tr>
+  {% if p.conversion_status == 'converted' %}
+  <tr><th>Rate used</th><td>{{ p.rate|rate }} EUR per 1 {{ p.currency }} (rate date {{ p.rate_date|date:"Y-m-d" }}, source: {{ p.rate_source }})</td></tr>
+  <tr><th>EUR amount</th><td>Gross {{ p.gross_eur|money }} EUR{% if p.net_eur is not None %}; net {{ p.net_eur|money }} EUR{% endif %}</td></tr>
+  {% if p.conversion_notes %}<tr><th>Rate notes</th><td>{{ p.conversion_notes }}</td></tr>{% endif %}
+  {% else %}
+  <tr><th>EUR amount</th><td><em>Not converted</em> &mdash; excluded from totals.</td></tr>
+  {% endif %}
+  {% if p.comment %}<tr><th>Comment</th><td>{{ p.comment }}</td></tr>{% endif %}
+</table>
+<p>
+  <a href="{% url 'payment_edit' p.pk %}">Edit</a> &middot;
+  <a href="{% url 'payment_recalculate' p.pk %}">{% if p.conversion_status == 'converted' %}Recalculate (replace rate){% else %}Convert{% endif %}</a> &middot;
+  <a href="{% url 'payment_delete' p.pk %}">Delete</a>
+</p>
+{% endblock %}
