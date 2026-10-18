@@ -1,0 +1,33 @@
+# German income-tax rules relevant to the annual return
+
+Kept separate from SBK rules: the two define income differently (see README). The app does **not** calculate tax. This register records what has and has not been verified so a later phase does not invent rules.
+
+Sources (retrieved 2026-10-18), all on https://www.gesetze-im-internet.de/ unless noted:
+- [T1] EStG §2 (estg/__2.html), §2a, §20 (estg/__20.html), §21, §22, §23 (estg/__23.html), §32b (estg/__32b.html), §32d (estg/__32d.html), §34d (estg/__34d.html)
+- [T2] Secondary guides (Haufe, lohnsteuer-kompakt.de, steuergo.de) for currency conversion and holding periods: **not authoritative**
+
+## Rules
+| ID | Rule | Source | Status |
+|---|---|---|---|
+| TAX-01 | For business, farming and self-employment income the **profit** is taxed; for the other Einkunftsarten (employment, capital, rental, other) the **surplus of receipts over Werbungskosten**. For capital income §20(9) replaces the normal Werbungskosten rules. | T1 §2(2) | VERIFIED |
+| TAX-02 | **Sparer-Pauschbetrag: 1,000 EUR** (2,000 EUR jointly assessed) deducted from capital income; actual costs are excluded. It cannot exceed the netted capital income. | T1 §20(9) | VERIFIED |
+| TAX-03 | **Flat tax on capital income 25 %** (plus solidarity surcharge and church tax where applicable), reduced by creditable foreign tax per §32d(5). | T1 §32d(1) | VERIFIED (surcharge, church tax and the exceptions in §32d(2) not analysed) |
+| TAX-04 | **Private sale gains (§23):** if the total gain of the calendar year is **less than 1,000 EUR** (Freigrenze, since 2024; 600 EUR before), none is taxed; at or above 1,000 EUR the whole gain is taxable. Losses only offset gains of the same type and year. | T1 §23(3) | VERIFIED for the Freigrenze and loss rule. Holding periods (1 year for assets such as crypto, 10 years for property) from T2 only: SECONDARY |
+| TAX-05 | **Foreign income:** definition of foreign income for credit purposes is in §34d; credit/deduction of foreign tax in §34c. Whether and how foreign income is taxable depends on the **double-taxation treaty** with the source country (UK, Australia, USA). | T1 §34d; §34c not read | **UNVERIFIED**: no treaty text read; do not implement |
+| TAX-06 | **Progression reservation (§32b):** income exempt in Germany under a treaty may still raise the tax rate on other income. | T1 §32b | Rule exists (VERIFIED); applicability to the user's income **UNVERIFIED** |
+| TAX-07 | **Negative foreign income** may be restricted (§2a, third-country losses). | T1 §2a | Rule exists; scope not analysed. UNVERIFIED |
+| TAX-08 | **Currency conversion for the return:** per T2, foreign income is converted at the rate for the day of payment (ECB reference rate acceptable), with the simplification of the BMF monthly "Umsatzsteuer-Umrechnungskurse" (R 34c EStR), and a BMF letter (03.05.2018) accepting an annual average for wages in foreign currency. | T2 only | **SECONDARY / UNVERIFIED**: the original EStR/BMF texts were not read; do not implement. Note this matches the app's current approach (payment-date ECB rate) only if confirmed |
+| TAX-09 | **Which Anlage** (N, KAP, V, SO, AUS, etc.) each income belongs on, and whether a foreign pension, UK interest or Australian rental income is taxable in Germany. | not researched | **UNVERIFIED / YOUR INPUT** |
+| TAX-10 | **Expenses** (rental costs, depreciation, work costs): need the user's records; the app stores none. | EStG §9, §9a, §7 not read | UNVERIFIED; needs a data-model decision |
+
+## What this means for the app
+- Verified and simple enough to implement as separate policies: TAX-02 (Sparer-Pauschbetrag cap), TAX-03 (rate, informational), TAX-04 (Freigrenze check).
+- Not implementable now: anything involving treaties, foreign-tax credit, progression reservation, conversion rules, Anlage mapping. These need your adviser or the original texts.
+- The sensible output for the return is an **informational summary per income type and country** (gross received, converted amounts, rates and dates used, flagged items) for you or your adviser, not a tax figure.
+
+## Open items for you
+1. **Scope of tax support:** (a) per-income-type, per-country information summary mapped to the forms you choose, no tax figures; (b) additionally the three verified checks (TAX-02/03/04); (c) none, only SBK.
+2. **Mapping:** which category/organisation belongs to which Einkunftsart/Anlage and country; whether each is taxable in Germany. YOUR INPUT.
+3. **Currency conversion for tax:** confirm with your adviser/Finanzamt guidance which rate to use; the app currently stores the ECB rate of the payment date.
+4. **Expenses** and **marital/joint assessment** status (affects Sparer-Pauschbetrag and Freigrenze).
+5. **Foreign treaty questions** (UK, AU, US) are for a tax adviser; the app will list them as "not applied".
