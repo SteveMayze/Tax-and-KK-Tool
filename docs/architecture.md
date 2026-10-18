@@ -1,10 +1,10 @@
-# Architecture (through Phase 5)
+# Architecture (through Phase 6)
 
 Single Django project (`config`) with one app (`core`), SQLite, server-rendered templates, no JavaScript.
 
 ## Layers
 - `core/models.py`: data and invariants (see data-model.md).
-- `core/services/`: calculation and workflow logic, independent of views (`money`, `rates`, `conversion`, `normalisation`, `aggregation`, `lookups`, `reconciliation`, `imports`). Templates only display values.
+- `core/services/`: calculation and workflow logic, independent of views (`money`, `rates`, `conversion`, `normalisation`, `aggregation`, `lookups`, `reconciliation`, `imports`, `reports`, `report_csv`). Templates only display values.
 - `core/forms.py`: validation of user input. `core/views*.py`: thin request handlers. `core/templates/core/`: pages.
 
 ## Pages (all require login except `/health/`)
@@ -18,6 +18,7 @@ Single Django project (`config`) with one app (`core`), SQLite, server-rendered 
 | `/payments/<id>/correct-rate/` | Manual rate entry/correction; reason mandatory |
 | `/reconciliation/` | Unconverted, manual-rate, date-differs, no-net and inconsistent payments; explicit bulk "convert pending" action |
 | `/imports/` and `/imports/<id>/...` | CSV import: upload, review/edit rows, confirm, history, original-file download (see imports.md) |
+| `/reports/`, `/reports/<key>/`, `/reports/<key>.csv` | Reports and CSV export (see reporting.md) |
 | `/organisations/`, `/categories/` | List, add, edit (incl. deactivate), delete (only if unused) |
 | `/display-currency/` | POST: store display currency in the session |
 

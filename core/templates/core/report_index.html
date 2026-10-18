@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h1>Reports</h1>
+<p class="note">General financial summaries from saved data, in EUR at each payment's stored rate. Not an official SBK assessment or tax calculation. Each report states its basis; CSV downloads include the same basis block. Exports are generated on demand and are not stored on the server.</p>
+<form method="get" id="period">
+  <label for="year" class="inline">Period</label>
+  <select name="year" id="year">
+    <option value="all">All years</option>
+    {% for y in years %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
+  </select>
+  <span class="note">Applied when you open a report below (monthly and normalised reports need a specific year).</span>
+</form>
+<table>
+  <thead><tr><th>Report</th><th>Contents</th><th></th></tr></thead>
+  <tbody>
+  {% for s in specs %}
+  <tr>
+    <td>{{ s.title }}{% if s.needs_year %} <span class="note">(needs a year)</span>{% endif %}</td>
+    <td>{{ s.description }}</td>
+    <td><a href="{% url 'report_view' s.key %}" class="report-link" data-needs-year="{{ s.needs_year|yesno:'1,0' }}">View</a>
+        &middot; <a href="{% url 'report_csv' s.key %}" class="report-link">CSV</a></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="note">Links open with the period chosen above.</p>
+<script>
+  // Progressive enhancement only: without JavaScript the links open "All years" and the
+  // report page itself has a period selector.
+  (function () {
+    var sel = document.getElementById('year');
+    function apply() {
+      document.querySelectorAll('.report-link').forEach(function (a) {
+        var base = a.getAttribute('href').split('?')[0];
+        a.setAttribute('href', base + '?year=' + encodeURIComponent(sel.value));
+      });
+    }
+    sel.addEventListener('change', apply); apply();
+  })();
+</script>
+{% endblock %}

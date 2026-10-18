@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ report.title }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'report_index' %}">&larr; Reports</a></p>
+<h1>{{ report.title }}</h1>
+<form method="get" class="inline">
+  <label for="year" class="inline">Period</label>
+  <select name="year" id="year">
+    {% if not spec.needs_year %}<option value="all" {% if not year %}selected{% endif %}>All years</option>{% endif %}
+    {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+  </select>
+  <button type="submit">Show</button>
+</form>
+<a href="{% url 'report_csv' report.key %}?year={{ year|default:'all' }}">Download CSV</a>
+
+<h2>Basis</h2>
+<dl>
+  {% for label, text in report.basis %}<dt><strong>{{ label }}</strong></dt><dd>{{ text }}</dd>{% endfor %}
+</dl>
+{% for n in report.notes %}<p class="note">{{ n }}</p>{% endfor %}
+
+{% if rows %}
+<table>
+  <thead><tr>{% for label, cls in headers %}<th class="{{ cls }}">{{ label }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for row in rows %}<tr>{% for text, cls in row %}<td class="{{ cls }}">{{ text }}</td>{% endfor %}</tr>{% endfor %}
+  {% if totals %}<tr style="font-weight:600">{% for text, cls in totals %}<td class="{{ cls }}">{{ text }}</td>{% endfor %}</tr>{% endif %}
+  </tbody>
+</table>
+{% else %}<p>No data for this period.</p>{% endif %}
+<p class="note">Generated {{ report.generated_at|date:"Y-m-d H:i" }} UTC from saved data.</p>
+{% endblock %}
