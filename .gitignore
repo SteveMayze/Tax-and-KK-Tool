@@ -1,0 +1,50 @@
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Databases
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite
+*.db
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Private local data: ignore contents, keep placeholder READMEs
+local/*
+!local/README.md
+!local/*/
+local/*/*
+!local/*/README.md
+
+# Private fixtures, uploads, exports, OCR output
+*.ocr.txt
+ocr_output/
+reports/
+/exports/
+/uploads/
+media/
+staticfiles/
+
+# Temp / OS / editor
+*.tmp
+*.log
+.DS_Store
+.idea/
+.vscode/

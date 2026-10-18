@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Tax and Healthcare Tool{% endblock %}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 1rem auto; padding: 0 1rem; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; }
+    .note { color: #555; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Tax and Healthcare Tool</strong>
+    {% if user.is_authenticated %}
+    <form method="post" action="{% url 'logout' %}">{% csrf_token %}
+      <span class="note">{{ user.get_username }}</span>
+      <button type="submit">Log out</button>
+    </form>
+    {% endif %}
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+  <footer class="note">General financial summaries only. Not an official SBK assessment or tax calculation.</footer>
+</body>
+</html>
