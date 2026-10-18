@@ -42,8 +42,9 @@ Research date: **2026-10-18**. Rules change yearly (rates, limits) and sometimes
 4. **Spouse income** (SBK-14), **child deductions**, **ranking of income types** (SBK-16) are not modelled.
 5. **Foreign-currency conversion** for SBK and for tax (SBK-12, TAX-08): ask SBK / your adviser.
 6. **Costs**: enter annual Werbungskosten / Betriebsausgaben per year for rental, self-employed and capital income (Annual inputs page). Tax-side expenses are not modelled (TAX-10).
-7. **Years**: the SBK estimate exists for **2026 only**. Another year needs its parameters verified and added first.
+7. **Years**: the SBK estimate exists for **2026 only**. 2025 is waiting for SBK's answers to the open questions above before its parameters are verified and added.
 8. **Newer SBK rules**: check for a BVSz amendment after 2024-03-20 and for SBK rate changes during the year.
+9. **Deferred by the owner:** PDF extraction (Phase 5 part 2) and the CLAUDE.md update for the new import design; SBK's answers will be supplied by the owner when available.
 
 ## Implemented policies
 | Policy | Version | Rules | Tests |

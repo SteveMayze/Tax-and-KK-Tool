@@ -9,6 +9,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
 
+from core.currencies import CURRENCY_COUNTRY
 from core.models import AssessmentSettings, IncomeCategory, Payment, TaxIncomeType
 
 POLICY_NAME = 'tax-information'
@@ -75,6 +76,15 @@ def tax_checks(year: int, settings: AssessmentSettings | None = None):
     return results
 
 
+def effective_country(payment):
+    """(country, inferred). The organisation's own country wins; a blank one falls back to the
+    payment currency's country (AUD -> AU, GBP -> GB, USD -> US). EUR is never inferred."""
+    if payment.organisation.country:
+        return payment.organisation.country, False
+    inferred = CURRENCY_COUNTRY.get(payment.currency, '')
+    return inferred, bool(inferred)
+
+
 def tax_summary_rows(year=None):
     """One row per income type and country (information only)."""
     cats = {c.pk: c.tax_income_type for c in IncomeCategory.objects.all()}
@@ -82,8 +92,11 @@ def tax_summary_rows(year=None):
     if year:
         qs = qs.filter(month__year__year=year)
     groups = defaultdict(list)
+    inferred_in = defaultdict(int)
     for p in qs:
-        groups[(cats[p.category_id], p.organisation.country)].append(p)
+        country, inferred = effective_country(p)
+        groups[(cats[p.category_id], country)].append(p)
+        inferred_in[(cats[p.category_id], country)] += inferred
     labels = dict(TaxIncomeType.choices)
     rows = []
     for (itype, country), group in groups.items():
@@ -95,8 +108,12 @@ def tax_summary_rows(year=None):
         if not itype:
             flags.append('Category not mapped to an income type: left out of the checks.')
         if not country:
-            flags.append('Organisation country not set.')
-        elif country != 'DE':
+            flags.append('Organisation country not set (EUR payments need it set on the organisation).')
+        else:
+            if inferred_in[(itype, country)]:
+                flags.append(f'Country taken from the payment currency for {inferred_in[(itype, country)]} payment(s); '
+                             'set it on the organisation to override.')
+        if country and country != 'DE':
             flags.append('Foreign source: treaty treatment and foreign-tax credit not applied.')
         rows.append({
             'income_type': labels.get(itype, 'Not mapped'), 'country': country or '(not set)', 'payments': len(group),

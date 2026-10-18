@@ -4,6 +4,7 @@ from decimal import Decimal as D
 
 from django.test import TestCase
 
+from core.currencies import CURRENCY_COUNTRY
 from core.models import AssessmentSettings, IncomeCategory, Organisation, Payment
 from core.services import report_csv, reports
 from core.services.conversion import convert_payment
@@ -167,6 +168,7 @@ class TaxSummaryTests(TestCase):
         self.assertIn('Foreign source: treaty treatment and foreign-tax credit not applied', gb['flags'])
         unset = r[('Rental and leasing (section 21)', '(not set)')]
         self.assertIn('Organisation country not set', unset['flags'])
+        self.assertIn('EUR payments need it set', unset['flags'])
         unmapped = r[('Not mapped', 'DE')]
         self.assertIn('Category not mapped to an income type', unmapped['flags'])
 
@@ -208,3 +210,55 @@ class TaxReportTests(TestCase):
         text = report_csv.render(reports.REPORTS['tax_checks'].build(2026)).lower()
         self.assertNotIn('tax due', text)
         self.assertNotIn('tax payable', text)
+
+
+class CountryFromCurrencyTests(TestCase):
+    """A blank organisation country falls back to the payment currency's country; EUR never does."""
+
+    def setUp(self):
+        map_tax(Interest='capital')
+
+    def rows(self):
+        rows, _ = tax.tax_summary_rows(2026)
+        return {(r['income_type'], r['country']): r for r in rows}
+
+    def test_mapping_is_exactly_the_agreed_one(self):
+        self.assertEqual(CURRENCY_COUNTRY, {'AUD': 'AU', 'GBP': 'GB', 'USD': 'US'})
+
+    def test_blank_country_taken_from_currency_and_flagged(self):
+        add(100, 'Interest', 'Aussie Bank', '', currency='AUD', rate='0.6')
+        add(100, 'Interest', 'UK Bank', '', currency='GBP', rate='1.2')
+        add(100, 'Interest', 'US Bank', '', currency='USD', rate='0.9')
+        r = self.rows()
+        for code in ('AU', 'GB', 'US'):
+            row = r[('Capital assets (section 20)', code)]
+            self.assertIn('Country taken from the payment currency for 1 payment(s)', row['flags'])
+            self.assertIn('Foreign source', row['flags'])
+            self.assertNotIn('not set', row['flags'])
+
+    def test_eur_is_not_inferred(self):
+        add(100, 'Interest', 'Euro Bank', '')
+        row = self.rows()[('Capital assets (section 20)', '(not set)')]
+        self.assertIn('Organisation country not set', row['flags'])
+
+    def test_organisation_country_overrides_currency(self):
+        add(100, 'Interest', 'Swiss-run Aussie Fund', 'DE', currency='AUD', rate='0.6')      # explicit DE wins
+        r = self.rows()
+        self.assertIn(('Capital assets (section 20)', 'DE'), r)
+        self.assertNotIn(('Capital assets (section 20)', 'AU'), r)
+        self.assertNotIn('taken from the payment currency', r[('Capital assets (section 20)', 'DE')]['flags'])
+
+    def test_inferred_and_explicit_share_a_row_and_only_inferred_are_counted(self):
+        add(100, 'Interest', 'Explicit AU', 'AU', currency='AUD', rate='0.6')
+        add(100, 'Interest', 'Blank AU', '', currency='AUD', rate='0.6')
+        add(100, 'Interest', 'Blank AU', '', currency='AUD', rate='0.6', date=datetime.date(2026, 7, 1))
+        row = self.rows()[('Capital assets (section 20)', 'AU')]
+        self.assertEqual(row['payments'], 3)
+        self.assertIn('for 2 payment(s)', row['flags'])
+
+    def test_mixed_currencies_for_one_blank_org_split_by_country(self):
+        add(100, 'Interest', 'Global Bank', '', currency='GBP', rate='1.2')
+        add(100, 'Interest', 'Global Bank', '', currency='USD', rate='0.9')
+        r = self.rows()
+        self.assertIn(('Capital assets (section 20)', 'GB'), r)
+        self.assertIn(('Capital assets (section 20)', 'US'), r)
