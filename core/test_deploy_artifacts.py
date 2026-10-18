@@ -109,7 +109,8 @@ class AnsibleFilesTests(SimpleTestCase):
 
     def test_deploy_ships_only_the_committed_revision(self):
         text = read('infra/deploy.yaml')
-        self.assertIn('git -C {{ playbook_dir }} archive', text)
+        self.assertIn('git -C {{ repo_root }} archive', text)
+        self.assertIn('repo_root: "{{ playbook_dir }}/.."', text)            # playbook_dir is infra/: archiving there ships only infra/
         self.assertNotIn('synchronize', text)
         self.assertNotIn('rsync', text)
         self.assertIn('dirty_tree', text)
@@ -169,6 +170,44 @@ class AnsibleFilesTests(SimpleTestCase):
         timer = read('infra/templates/tax-healthcare-tool-backup.timer.j2')
         self.assertIn('Persistent=true', timer)
         self.assertIn('OnCalendar=*-*-* {{ backup_time }}', timer)
+
+
+class DeployArchiveTests(SimpleTestCase):
+    """Runs the exact git archive command the playbook uses and inspects what would be shipped."""
+
+    def archive_names(self):
+        import io
+        import tarfile
+        try:
+            data = subprocess.run(['git', '-C', str(ROOT / 'infra' / '..'), 'archive', '--format=tar.gz', '--prefix=src/', 'HEAD'],
+                                  capture_output=True, check=True).stdout
+        except (OSError, subprocess.CalledProcessError):
+            self.skipTest('git repository not available')
+        with tarfile.open(fileobj=io.BytesIO(data)) as tar:
+            self.dirs = {m.name for m in tar.getmembers() if m.isdir()}
+            return {m.name for m in tar.getmembers() if m.isfile()}
+
+    def test_archive_contains_everything_the_image_build_needs(self):
+        names = self.archive_names()
+        for needed in ('Containerfile', 'manage.py', 'requirements.txt', 'config/settings_prod.py', 'config/wsgi.py',
+                       'core/models.py', 'templates/base.html'):
+            self.assertIn(f'src/{needed}', names, f'{needed} missing from the deployment archive')
+
+    def test_archive_is_the_whole_repository_not_a_subdirectory(self):
+        names = self.archive_names()
+        top = {n.split('/')[1] for n in names}
+        self.assertTrue({'config', 'core', 'infra', 'Containerfile'} <= top, top)
+
+    def test_archive_never_contains_private_data(self):
+        bad = [n for n in self.archive_names()
+               if re.search(r'\.sqlite3|\.tar\.gz$|\.env$|inventory\.ini$|\.pem$|\.key$|\.crt$', n)
+               or (n.startswith('src/local/') and not n.endswith('README.md'))]
+        self.assertEqual(bad, [])
+
+    def test_playbook_checks_the_unpacked_files_before_building(self):
+        text = read('infra/deploy.yaml')
+        self.assertLess(text.index('must contain what the build needs'), text.index('Build the image'))
+        self.assertIn('Containerfile', text[text.index('must contain what the build needs'):text.index('Build the image')])
 
 
 class RepositoryHygieneTests(SimpleTestCase):

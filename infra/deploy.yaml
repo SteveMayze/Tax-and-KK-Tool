@@ -7,8 +7,9 @@
   hosts: taxtool
   gather_facts: false
   vars:
-    app_commit: "{{ lookup('pipe', 'git -C ' ~ playbook_dir ~ ' rev-parse --short=12 HEAD') }}"
-    dirty_tree: "{{ lookup('pipe', 'git -C ' ~ playbook_dir ~ ' status --porcelain --untracked-files=no') }}"
+    repo_root: "{{ playbook_dir }}/.."
+    app_commit: "{{ lookup('pipe', 'git -C ' ~ repo_root ~ ' rev-parse --short=12 HEAD') }}"
+    dirty_tree: "{{ lookup('pipe', 'git -C ' ~ repo_root ~ ' status --porcelain --untracked-files=no') }}"
     allow_dirty: false
     image_new: "{{ image_repo }}:{{ app_commit }}"
     build_dir: "{{ data_root }}/build/{{ app_commit }}"
@@ -91,7 +92,7 @@
       delegate_to: localhost
       run_once: true
       ansible.builtin.command: >-
-        git -C {{ playbook_dir }} archive --format=tar.gz --prefix=src/ -o {{ archive_local }} HEAD
+        git -C {{ repo_root }} archive --format=tar.gz --prefix=src/ -o {{ archive_local }} HEAD
       changed_when: true
 
     - name: Remove any earlier build directory for this revision
@@ -114,6 +115,14 @@
         dest: "{{ build_dir }}"
         owner: root
         group: root
+
+    - name: The unpacked revision must contain what the build needs (guards against a partial archive)
+      become: true
+      ansible.builtin.stat:
+        path: "{{ build_dir }}/src/{{ item }}"
+      register: unpacked
+      loop: [Containerfile, manage.py, requirements.txt, config/settings_prod.py, core/models.py]
+      failed_when: not unpacked.stat.exists
 
     - name: Build the image (installs the pinned requirements from PyPI)
       become: true
