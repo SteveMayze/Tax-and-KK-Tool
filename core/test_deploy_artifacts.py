@@ -140,6 +140,18 @@ class AnsibleFilesTests(SimpleTestCase):
         self.assertIn('umask 077', block)
         self.assertIn('mode: "0600"', text)
 
+    def test_pre_deploy_backup_uses_the_new_image_after_the_build(self):
+        # Regression: it used the OLD image with the NEW environment; the old settings rejected the new values and the
+        # backup (and so the whole deploy) failed.
+        text = read('infra/deploy.yaml')
+        task = text[text.index('- name: Back up before changing anything'):text.index("- name: Keep the live image as 'previous'")]
+        self.assertIn('{{ image_new }}', task)
+        self.assertNotIn(':current', task)
+        self.assertIn('--label pre-deploy', task)
+        self.assertLess(text.index('- name: Build the image'), text.index('- name: Back up before changing anything'))
+        self.assertLess(text.index('- name: Back up before changing anything'), text.index("- name: Point 'current' at the new image"))
+        self.assertLess(text.index('- name: Back up before changing anything'), text.index('migrate --noinput'))
+
     def test_deploy_backs_up_before_migrating_and_checks_health(self):
         text = read('infra/deploy.yaml')
         self.assertLess(text.index('--label pre-deploy'), text.index('migrate --noinput'))
@@ -160,6 +172,14 @@ class AnsibleFilesTests(SimpleTestCase):
         for name in ('deploy', 'rollback', 'restore', 'status'):
             self.assertNotIn('/etc/caddy', read(f'infra/{name}.yaml'))
         self.assertNotIn('caddy', read('Makefile').lower())
+
+    def test_rollback_proves_the_previous_image_accepts_the_current_configuration_first(self):
+        text = read('infra/rollback.yaml')
+        check = text.index('The previous image must start with the current configuration')
+        self.assertIn(':previous', text[check:check + 400])
+        self.assertIn('manage.py check', text[check:check + 400])
+        self.assertLess(check, text.index('--label pre-rollback'))
+        self.assertLess(check, text.index("podman tag {{ image_repo }}:previous {{ image_repo }}:current"))
 
     def test_restore_is_confirmed_and_never_deletes(self):
         text = read('infra/restore.yaml')

@@ -37,6 +37,7 @@ Do Phase 6 only. Implement the reports listed in CLAUDE.md with CSV export, each
 Do Phase 7 only. Before coding, document each rule and its authoritative source, separating SBK contribution rules from income tax rules, including treatment of foreign income, capital gains, rental income, dividends, interest, expenses, thresholds and exchange-rate requirements. Ask me about anything unverified. Implement each verified rule as a separate, versioned, testable policy, record the rule version and assumptions with every result, and produce explanatory reports. Stop for review.
 
 claude --resume "tax-and-hc-tool-01"
+claude --resume 029f19fa-b396-4b9b-a79d-6dded62731db
 
 ## Phase 8 — Podman and Ansible
 Do Phase 8 only. First inspect the existing host and Ansible conventions (I will give access or paste them). Then define the separate container, config, database and document storage. Create the container build, Ansible role, WSGI server and proxy setup, health checks, backup/restore, upgrade and rollback. Do not modify shared infrastructure without my approval. Stop for review.

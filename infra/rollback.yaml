@@ -13,6 +13,15 @@
       ansible.builtin.command: "podman image exists {{ image_repo }}:previous"
       changed_when: false
 
+    # The running unit file and environment belong to the release being rolled back. An older image may not accept
+    # them (for example a settings change). Prove it does BEFORE changing anything, otherwise it would not start.
+    - name: The previous image must start with the current configuration (nothing is changed if it does not)
+      become: true
+      ansible.builtin.command: >-
+        podman run {{ podman_run_flags }} {{ image_repo }}:previous
+        python manage.py check
+      changed_when: false
+
     - name: Is there a database to protect?
       become: true
       ansible.builtin.stat:

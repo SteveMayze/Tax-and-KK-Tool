@@ -82,9 +82,11 @@ Existing data is **moved aside** (`db.sqlite3.before-restore-<time>`, `uploads.b
 To inspect a backup on your Mac without any server: `make fetch-backup`, then `.venv/bin/python manage.py restore_backup <name> --backup-dir local/backups` (verification only), or add `--target-db /tmp/x/db.sqlite3 --target-uploads /tmp/x/up` to extract it.
 
 ## Rollback plan
+Rule that keeps rollback possible: configuration changes (new environment variables or settings) must stay compatible with the previous release. If a release breaks that, `make rollback` refuses to proceed; roll back by checking out the older commit and running `make deploy` instead.
+
 | Situation | Action |
 |---|---|
-| New release misbehaves, database unaffected | `make rollback` swaps `current` back to `previous` and restarts (after a `pre-rollback` backup) |
+| New release misbehaves, database unaffected | `make rollback` first proves that the previous image starts with the current configuration (and stops if not), then swaps `current` back to `previous` and restarts (after a `pre-rollback` backup) |
 | New release ran migrations the old code cannot use | `make rollback BACKUP=backup-<time>-pre-deploy.tar.gz` also restores the data from just before the deploy (changes made since the deploy are lost) |
 | Remove the app completely | manual and deliberately not automated: stop and disable `tax-healthcare-tool.service` and the backup timer, delete their unit files (`/etc/containers/systemd/tax-healthcare-tool.container`, `/etc/systemd/system/tax-healthcare-tool-backup.*`) and `/usr/local/sbin/tax-healthcare-tool-manage`, remove the images, and only then (after fetching a backup) the data and `/etc/tax-healthcare-tool` |
 
@@ -114,9 +116,10 @@ To inspect a backup on your Mac without any server: `make fetch-backup`, then `.
 ## What has and has not been verified
 Verified on the Mac (all in the test suite or run by hand): production settings in both HTTPS and plain-HTTP mode (each required variable is enforced, weak values rejected, host checking, a real login over plain HTTP with CSRF checks on, `check --deploy` without errors); gunicorn on Python 3.14; backup, retention, tamper/corruption detection, path-traversal protection and restore; the health-check script; the exact `git archive` the playbook ships; syntax and template rendering of all playbooks; static guard-rail tests for the Containerfile, Quadlet file and repository hygiene.
 
-Found only by running on the real server (both fixed, each with a regression test):
+Found only by running on the real server (each fixed, each with a regression test):
 1. `git archive` was run from `infra/`, which archived only that directory and left the build without a `Containerfile`. The playbook now archives the repository root and verifies the unpacked files before building.
 2. Quadlet re-quotes inline commands, which dropped the closing quote of an inline `python -c "..."` health check, so the container never became healthy and was restarted in a loop. The check is now a script.
+3. The pre-deploy backup ran the previous image with the new environment; the old settings rejected the new values and the deploy stopped before changing anything. The backup now runs with the newly built image (still before migrations).
 
 **Not yet verified on the server:** the backup timer's first run and the restore drill (run `make backup-now` and `make restore-drill` after the first successful deploy).
 

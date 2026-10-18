@@ -79,15 +79,6 @@
         path: "{{ data_root }}/data/db.sqlite3"
       register: db_file
 
-    - name: Back up before changing anything (database and uploads, verified)
-      become: true
-      ansible.builtin.command: >-
-        podman run {{ podman_run_flags }} {{ image_repo }}:current
-        python manage.py backup_db --label pre-deploy
-      register: pre_backup
-      when: current_image.rc == 0 and db_file.stat.exists
-      changed_when: "'BACKUP_CREATED' in pre_backup.stdout"
-
     - name: Package the committed revision (git archive)
       delegate_to: localhost
       run_once: true
@@ -145,6 +136,18 @@
       ansible.builtin.command: "podman image inspect --format {% raw %}'{{.Id}}'{% endraw %} {{ image_new }}"
       register: new_image_id
       changed_when: false
+
+    # The backup runs with the NEW image on purpose: the environment passed to it comes from this revision, and an
+    # older image may not understand it (a settings change would otherwise break the backup). It still runs before
+    # migrations, so it captures the database exactly as it was before this deploy. Nothing live has changed yet.
+    - name: Back up before changing anything (database and uploads, verified; uses the newly built image)
+      become: true
+      ansible.builtin.command: >-
+        podman run {{ podman_run_flags }} {{ image_new }}
+        python manage.py backup_db --label pre-deploy
+      register: pre_backup
+      when: db_file.stat.exists
+      changed_when: "'BACKUP_CREATED' in pre_backup.stdout"
 
     - name: Keep the live image as 'previous' (for rollback) unless it is the same image
       become: true
