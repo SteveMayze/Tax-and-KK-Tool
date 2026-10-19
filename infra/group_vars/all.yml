@@ -11,7 +11,7 @@ app_uid: 10001                       # the user INSIDE the container; must match
 app_port: 8889                       # loopback port on the server (health probes only); use 8890 while the old rootful copy still holds 8889
 listen_address: 127.0.0.1            # the server's own loopback only (G3): health probes and ssh tunnels; the gateway reaches the app by name on the gateway network
 public_host: "{{ ansible_host | default(inventory_hostname) }}"   # the real server name, not the inventory alias
-use_https: false                     # plain HTTP on the LAN (owner decision); set true only behind a TLS-terminating proxy
+use_https: true                      # Secure cookies; the app is only reached through the https gateway (G3, ADR 0009)
 public_scheme: "{{ 'https' if use_https else 'http' }}"
 
 # --- The service user and where everything lives (all inside its home folder) ---

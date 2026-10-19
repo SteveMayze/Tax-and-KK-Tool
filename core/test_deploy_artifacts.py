@@ -82,7 +82,7 @@ class QuadletTests(SimpleTestCase):
         groups = read('infra/group_vars/all.yml')
         self.assertRegex(groups, r'(?m)^listen_address: 127\.0\.0\.1\b')      # G3: loopback only; the gateway uses the network
         self.assertNotRegex(ports[0], r'^(0\.0\.0\.0|:)')                      # never an empty or wildcard host part
-        self.assertIn('use_https: false', groups)
+        self.assertIn('use_https: true', groups)
 
     def test_unit_joins_the_gateway_network_and_keeps_its_name_and_port(self):
         self.assertEqual(re.findall(r'^Network=(.+)$', self.text, re.M), ['{{ gateway_network }}'])
@@ -96,7 +96,7 @@ class QuadletTests(SimpleTestCase):
         groups = read('infra/group_vars/all.yml')
         self.assertIn('behind_tls_proxy: true', groups)
         self.assertIn('hsts_seconds: 0', groups)
-        self.assertIn('use_https: false', groups)                # plain HTTP on the old port must keep working
+        self.assertIn('use_https: true', groups)                 # plain port is closed: Secure cookies are safe
         self.assertIn('extra_csrf_origins: ["https://{{ public_host }}"]', groups)
         self.assertIn('csrf_trusted_origins: "{{ extra_csrf_origins | join(\',\') }}"', groups)     # no plain-HTTP origin (G3)
         self.assertNotIn('http://', groups.split('csrf_trusted_origins:')[1].splitlines()[0])
