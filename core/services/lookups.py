@@ -1,4 +1,6 @@
 """Combo-style organisation/category lookup: pick an existing name or add a new one."""
+from django.utils.translation import gettext as _
+
 from core.models import IncomeCategory, Organisation
 
 
@@ -18,7 +20,7 @@ def check_usable(model, name):
     """Raise InactiveLookup if the name matches a deactivated row. Creates nothing."""
     obj = find(model, name)
     if obj is not None and not obj.active:
-        raise InactiveLookup(f'"{obj.name}" is inactive. Reactivate it first or choose another name.')
+        raise InactiveLookup(_('"%(name)s" is inactive. Reactivate it first or choose another name.') % {'name': obj.name})
 
 
 def loss_error(category_name, gross):
@@ -30,9 +32,11 @@ def loss_error(category_name, gross):
     if cat is not None and cat.may_be_negative:
         return None
     name = cat.name if cat is not None else _clean(category_name)
-    return (f'Gross amount must be positive: a negative amount (loss) is only allowed in categories marked "may be negative"; category '
-            f'"{name}" is not{" (it does not exist yet)" if cat is None else ""}. Mark it on the Categories page first, '
-            f'or use a reversal/correction.')
+    message = _('Gross amount must be positive: a negative amount (loss) is only allowed in categories marked "may be negative"; '
+                'category "%(name)s" is not') % {'name': name}
+    if cat is None:
+        message += _(' (it does not exist yet)')
+    return message + _('. Mark it on the Categories page first, or use a reversal/correction.')
 
 
 def resolve(model, name):

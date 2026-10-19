@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% load money %}
-{% block title %}Recalculate payment{% endblock %}
+{% load money i18n %}
+{% block title %}{% trans "Recalculate payment" %}{% endblock %}
 {% block content %}
-<p><a href="{% url 'payment_detail' p.pk %}">&larr; Payment</a></p>
-<h1>{% if p.conversion_status == 'converted' %}Recalculate from exchange-rate source{% else %}Convert payment{% endif %}</h1>
-<p>{{ p.payment_date|date:"Y-m-d" }}, {{ p.organisation }}: gross {{ p.gross_amount|money }} {{ p.currency }}.</p>
+<p><a href="{% url 'payment_detail' p.pk %}">&larr; {% trans "Payment" %}</a></p>
+<h1>{% if p.conversion_status == 'converted' %}{% trans "Recalculate from exchange-rate source" %}{% else %}{% trans "Convert payment" %}{% endif %}</h1>
+<p>{% blocktrans trimmed with d=p.payment_date|date:"DATE_FORMAT" org=p.organisation gross=p.gross_amount|money ccy=p.currency %}{{ d }}, {{ org }}: gross {{ gross }} {{ ccy }}.{% endblocktrans %}</p>
 {% if p.conversion_status == 'converted' %}
-<p class="warn">Current stored rate: {{ p.rate|rate }} ({{ p.rate_source }}, rate date {{ p.rate_date|date:"Y-m-d" }}), giving {{ p.gross_eur|money }} EUR. This asks the source again and replaces the rate for this payment. The previous rate stays on record and in the payment history.</p>
+<p class="warn">{% blocktrans trimmed with rate=p.rate|rate source=p.rate_source d=p.rate_date|date:"DATE_FORMAT" eur=p.gross_eur|money %}Current stored rate: {{ rate }} ({{ source }}, rate date {{ d }}), giving {{ eur }} EUR. This asks the source again and replaces the rate for this payment. The previous rate stays on record and in the payment history.{% endblocktrans %}</p>
 {% endif %}
-{% if rate_error %}<div role="alert" class="msg error"><strong>Nothing was changed.</strong> {{ rate_error }}<br>You can <a href="{% url 'payment_correct_rate' p.pk %}">enter a rate manually</a> instead.</div>{% endif %}
+{% if rate_error %}<div role="alert" class="msg error"><strong>{% trans "Nothing was changed." %}</strong> {{ rate_error }}<br>{% url 'payment_correct_rate' p.pk as manual_url %}{% blocktrans trimmed %}You can <a href="{{ manual_url }}">enter a rate manually</a> instead.{% endblocktrans %}</div>{% endif %}
 <form method="post">{% csrf_token %}
-  <div class="field"><label for="reason">Reason (optional)</label><input type="text" name="reason" id="reason" maxlength="300"></div>
-  <button type="submit">{% if p.conversion_status == 'converted' %}Recalculate{% else %}Convert{% endif %}</button>
+  <div class="field"><label for="reason">{% trans "Reason (optional)" %}</label><input type="text" name="reason" id="reason" maxlength="300"></div>
+  <button type="submit">{% if p.conversion_status == 'converted' %}{% trans "Recalculate" %}{% else %}{% trans "Convert" %}{% endif %}</button>
 </form>
-<p><a href="{% url 'payment_correct_rate' p.pk %}">Enter a rate manually instead</a></p>
+<p><a href="{% url 'payment_correct_rate' p.pk %}">{% trans "Enter a rate manually instead" %}</a></p>
 {% endblock %}

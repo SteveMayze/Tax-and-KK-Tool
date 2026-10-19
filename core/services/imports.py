@@ -17,6 +17,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext
 
 from core.currencies import BASE_CURRENCY
 from core.models import (
@@ -24,6 +25,7 @@ from core.models import (
 
 from . import lookups
 from .conversion import ConversionError, convert_payment, quote_notes, stored_quote
+from .i18n import number
 from .money import MoneyError, normalise_currency, to_decimal
 from .rates import RateError, RateProvider, RateQuote
 
@@ -55,39 +57,39 @@ class ImportStateError(Exception):
 def parse_csv(raw: bytes):
     """Return (rows, warnings). rows = [(line_number, {column: text})]."""
     if len(raw) > settings.IMPORT_MAX_BYTES:
-        raise ImportFileError(f'File is larger than {settings.IMPORT_MAX_BYTES // 1024 // 1024} MB.')
+        raise ImportFileError(gettext('File is larger than %(mb)s MB.') % {'mb': settings.IMPORT_MAX_BYTES // 1024 // 1024})
     if b'\x00' in raw:
-        raise ImportFileError('File contains binary data; expected a UTF-8 CSV text file.')
+        raise ImportFileError(gettext('File contains binary data; expected a UTF-8 CSV text file.'))
     try:
         text = raw.decode('utf-8-sig')
     except UnicodeDecodeError:
-        raise ImportFileError('File is not valid UTF-8. Save it as "CSV UTF-8" and try again.')
+        raise ImportFileError(gettext('File is not valid UTF-8. Save it as "CSV UTF-8" and try again.'))
     reader = csv.reader(io.StringIO(text, newline=''))
     try:
         header = next((r for r in reader if any(c.strip() for c in r)), None)
         if header is None:
-            raise ImportFileError('File is empty.')
+            raise ImportFileError(gettext('File is empty.'))
         names = [h.strip().lower() for h in header]
         dupes = sorted({n for n in names if names.count(n) > 1})
         if dupes:
-            raise ImportFileError(f'Duplicate column(s) in header: {", ".join(dupes)}.')
+            raise ImportFileError(gettext('Duplicate column(s) in header: %(names)s.') % {'names': ', '.join(dupes)})
         missing = [c for c in REQUIRED if c not in names]
         if missing:
-            raise ImportFileError(f'Missing required column(s): {", ".join(missing)}. See the format description.')
+            raise ImportFileError(gettext('Missing required column(s): %(names)s. See the format description.') % {'names': ', '.join(missing)})
         warnings = []
         unknown = [h.strip() for h, n in zip(header, names) if n not in COLUMNS]
         if unknown:
-            warnings.append(f'Ignored unknown column(s): {", ".join(unknown)}.')
+            warnings.append(gettext('Ignored unknown column(s): %(names)s.') % {'names': ', '.join(unknown)})
         rows = []
         legacy_format = not ({'withholding_tax', 'expenses'} & set(names))   # file written before Phase 10
         for cells in reader:
             if not any(c.strip() for c in cells):
                 continue
             if len(rows) >= settings.IMPORT_MAX_ROWS:
-                raise ImportFileError(f'More than {settings.IMPORT_MAX_ROWS} data rows.')
+                raise ImportFileError(gettext('More than %(n)s data rows.') % {'n': settings.IMPORT_MAX_ROWS})
             errors = []
             if len(cells) > len(names):
-                errors.append(f'Row has {len(cells)} cells but the header has {len(names)}.')
+                errors.append(gettext('Row has %(cells)s cells but the header has %(names)s.') % {'cells': len(cells), 'names': len(names)})
             data = {c: '' for c in COLUMNS}
             for name, value in zip(names, cells):
                 if name in COLUMNS:
@@ -98,9 +100,9 @@ def parse_csv(raw: bytes):
                 data['_structural'] = errors  # dropped when the row is edited
             rows.append((reader.line_num, data))
     except csv.Error as e:
-        raise ImportFileError(f'Could not read the CSV: {e}')
+        raise ImportFileError(gettext('Could not read the CSV: %(error)s') % {'error': e})
     if not rows:
-        raise ImportFileError('File has a header but no data rows.')
+        raise ImportFileError(gettext('File has a header but no data rows.'))
     return rows, warnings
 
 
@@ -109,25 +111,25 @@ def parse_csv(raw: bytes):
 def _date(value, label, errors, required=False):
     if not value:
         if required:
-            errors.append(f'{label}: required.')
+            errors.append(gettext('%(label)s: required.') % {'label': label})
         return None
     if not DATE_RE.match(value):
-        errors.append(f'{label}: use YYYY-MM-DD (got "{value[:20]}").')
+        errors.append(gettext('%(label)s: use YYYY-MM-DD (got "%(value)s").') % {'label': label, 'value': value[:20]})
         return None
     try:
         return datetime.date.fromisoformat(value)
     except ValueError:
-        errors.append(f'{label}: not a real date ("{value}").')
+        errors.append(gettext('%(label)s: not a real date ("%(value)s").') % {'label': label, 'value': value})
         return None
 
 
 def _amount(value, label, errors, required=False):
     if not value:
         if required:
-            errors.append(f'{label}: required.')
+            errors.append(gettext('%(label)s: required.') % {'label': label})
         return None
     if not NUMBER_RE.match(value):
-        errors.append(f'{label}: use a plain number like 1234.56, without thousands separators or symbols.')
+        errors.append(gettext('%(label)s: use a plain number like 1234.56, without thousands separators or symbols.') % {'label': label})
         return None
     return to_decimal(value)
 
@@ -143,20 +145,20 @@ def validate_row(data: dict):
     org = ' '.join(data.get('organisation', '').split())
     cat = ' '.join(data.get('category', '').split())
     if not org:
-        errors.append('organisation: required.')
+        errors.append(gettext('organisation: required.'))
     elif len(org) > 200:
-        errors.append('organisation: longer than 200 characters.')
+        errors.append(gettext('organisation: longer than 200 characters.'))
     if not cat:
-        errors.append('category: required.')
+        errors.append(gettext('category: required.'))
     elif len(cat) > 100:
-        errors.append('category: longer than 100 characters.')
+        errors.append(gettext('category: longer than 100 characters.'))
     for model, name, label in ((Organisation, org, 'organisation'), (IncomeCategory, cat, 'category')):
         if name and len(name) <= 200:
             existing = lookups.find(model, name)
             if existing is not None and not existing.active:
-                errors.append(f'{label}: "{existing.name}" is inactive. Reactivate it or use another name.')
+                errors.append(gettext('%(label)s: "%(name)s" is inactive. Reactivate it or use another name.') % {'label': label, 'name': existing.name})
             elif existing is None:
-                notes.append(f'New {label} "{name}" will be created.')
+                notes.append(gettext('New %(label)s "%(name)s" will be created.') % {'label': label, 'name': name})
     try:
         currency = normalise_currency(data.get('currency', ''))
     except MoneyError as e:
@@ -170,18 +172,18 @@ def validate_row(data: dict):
     expenses = Decimal(0) if expenses is None and not errors_for(errors, 'expenses') else expenses
     freq = data.get('frequency', '').strip().lower().replace('-', '_').replace(' ', '_')
     if freq not in FREQUENCIES:
-        errors.append(f'frequency: must be one of {", ".join(sorted(FREQUENCIES))}.')
+        errors.append(gettext('frequency: must be one of %(values)s.') % {'values': ', '.join(sorted(FREQUENCIES))})
         freq = None
     p_start = _date(data.get('income_period_start', ''), 'income_period_start', errors)
     p_end = _date(data.get('income_period_end', ''), 'income_period_end', errors)
     rate = _amount(data.get('exchange_rate', ''), 'exchange_rate', errors)
     rate_date = _date(data.get('rate_date', ''), 'rate_date', errors)
     if rate is not None and rate <= 0:
-        errors.append('exchange_rate: must be positive.')
+        errors.append(gettext('exchange_rate: must be positive.'))
     if rate is not None and currency == BASE_CURRENCY:
-        errors.append('exchange_rate: EUR rows always use rate 1; leave it empty.')
+        errors.append(gettext('exchange_rate: EUR rows always use rate 1; leave it empty.'))
     if rate_date and rate is None and data.get('exchange_rate', '') == '':
-        errors.append('rate_date: only meaningful together with exchange_rate.')
+        errors.append(gettext('rate_date: only meaningful together with exchange_rate.'))
 
     if not errors:
         candidate = Payment(
@@ -198,8 +200,9 @@ def validate_row(data: dict):
                 errors.extend(f'{field}: {m}' for m in messages)
         if not errors and candidate.breakdown_error():
             if data.get('_legacy_no_breakdown'):
-                notes.append('This file has no withholding_tax / expenses columns: the difference between gross and net '
-                             f'({candidate.unallocated:,.2f} {currency}) is imported as unallocated. Edit the row to allocate it.')
+                notes.append(gettext('This file has no withholding_tax / expenses columns: the difference between gross and net '
+                                     '(%(gap)s %(ccy)s) is imported as unallocated. Edit the row to allocate it.') % {
+                    'gap': number(candidate.unallocated), 'ccy': currency})
             else:
                 errors.append('breakdown: ' + candidate.breakdown_error())
     if errors:
@@ -370,7 +373,7 @@ def stage_batch(raw: bytes, file_name: str, provider: RateProvider) -> ImportBat
 
 def _require_preview(batch):
     if batch.status != ImportBatch.Status.PREVIEW:
-        raise ImportStateError(f'This import is {batch.get_status_display().lower()} and can no longer be changed.')
+        raise ImportStateError(gettext('This import is %(status)s and can no longer be changed.') % {'status': str(batch.get_status_display()).lower()})
 
 
 def update_row(row: ImportRow, data: dict, provider: RateProvider):
@@ -431,12 +434,12 @@ def commit_batch(batch: ImportBatch) -> ImportBatch:
     claimed = ImportBatch.objects.filter(pk=batch.pk, status=ImportBatch.Status.PREVIEW).update(
         status=ImportBatch.Status.COMMITTED)
     if not claimed:
-        raise ImportStateError('This import has already been imported or discarded.')
+        raise ImportStateError(gettext('This import has already been imported or discarded.'))
     batch.refresh_from_db()
     rows = list(batch.rows.all())
     problems = [r.line_number for r in rows if not r.excluded and r.status == ImportRow.Status.INVALID]
     if problems:
-        raise ImportStateError(f'Rows still invalid (fix or exclude them): lines {", ".join(map(str, problems[:10]))}.')
+        raise ImportStateError(gettext('Rows still invalid (fix or exclude them): lines %(lines)s.') % {'lines': ', '.join(map(str, problems[:10]))})
 
     doc = SourceDocument.objects.create(
         description=f'CSV import #{batch.pk}', file_name=batch.file_name, sha256=batch.sha256)
@@ -446,7 +449,7 @@ def commit_batch(batch: ImportBatch) -> ImportBatch:
             continue
         _, _, c = validate_row(r.data)
         if c is None:
-            raise ImportStateError(f'Line {r.line_number} is no longer valid.')
+            raise ImportStateError(gettext('Line %(n)s is no longer valid.') % {'n': r.line_number})
         payment = Payment(
             month=ReportingMonth.for_date(c['payment_date']),
             organisation=lookups.resolve_organisation(c['organisation']),

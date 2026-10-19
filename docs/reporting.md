@@ -34,6 +34,9 @@ Period; currency; basis (actual vs normalised); gross/net treatment; exchange-ra
 ## Gains and losses (Phase 11)
 The annual summary and the by-category and by-organisation reports show **Gains EUR** (normal payments above 0), **Losses EUR** (normal payments below 0, signed), **Corrections / reversals EUR** (signed) and **Gross EUR (signed sum)**, which is their sum. A reversal is never counted as a loss. The tax information summary shows losses in their own column and nets nothing across categories; the SBK estimate adds a run-specific note to its basis block when a loss was recorded. No loss-offset rule is applied (unverified, `docs/rules/`).
 
+## Language (Phase 12)
+The interface language (English or German, one setting in the page header) changes headings, notes, labels, number and date formats **on screen**. CSV downloads ignore it: English headings and labels, comma separator, dot decimals, ISO dates, plus `Language` and `Format` rows. German terms come from `docs/glossary.md`.
+
 ## CSV format
 **Report format version 2** (Phase 10; version 1 had gross and net only): the file starts with a `Report format version` row, and the gross/net reports add `Withholding tax EUR`, `Expenses EUR` and `Unallocated EUR` columns (the original-currency summary and payment-level reports also add the original-currency amounts). The basis block's `Gross/net` row states the identity gross = net + withholding tax + expenses + unallocated. Reconciliation lists payments whose gross differs from net + withholding tax + expenses. The tax information summary shows withholding tax EUR as information only, labelled as not credited.
 

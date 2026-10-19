@@ -1,20 +1,21 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% block title %}{{ report.title }}{% endblock %}
 {% block content %}
-<p><a href="{% url 'report_index' %}">&larr; Reports</a></p>
+<p><a href="{% url 'report_index' %}">&larr; {% trans "Reports" %}</a></p>
 <h1>{{ report.title }}</h1>
 <form method="get" class="inline">
-  <label for="year" class="inline">Period</label>
+  <label for="year" class="inline">{% trans "Period" %}</label>
   <select name="year" id="year">
-    {% if not spec.needs_year %}<option value="all" {% if not year %}selected{% endif %}>All years</option>{% endif %}
-    {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+    {% if not spec.needs_year %}<option value="all" {% if not year %}selected{% endif %}>{% trans "All years" %}</option>{% endif %}
+    {% for y in years %}<option value="{{ y|stringformat:"d" }}" {% if y == year %}selected{% endif %}>{{ y|stringformat:"d" }}</option>{% endfor %}
   </select>
-  <button type="submit">Show</button>
+  <button type="submit">{% trans "Show" %}</button>
 </form>
-<a href="{% url 'report_csv' report.key %}?year={{ year|default:'all' }}">Download CSV</a>
+<a href="{% url 'report_csv' report.key %}?year={{ year|default:'all'|stringformat:"s" }}">{% trans "Download CSV" %}</a>
 
-{% if report.key == 'sbk' or report.key == 'tax_checks' %}<p><a href="{% url 'assessment_settings' %}">Assessment settings</a>{% if year %} &middot; <a href="{% url 'annual_inputs' year %}">Annual costs and months earned {{ year }}</a>{% endif %} &middot; <a href="{% url 'category_list' %}">Map categories</a></p>{% endif %}
-<h2>Basis</h2>
+{% if report.key == 'sbk' or report.key == 'tax_checks' %}<p><a href="{% url 'assessment_settings' %}">{% trans "Assessment settings" %}</a>{% if year %} &middot; <a href="{% url 'annual_inputs' year %}">{% trans "Annual costs and months earned" %} {{ year|stringformat:"d" }}</a>{% endif %} &middot; <a href="{% url 'category_list' %}">{% trans "Map categories" %}</a></p>{% endif %}
+<h2>{% trans "Basis" %}</h2>
 <dl>
   {% for label, text in report.basis %}<dt><strong>{{ label }}</strong></dt><dd>{{ text }}</dd>{% endfor %}
 </dl>
@@ -28,6 +29,6 @@
   {% if totals %}<tr style="font-weight:600">{% for text, cls in totals %}<td class="{{ cls }}">{{ text }}</td>{% endfor %}</tr>{% endif %}
   </tbody>
 </table>
-{% else %}<p>No data for this period.</p>{% endif %}
-<p class="note">Generated {{ report.generated_at|date:"Y-m-d H:i" }} UTC from saved data.</p>
+{% else %}<p>{% trans "No data for this period." %}</p>{% endif %}
+<p class="note">{% blocktrans trimmed with when=report.generated_at|date:"DATETIME_FORMAT" %}Generated {{ when }} UTC from saved data.{% endblocktrans %}</p>
 {% endblock %}

@@ -1,7 +1,7 @@
-import calendar
 import datetime
 
 from django.contrib import messages
+from django.utils.translation import gettext as _
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .forms import ManualCorrectionForm, PaymentForm
 from .models import ConversionEvent, Payment, ReportingMonth
 from .services import lookups
+from .services.i18n import date_text, month_name, number
 from .services.conversion import ConversionError, convert_payment, correct_rate_manually, reapply_stored_rate
 from .services.rates import get_provider
 from .templatetags.money import rate
@@ -41,8 +42,8 @@ def _persist(form, payment, keep_stored_rate):
 def _handle_save(request, form, payment, keep_stored_rate, template, ctx):
     """Shared create/edit flow: validate -> get rate -> error or manual option -> save."""
     if keep_stored_rate and form.has_manual_input():
-        form.add_error('manual_rate', 'The stored rate is kept when only amounts change. '
-                       'Use "Recalculate" on the payment to replace it.')
+        form.add_error('manual_rate', _('The stored rate is kept when only amounts change. '
+                       'Use "Recalculate" on the payment to replace it.'))
     elif not form.errors:
         try:
             _persist(form, payment, keep_stored_rate)
@@ -51,7 +52,7 @@ def _handle_save(request, form, payment, keep_stored_rate, template, ctx):
         except ValidationError as e:
             form.add_error(None, e)
         else:
-            messages.success(request, 'Payment saved.')
+            messages.success(request, _('Payment saved.'))
             return redirect('payment_detail', pk=payment.pk)
     return render(request, template, {'form': form, 'show_manual': True, **ctx})
 
@@ -59,7 +60,7 @@ def _handle_save(request, form, payment, keep_stored_rate, template, ctx):
 @login_required
 def payment_add(request, year, month):
     m = get_object_or_404(ReportingMonth.objects.select_related('year'), year__year=year, month=month)
-    ctx = {'month': m, 'month_name': calendar.month_name[month], 'editing': False}
+    ctx = {'month': m, 'month_name': month_name(month), 'editing': False}
     if request.method == 'POST':
         form = PaymentForm(request.POST)
         if form.is_valid():
@@ -72,7 +73,7 @@ def payment_add(request, year, month):
 @login_required
 def payment_edit(request, pk):
     payment = get_object_or_404(Payment.objects.select_related('month__year', 'organisation', 'category'), pk=pk)
-    ctx = {'month': payment.month, 'month_name': calendar.month_name[payment.month.month],
+    ctx = {'month': payment.month, 'month_name': month_name(payment.month.month),
            'editing': True, 'payment': payment}
     if request.method == 'POST':
         was_converted = payment.conversion_status == Payment.ConversionStatus.CONVERTED
@@ -92,7 +93,7 @@ def payment_detail(request, pk):
     payment = get_object_or_404(
         Payment.objects.select_related('month__year', 'organisation', 'category', 'rate_record'), pk=pk)
     return render(request, 'core/payment_detail.html', {
-        'p': payment, 'month_name': calendar.month_name[payment.month.month]})
+        'p': payment, 'month_name': month_name(payment.month.month)})
 
 
 @login_required
@@ -103,13 +104,15 @@ def payment_delete(request, pk):
         try:
             payment.delete()
         except ProtectedError:
-            messages.error(request, 'This payment has corrections/reversals and cannot be deleted.')
+            messages.error(request, _('This payment has corrections/reversals and cannot be deleted.'))
             return redirect('payment_detail', pk=pk)
-        messages.success(request, 'Payment deleted.')
+        messages.success(request, _('Payment deleted.'))
         return redirect('month_detail', year=month.year.year, month=month.month)
     return render(request, 'core/confirm_delete.html', {
-        'what': f'the payment of {payment.gross_amount} {payment.currency} from {payment.organisation} on {payment.payment_date}',
-        'consequence': 'This cannot be undone.',
+        'what': _('the payment of %(amount)s %(ccy)s from %(org)s on %(date)s') % {
+            'amount': number(payment.gross_amount), 'ccy': payment.currency, 'org': payment.organisation,
+            'date': date_text(payment.payment_date)},
+        'consequence': _('This cannot be undone.'),
         'cancel_href': reverse('payment_detail', args=[pk])})
 
 
@@ -120,7 +123,7 @@ def payment_recalculate(request, pk):
     payment = get_object_or_404(Payment.objects.select_related('month__year', 'organisation'), pk=pk)
     ctx = {'p': payment}
     if payment.currency == 'EUR':
-        messages.info(request, 'EUR payments always use rate 1; there is nothing to recalculate.')
+        messages.info(request, _('EUR payments always use rate 1; there is nothing to recalculate.'))
         return redirect('payment_detail', pk=pk)
     if request.method == 'POST':
         old_rate = payment.rate
@@ -131,10 +134,10 @@ def payment_recalculate(request, pk):
             ctx['rate_error'] = str(e)
         else:
             if old_rate is None:
-                messages.success(request, 'Payment converted.')
+                messages.success(request, _('Payment converted.'))
             else:
-                messages.success(request, f'Recalculated: rate {rate(old_rate)} -> {rate(payment.rate)}. '
-                                 'The previous rate remains on record.')
+                messages.success(request, _('Recalculated: rate %(old)s -> %(new)s. The previous rate remains on record.') % {
+                    'old': rate(old_rate), 'new': rate(payment.rate)})
             return redirect('payment_detail', pk=pk)
     return render(request, 'core/payment_recalculate.html', ctx)
 
@@ -144,7 +147,7 @@ def payment_correct_rate(request, pk):
     """Manual correction of the stored rate; a reason is mandatory and is audited."""
     payment = get_object_or_404(Payment.objects.select_related('month__year', 'organisation'), pk=pk)
     if payment.currency == 'EUR':
-        messages.info(request, 'EUR payments always use rate 1.')
+        messages.info(request, _('EUR payments always use rate 1.'))
         return redirect('payment_detail', pk=pk)
     converted = payment.conversion_status == Payment.ConversionStatus.CONVERTED
     form = ManualCorrectionForm(request.POST or None)
@@ -159,6 +162,6 @@ def payment_correct_rate(request, pk):
         except ConversionError as e:
             form.add_error('rate', str(e))
         else:
-            messages.success(request, 'Rate saved. The change is recorded in the payment history.')
+            messages.success(request, _('Rate saved. The change is recorded in the payment history.'))
             return redirect('payment_detail', pk=pk)
     return render(request, 'core/payment_correct_rate.html', {'p': payment, 'form': form, 'converted': converted})

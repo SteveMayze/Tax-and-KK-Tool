@@ -37,6 +37,7 @@ Payment: month, organisation, category, payment date, optional income period sta
 Deleting a year deletes its months and payments; deleting a month deletes its payments. Both require UI confirmation. Document deletion behaviour in docs/data-model.md.
 
 ## UI (Django templates, responsive on a laptop, keyboard-accessible)
+- Language (Phase 12, ADR 0012): one app-wide setting, English default or German, switched in the page header; it drives interface text and number/date formats on screen. German report terms come only from `docs/glossary.md`. CSV exports are language-independent (comma, dot decimal, ISO dates, always English headings). Update translations with makemessages + msgfmt and commit the `.po` and `.mo`.
 - No display-currency selector (removed in Phase 9, ADR 0006). Amounts show in their own currency; reports and totals are EUR at each payment's stored rate.
 - Opening page: list years, add year, delete year (confirm), per-year gross/net totals and a clearly labelled estimated monthly figure.
 - Year page: all 12 months (including empty), gross/net, payment count, add/delete month, link back.

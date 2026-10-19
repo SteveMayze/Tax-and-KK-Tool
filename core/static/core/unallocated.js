@@ -14,19 +14,20 @@
   }
   function show(n) {
     var sign = n < 0 ? '-' : '', a = Math.abs(n);
-    return sign + Math.floor(a / 10000) + '.' + String(a % 10000).padStart(4, '0').slice(0, 2);
+    var point = document.documentElement.lang === 'de' ? ',' : '.';
+    return sign + Math.floor(a / 10000) + point + String(a % 10000).padStart(4, '0').slice(0, 2);
   }
   function update() {
     var g = units(field('gross_amount'), null), n = units(field('net_amount'), null);
     var w = units(field('withholding_tax'), 0), e = units(field('expenses'), 0);
     var ccy = field('currency') ? field('currency').value : '';
     if (g === null || n === null || w === null || e === null) {
-      out.textContent = 'Unallocated: enter gross and net to see it.';
+      out.textContent = out.getAttribute('data-empty');
       return;
     }
     var u = g - n - w - e;
-    out.textContent = 'Unallocated (gross - net - withholding tax - expenses): ' + show(u) + ' ' + ccy +
-      (u === 0 ? ' (OK)' : ' (must be 0.00 to save)');
+    out.textContent = out.getAttribute('data-label') + ' ' + show(u) + ' ' + ccy + ' ' +
+      (u === 0 ? out.getAttribute('data-ok') : out.getAttribute('data-bad'));
   }
   ['gross_amount', 'net_amount', 'withholding_tax', 'expenses', 'currency'].forEach(function (name) {
     var el = field(name);

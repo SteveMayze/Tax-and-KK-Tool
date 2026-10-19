@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.utils.translation import gettext as _, gettext_lazy
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from django.urls import reverse
@@ -8,8 +9,10 @@ from .forms import CategoryForm, OrganisationForm
 from .models import IncomeCategory, Organisation
 
 CONFIG = {
-    'organisation': {'model': Organisation, 'form': OrganisationForm, 'title': 'Organisations', 'singular': 'organisation'},
-    'category': {'model': IncomeCategory, 'form': CategoryForm, 'title': 'Income categories', 'singular': 'category'},
+    'organisation': {'model': Organisation, 'form': OrganisationForm, 'title': gettext_lazy('Organisations'),
+                     'singular': gettext_lazy('organisation')},
+    'category': {'model': IncomeCategory, 'form': CategoryForm, 'title': gettext_lazy('Income categories'),
+                 'singular': gettext_lazy('category')},
 }
 
 
@@ -27,7 +30,7 @@ def lookup_edit(request, kind, pk=None):
     form = cfg['form'](request.POST or None, instance=obj)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, f'{cfg["singular"].capitalize()} saved.')
+        messages.success(request, _('%(item)s saved.') % {'item': str(cfg['singular']).capitalize()})
         return redirect(f'{kind}_list')
     return render(request, 'core/lookup_form.html', {'kind': kind, 'cfg': cfg, 'form': form, 'obj': obj})
 
@@ -39,13 +42,13 @@ def lookup_delete(request, kind, pk):
     used = obj.payments.count()
     if request.method == 'POST':
         if used:
-            messages.error(request, f'"{obj}" is used by {used} payment(s). Deactivate it instead.')
+            messages.error(request, _('"%(obj)s" is used by %(n)s payment(s). Deactivate it instead.') % {'obj': obj, 'n': used})
         else:
             obj.delete()
-            messages.success(request, f'{cfg["singular"].capitalize()} deleted.')
+            messages.success(request, _('%(item)s deleted.') % {'item': str(cfg['singular']).capitalize()})
         return redirect(f'{kind}_list')
     return render(request, 'core/confirm_delete.html', {
         'what': f'{cfg["singular"]} "{obj}"',
-        'consequence': (f'It is used by {used} payment(s) and cannot be deleted; deactivate it instead.'
-                        if used else 'This cannot be undone.'),
+        'consequence': (_('It is used by %(n)s payment(s) and cannot be deleted; deactivate it instead.') % {'n': used}
+                        if used else _('This cannot be undone.')),
         'blocked': bool(used), 'cancel_href': reverse(f'{kind}_list', args=[])})

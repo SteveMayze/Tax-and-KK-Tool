@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Log in{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "Log in" %}{% endblock %}
 {% block content %}
-<h1>Log in</h1>
-{% if form.errors %}<p role="alert">Invalid username or password.</p>{% endif %}
+<h1>{% trans "Log in" %}</h1>
+{% if form.errors %}<p role="alert">{% trans "Invalid username or password." %}</p>{% endif %}
 <form method="post">{% csrf_token %}
   {{ form.as_p }}
   <input type="hidden" name="next" value="{{ next }}">
-  <button type="submit">Log in</button>
+  <button type="submit">{% trans "Log in" %}</button>
 </form>
 {% endblock %}

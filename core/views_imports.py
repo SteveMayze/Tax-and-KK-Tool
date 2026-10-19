@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.contrib import messages
+from django.utils.translation import gettext as _
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import FileResponse, Http404, HttpResponse
@@ -45,7 +46,7 @@ def import_upload(request):
         except svc.ImportFileError as e:
             form.add_error('file', str(e))
         else:
-            messages.success(request, 'File read. Review the rows below; nothing has been imported yet.')
+            messages.success(request, _('File read. Review the rows below; nothing has been imported yet.'))
             return _preview_redirect(batch)
     return render(request, 'core/import_list.html', {
         'batches': ImportBatch.objects.all(), 'form': form, 'columns': svc.COLUMNS, 'required': svc.REQUIRED})
@@ -67,7 +68,7 @@ def import_preview(request, pk):
 
 def _state_guard(request, batch):
     if batch.status != ImportBatch.Status.PREVIEW:
-        messages.error(request, f'This import is {batch.get_status_display().lower()} and can no longer be changed.')
+        messages.error(request, _('This import is %(status)s and can no longer be changed.') % {'status': str(batch.get_status_display()).lower()})
         return _preview_redirect(batch)
     return None
 
@@ -83,7 +84,7 @@ def import_row_edit(request, pk, line):
     form = ImportRowForm(request.POST or None, initial=initial)
     if request.method == 'POST' and form.is_valid():
         svc.update_row(row, form.cleaned_data, get_provider())
-        messages.success(request, f'Line {line} updated and re-checked.')
+        messages.success(request, _('Line %(line)s updated and re-checked.') % {'line': line})
         return _preview_redirect(batch)
     row.refresh_from_db()
     return render(request, 'core/import_row_form.html', {'batch': batch, 'row': row, 'form': form})
@@ -118,7 +119,7 @@ def import_refresh_rates(request, pk):
     if blocked:
         return blocked
     svc.refresh_rates(batch, get_provider())
-    messages.success(request, 'Exchange rates requested again for all importable rows.')
+    messages.success(request, _('Exchange rates requested again for all importable rows.'))
     return _preview_redirect(batch)
 
 
@@ -131,17 +132,17 @@ def import_commit(request, pk):
     summary = svc.summary(batch)
     if request.method == 'POST':
         if summary['invalid']:
-            messages.error(request, f'{summary["invalid"]} row(s) are still invalid. Fix or exclude them first.')
+            messages.error(request, _('%(n)s row(s) are still invalid. Fix or exclude them first.') % {'n': summary['invalid']})
             return _preview_redirect(batch)
         if not summary['importing']:
-            messages.error(request, 'There is nothing to import.')
+            messages.error(request, _('There is nothing to import.'))
             return _preview_redirect(batch)
         try:
             svc.commit_batch(batch)
         except (svc.ImportStateError, ConversionError, ValidationError) as e:
-            messages.error(request, f'Nothing was imported: {e}')
+            messages.error(request, _('Nothing was imported: %(reason)s') % {'reason': e})
             return _preview_redirect(batch)
-        messages.success(request, f'Imported {batch.imported_count} payment(s).')
+        messages.success(request, _('Imported %(n)s payment(s).') % {'n': batch.imported_count})
         return _preview_redirect(batch)
     return render(request, 'core/import_commit.html', {'batch': batch, 'summary': summary})
 
@@ -154,7 +155,7 @@ def import_discard(request, pk):
         return blocked
     if request.method == 'POST':
         svc.discard_batch(batch)
-        messages.success(request, 'Import discarded. Staged rows and the stored file were removed.')
+        messages.success(request, _('Import discarded. Staged rows and the stored file were removed.'))
         return redirect('import_list')
     return render(request, 'core/import_discard.html', {'batch': batch})
 

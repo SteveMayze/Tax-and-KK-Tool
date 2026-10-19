@@ -4,7 +4,9 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models.functions import Lower
+from django.utils.translation import gettext, gettext_lazy as _
 
+from .services.i18n import number as fmt_number
 from .currencies import BASE_CURRENCY, CURRENCY_CODE_RE, SUPPORTED_CURRENCIES
 
 # Precision: see docs/decisions/0001-decimal-precision.md
@@ -17,15 +19,16 @@ currency_code_validator = RegexValidator(CURRENCY_CODE_RE, 'Currency must be a 3
 
 def validate_supported_currency(value):
     if value not in SUPPORTED_CURRENCIES:
-        raise ValidationError(f'Unsupported currency {value!r}; supported: {", ".join(SUPPORTED_CURRENCIES)}.')
+        raise ValidationError(gettext('Unsupported currency %(value)r; supported: %(supported)s.') % {
+            'value': value, 'supported': ', '.join(SUPPORTED_CURRENCIES)})
 
 
 class Frequency(models.TextChoices):
-    MONTHLY = 'monthly', 'Monthly'
-    QUARTERLY = 'quarterly', 'Quarterly'
-    HALF_YEARLY = 'half_yearly', 'Half-yearly'
-    YEARLY = 'yearly', 'Yearly'
-    ONE_OFF = 'one_off', 'One-off / irregular'
+    MONTHLY = 'monthly', _('Monthly')
+    QUARTERLY = 'quarterly', _('Quarterly')
+    HALF_YEARLY = 'half_yearly', _('Half-yearly')
+    YEARLY = 'yearly', _('Yearly')
+    ONE_OFF = 'one_off', _('One-off / irregular')
 
 
 class ReportingYear(models.Model):
@@ -80,24 +83,24 @@ class Organisation(models.Model):
 
 class SbkTreatment(models.TextChoices):
     """How SBK treats an income type (docs/rules/sbk-contribution-rules.md). Blank = not mapped yet."""
-    EMPLOYMENT = 'employment', 'Employment income (Arbeitsentgelt): month of receipt'
-    PENSION = 'pension', 'Pension / Versorgungsbezug: month of receipt'
-    SELF_EMPLOYED = 'self_employed', 'Self-employment profit (Arbeitseinkommen): annual / months earned'
-    RENTAL = 'rental', 'Rental income: annual surplus / months earned'
-    CAPITAL = 'capital', 'Capital income (interest, dividends): annual surplus / months earned'
-    ONE_OFF = 'one_off', 'One-off income: 1/12 per month for 12 months'
-    EXCLUDED = 'excluded', 'Not contribution-relevant (excluded)'
+    EMPLOYMENT = 'employment', _('Employment income (Arbeitsentgelt): month of receipt')
+    PENSION = 'pension', _('Pension / Versorgungsbezug: month of receipt')
+    SELF_EMPLOYED = 'self_employed', _('Self-employment profit (Arbeitseinkommen): annual / months earned')
+    RENTAL = 'rental', _('Rental income: annual surplus / months earned')
+    CAPITAL = 'capital', _('Capital income (interest, dividends): annual surplus / months earned')
+    ONE_OFF = 'one_off', _('One-off income: 1/12 per month for 12 months')
+    EXCLUDED = 'excluded', _('Not contribution-relevant (excluded)')
 
 
 class TaxIncomeType(models.TextChoices):
     """Einkunftsart per section 2(1) EStG, plus private sale gains (section 22 no. 2 / 23). Blank = not mapped."""
-    EMPLOYMENT = 'employment', 'Non-self-employed work (section 19)'
-    SELF_EMPLOYED = 'self_employed', 'Self-employment / business (sections 15, 18)'
-    CAPITAL = 'capital', 'Capital assets (section 20)'
-    RENTAL = 'rental', 'Rental and leasing (section 21)'
-    OTHER = 'other', 'Other income, e.g. pensions (section 22)'
-    PRIVATE_SALE = 'private_sale', 'Private sale gains (sections 22 no. 2, 23): enter the gain, not the proceeds'
-    NOT_TAXABLE = 'not_taxable', 'Not income for tax (excluded)'
+    EMPLOYMENT = 'employment', _('Non-self-employed work (section 19)')
+    SELF_EMPLOYED = 'self_employed', _('Self-employment / business (sections 15, 18)')
+    CAPITAL = 'capital', _('Capital assets (section 20)')
+    RENTAL = 'rental', _('Rental and leasing (section 21)')
+    OTHER = 'other', _('Other income, e.g. pensions (section 22)')
+    PRIVATE_SALE = 'private_sale', _('Private sale gains (sections 22 no. 2, 23): enter the gain, not the proceeds')
+    NOT_TAXABLE = 'not_taxable', _('Not income for tax (excluded)')
 
 
 class IncomeCategory(models.Model):
@@ -140,9 +143,9 @@ class SourceDocument(models.Model):
 class ImportBatch(models.Model):
     """One CSV upload: staged, reviewed, then committed or discarded (see docs/imports.md)."""
     class Status(models.TextChoices):
-        PREVIEW = 'preview', 'Preview (not imported)'
-        COMMITTED = 'committed', 'Imported'
-        DISCARDED = 'discarded', 'Discarded'
+        PREVIEW = 'preview', _('Preview (not imported)')
+        COMMITTED = 'committed', _('Imported')
+        DISCARDED = 'discarded', _('Discarded')
 
     description = models.CharField(max_length=300, blank=True)
     file_name = models.CharField(max_length=255, blank=True, help_text='Name as uploaded; display only.')
@@ -167,9 +170,9 @@ class ImportBatch(models.Model):
 class ImportRow(models.Model):
     """A staged CSV row. Nothing here is a payment until the batch is committed."""
     class Status(models.TextChoices):
-        VALID = 'valid', 'Valid'
-        INVALID = 'invalid', 'Invalid'
-        DUPLICATE = 'duplicate', 'Possible duplicate'
+        VALID = 'valid', _('Valid')
+        INVALID = 'invalid', _('Invalid')
+        DUPLICATE = 'duplicate', _('Possible duplicate')
 
     batch = models.ForeignKey(ImportBatch, on_delete=models.CASCADE, related_name='rows')
     line_number = models.PositiveIntegerField(help_text='Line in the file (header is line 1).')
@@ -232,13 +235,13 @@ class ExchangeRateRecord(models.Model):
 
 class Payment(models.Model):
     class Kind(models.TextChoices):
-        NORMAL = 'normal', 'Normal'
-        CORRECTION = 'correction', 'Correction'
-        REVERSAL = 'reversal', 'Reversal'
+        NORMAL = 'normal', _('Normal')
+        CORRECTION = 'correction', _('Correction')
+        REVERSAL = 'reversal', _('Reversal')
 
     class ConversionStatus(models.TextChoices):
-        PENDING = 'pending', 'Not yet converted'
-        CONVERTED = 'converted', 'Converted'
+        PENDING = 'pending', _('Not yet converted')
+        CONVERTED = 'converted', _('Converted')
 
     # Deleting a month deletes its payments. Organisation/category are PROTECTed.
     month = models.ForeignKey(ReportingMonth, on_delete=models.CASCADE, related_name='payments')
@@ -315,10 +318,12 @@ class Payment(models.Model):
         gap = self.unallocated
         if gap is None or gap == 0:
             return None
-        return (f'Gross {self.gross_amount:,.2f} must equal net {self.net_amount:,.2f} + withholding tax '
-                f'{(self.withholding_tax or 0):,.2f} + expenses {(self.expenses or 0):,.2f} '
-                f'(= {self.net_amount + (self.withholding_tax or 0) + (self.expenses or 0):,.2f}); '
-                f'{gap:,.2f} {self.currency} is unallocated.')
+        wh, ex = self.withholding_tax or 0, self.expenses or 0
+        return gettext('Gross %(gross)s must equal net %(net)s + withholding tax %(wh)s + expenses %(ex)s '
+                       '(= %(sum)s); %(gap)s %(ccy)s is unallocated.') % {
+            'gross': fmt_number(self.gross_amount), 'net': fmt_number(self.net_amount), 'wh': fmt_number(wh),
+            'ex': fmt_number(ex), 'sum': fmt_number(self.net_amount + wh + ex), 'gap': fmt_number(gap),
+            'ccy': self.currency}
 
     def clean(self):
         errors = {}
@@ -326,51 +331,54 @@ class Payment(models.Model):
         if self.payment_date and self.month_id:
             m = self.month
             if (m.year.year, m.month) != (self.payment_date.year, self.payment_date.month):
-                errors['month'] = f'Reporting month {m} does not match payment date {self.payment_date}.'
+                errors['month'] = gettext('Reporting month %(month)s does not match payment date %(date)s.') % {
+                    'month': m, 'date': self.payment_date}
         if self.income_period_start and self.income_period_end and self.income_period_end < self.income_period_start:
-            errors['income_period_end'] = 'Income period end is before its start.'
+            errors['income_period_end'] = gettext('Income period end is before its start.')
 
         # Amount signs: normal payments are positive; reversals negative; corrections signed but non-zero.
         g, n = self.gross_amount, self.net_amount
         if g is not None:
             if self.kind == self.Kind.NORMAL and g == 0:
-                errors['gross_amount'] = 'Gross amount must be positive (it cannot be zero).'
+                errors['gross_amount'] = gettext('Gross amount must be positive (it cannot be zero).')
             elif self.kind == self.Kind.NORMAL and g < 0 and self.category_id and not self.category.may_be_negative:
-                errors['gross_amount'] = (f'Gross amount must be positive: category "{self.category}" is not marked '
-                                          f'"may be negative" (use a reversal or correction to adjust).')
+                errors['gross_amount'] = gettext(
+                    'Gross amount must be positive: category "%(category)s" is not marked "may be negative" '
+                    '(use a reversal or correction to adjust).') % {'category': self.category}
             elif self.kind == self.Kind.NORMAL and g < 0 and not self.category_id:
                 pass            # the caller (form, importer) checks the category it resolves; save() checks it again
             elif self.kind == self.Kind.REVERSAL and g >= 0:
-                errors['gross_amount'] = 'A reversal must have a negative gross amount.'
+                errors['gross_amount'] = gettext('A reversal must have a negative gross amount.')
             elif self.kind == self.Kind.CORRECTION and g == 0:
-                errors['gross_amount'] = 'A correction must be non-zero.'
+                errors['gross_amount'] = gettext('A correction must be non-zero.')
             if n is not None and n != 0 and (n > 0) != (g > 0):
-                errors['net_amount'] = 'Net amount must have the same sign as gross.'
-            for name, label in (('withholding_tax', 'Withholding tax'), ('expenses', 'Expenses')):
+                errors['net_amount'] = gettext('Net amount must have the same sign as gross.')
+            for name, label in (('withholding_tax', gettext('Withholding tax')), ('expenses', gettext('Expenses'))):
                 v = getattr(self, name)
                 if v is not None and v != 0 and (v > 0) != (g > 0):
-                    errors[name] = (f'{label} cannot be negative.' if g > 0 else f'{label} must have the same sign as gross.')
+                    errors[name] = (gettext('%(label)s cannot be negative.') if g > 0
+                                    else gettext('%(label)s must have the same sign as gross.')) % {'label': label}
 
         if self.kind == self.Kind.NORMAL:
             if self.corrects_id:
-                errors['corrects'] = 'Only corrections and reversals may reference another payment.'
+                errors['corrects'] = gettext('Only corrections and reversals may reference another payment.')
         else:
             if not self.corrects_id:
-                errors['corrects'] = 'Corrections and reversals must reference the original payment.'
+                errors['corrects'] = gettext('Corrections and reversals must reference the original payment.')
             elif self.corrects.currency != self.currency:
-                errors['currency'] = 'Must use the same currency as the payment it corrects.'
+                errors['currency'] = gettext('Must use the same currency as the payment it corrects.')
 
         # Stored conversion must be internally consistent.
         if self.conversion_status == self.ConversionStatus.CONVERTED and not self._skip_conversion_checks:
             if self.rate is None or self.rate <= 0 or self.rate_date is None or self.gross_eur is None:
-                errors['conversion_status'] = 'Converted payments need a positive rate, rate date and gross EUR.'
+                errors['conversion_status'] = gettext('Converted payments need a positive rate, rate date and gross EUR.')
             elif self.currency == BASE_CURRENCY and self.rate != 1:
-                errors['rate'] = 'EUR payments always use rate 1.'
+                errors['rate'] = gettext('EUR payments always use rate 1.')
             elif self.net_amount is not None and self.net_eur is None:
-                errors['net_eur'] = 'Net EUR is required when a net amount is present.'
+                errors['net_eur'] = gettext('Net EUR is required when a net amount is present.')
             elif ((self.withholding_tax and self.withholding_tax_eur is None)
                   or (self.expenses and self.expenses_eur is None)):
-                errors['withholding_tax_eur'] = 'Withholding tax / expenses EUR are required when those amounts are present.'
+                errors['withholding_tax_eur'] = gettext('Withholding tax / expenses EUR are required when those amounts are present.')
         if errors:
             raise ValidationError(errors)
 
@@ -388,11 +396,11 @@ class ConversionEvent(models.Model):
     to a stored rate or EUR amount can be reconstructed.
     """
     class Kind(models.TextChoices):
-        INITIAL = 'initial', 'Initial conversion'
-        RECALCULATED = 'recalculated', 'Recalculated from provider'
-        MANUAL_CORRECTION = 'manual_correction', 'Manual rate correction'
-        BASIS_CHANGED = 'basis_changed', 'Currency or date edited'
-        AMOUNTS_EDITED = 'amounts_edited', 'Amounts edited (stored rate kept)'
+        INITIAL = 'initial', _('Initial conversion')
+        RECALCULATED = 'recalculated', _('Recalculated from provider')
+        MANUAL_CORRECTION = 'manual_correction', _('Manual rate correction')
+        BASIS_CHANGED = 'basis_changed', _('Currency or date edited')
+        AMOUNTS_EDITED = 'amounts_edited', _('Amounts edited (stored rate kept)')
 
     payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='conversion_events')
     kind = models.CharField(max_length=20, choices=Kind.choices)
@@ -418,12 +426,12 @@ class AssessmentSettings(models.Model):
     """The user's own circumstances for the SBK estimate (single row). Defaults record the owner's
     decisions of Phase 7: general rate as an unconfirmed upper-bound "affordability" figure; childless."""
     class KvRate(models.TextChoices):
-        GENERAL = 'general', 'General rate (with sick-pay entitlement)'
-        REDUCED = 'reduced', 'Reduced rate (no sick-pay entitlement)'
+        GENERAL = 'general', _('General rate (with sick-pay entitlement)')
+        REDUCED = 'reduced', _('Reduced rate (no sick-pay entitlement)')
 
     class Pflege(models.TextChoices):
-        CHILDLESS = 'childless', 'Age 23 or over, no children (surcharge)'
-        BASE = 'base', 'One child, or under 23 (base rate)'
+        CHILDLESS = 'childless', _('Age 23 or over, no children (surcharge)')
+        BASE = 'base', _('One child, or under 23 (base rate)')
 
     kv_rate = models.CharField(max_length=10, choices=KvRate.choices, default=KvRate.GENERAL)
     kv_rate_confirmed = models.BooleanField(
@@ -431,6 +439,8 @@ class AssessmentSettings(models.Model):
     pflege = models.CharField(max_length=10, choices=Pflege.choices, default=Pflege.CHILDLESS)
     joint_assessment = models.BooleanField(
         default=False, help_text='Jointly assessed for income tax (doubles the Sparer-Pauschbetrag).')
+    language = models.CharField(max_length=5, default='en', choices=[('en', 'English'), ('de', 'Deutsch')],
+                                help_text='Interface language and number/date formats for the whole app (Phase 12).')
 
     class Meta:
         verbose_name_plural = 'assessment settings'
@@ -464,9 +474,9 @@ class AnnualInput(models.Model):
 
     def clean(self):
         if self.first_month and self.last_month and self.last_month < self.first_month:
-            raise ValidationError({'last_month': 'Last month is before the first month.'})
+            raise ValidationError({'last_month': gettext('Last month is before the first month.')})
         if self.treatment in (SbkTreatment.EMPLOYMENT, SbkTreatment.PENSION, SbkTreatment.ONE_OFF, SbkTreatment.EXCLUDED):
-            raise ValidationError({'treatment': 'Costs and months earned apply only to self-employed, rental and capital income.'})
+            raise ValidationError({'treatment': gettext('Costs and months earned apply only to self-employed, rental and capital income.')})
 
     @property
     def months_earned(self):

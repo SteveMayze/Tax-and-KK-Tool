@@ -6,6 +6,7 @@ from . import (
 urlpatterns = [
     path('health/', views.health, name='health'),
     path('', views.home, name='home'),
+    path('language/', views.set_language, name='set_language'),
 
     path('years/add/', views.year_add, name='year_add'),
     path('years/<int:year>/', views.year_detail, name='year_detail'),

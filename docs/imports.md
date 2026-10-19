@@ -5,6 +5,7 @@ One file format, modelled on the app's own payment fields. There are no per-inst
 Nothing is imported at upload. Every row is reviewed, problems are fixed or excluded, and an explicit confirmation creates all payments in one transaction.
 
 ## File format
+- The format is the same whatever the interface language is (comma, decimal point, ISO dates, English column names).
 - UTF-8 text (a BOM is accepted), comma-separated, first row = column names. Column order is free; names are case-insensitive. Fully blank rows are ignored. Quoted cells may contain commas and line breaks.
 - Dates `YYYY-MM-DD`. Amounts are plain numbers with a decimal point (`1234.56`), at most 4 decimal places, no thousands separators, currency symbols or exponents.
 - Maximum 2 MB and 5,000 data rows (`IMPORT_MAX_BYTES`, `IMPORT_MAX_ROWS` in settings).

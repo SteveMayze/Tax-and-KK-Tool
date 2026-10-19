@@ -1,17 +1,20 @@
-import calendar
 from collections import defaultdict
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.conf import settings as django_settings
 from django.http import JsonResponse
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext as _
 from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from .forms import YearForm, YearNotesForm
-from .models import Payment, ReportingMonth, ReportingYear
+from .models import AssessmentSettings, Payment, ReportingMonth, ReportingYear
 from .services.aggregation import (
     actual_totals, average_of_actuals, normalised_monthly_totals, year_payments)
+from .services.i18n import month_name
 from .services.normalisation import is_recurring, monthly_equivalent
 
 
@@ -20,6 +23,22 @@ def health(request):
     """Unauthenticated liveness check. Returns no data beyond status."""
     return JsonResponse({'status': 'ok'})
 
+
+@login_required
+@require_POST
+def set_language(request):
+    """Save the app-wide language (one setting) and return to the page the user was on."""
+    code = request.POST.get('language', '')
+    if code not in dict(django_settings.LANGUAGES):
+        messages.error(request, _('Unknown language.'))
+    else:
+        settings_row = AssessmentSettings.load()
+        settings_row.language = code
+        settings_row.save(update_fields=['language'])
+    target = request.POST.get('next', '')
+    if not url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        target = reverse('home')
+    return redirect(target)
 
 
 def _year_summary(year):
@@ -43,7 +62,7 @@ def year_add(request):
     form = YearForm(request.POST)
     if form.is_valid():
         year = form.save()
-        messages.success(request, f'Year {year.year} added.')
+        messages.success(request, _('Year %(year)s added.') % {'year': year.year})
         return redirect('year_detail', year=year.year)
     return home(request, form=form)
 
@@ -57,7 +76,7 @@ def year_detail(request, year):
         by_month[p.month.month].append(p)
     existing = {m.month: m for m in y.months.all()}
     rows = [{
-        'number': n, 'name': calendar.month_name[n], 'obj': existing.get(n),
+        'number': n, 'name': month_name(n), 'obj': existing.get(n),
         'totals': actual_totals(by_month[n]),
     } for n in range(1, 13)]
     return render(request, 'core/year_detail.html', {
@@ -71,7 +90,7 @@ def year_notes(request, year):
     form = YearNotesForm(request.POST, instance=y)
     if form.is_valid():
         form.save()
-        messages.success(request, 'Notes saved.')
+        messages.success(request, _('Notes saved.'))
     return redirect('year_detail', year=year)
 
 
@@ -80,11 +99,12 @@ def year_delete(request, year):
     y = get_object_or_404(ReportingYear, year=year)
     if request.method == 'POST':
         y.delete()
-        messages.success(request, f'Year {year} and all its months and payments were deleted.')
+        messages.success(request, _('Year %(year)s and all its months and payments were deleted.') % {'year': year})
         return redirect('home')
     return render(request, 'core/confirm_delete.html', {
-        'what': f'year {year}',
-        'consequence': f'{y.months.count()} month(s) and {year_payments(y).count()} payment(s) will be permanently deleted.',
+        'what': _('year %(year)s') % {'year': year},
+        'consequence': _('%(months)s month(s) and %(payments)s payment(s) will be permanently deleted.') % {
+            'months': y.months.count(), 'payments': year_payments(y).count()},
         'cancel_href': reverse('year_detail', args=[year])})
 
 
@@ -93,10 +113,11 @@ def year_delete(request, year):
 def month_add(request, year, month):
     y = get_object_or_404(ReportingYear, year=year)
     if not 1 <= month <= 12:
-        messages.error(request, 'Month must be between 1 and 12.')
+        messages.error(request, _('Month must be between 1 and 12.'))
         return redirect('year_detail', year=year)
-    _, created = ReportingMonth.objects.get_or_create(year=y, month=month)
-    messages.success(request, f'{calendar.month_name[month]} {year} added.' if created else 'Month already exists.')
+    _month, created = ReportingMonth.objects.get_or_create(year=y, month=month)
+    messages.success(request, _('%(month)s %(year)s added.') % {'month': month_name(month), 'year': year} if created
+                     else _('Month already exists.'))
     return redirect('month_detail', year=year, month=month)
 
 
@@ -113,18 +134,18 @@ def month_detail(request, year, month):
             'recurring': is_recurring(p.frequency),
         })
     return render(request, 'core/month_detail.html', {
-        'month': m, 'month_name': calendar.month_name[month], 'rows': rows,
+        'month': m, 'month_name': month_name(month), 'rows': rows,
         'actual': actual_totals(payments), 'normalised': normalised_monthly_totals(payments)})
 
 
 @login_required
 def month_delete(request, year, month):
     m = get_object_or_404(ReportingMonth, year__year=year, month=month)
-    label = f'{calendar.month_name[month]} {year}'
+    label = f'{month_name(month)} {year}'
     if request.method == 'POST':
         m.delete()
-        messages.success(request, f'{label} and its payments were deleted.')
+        messages.success(request, _('%(label)s and its payments were deleted.') % {'label': label})
         return redirect('year_detail', year=year)
     return render(request, 'core/confirm_delete.html', {
-        'what': label, 'consequence': f'{m.payments.count()} payment(s) will be permanently deleted.',
+        'what': label, 'consequence': _('%(n)s payment(s) will be permanently deleted.') % {'n': m.payments.count()},
         'cancel_href': reverse('month_detail', args=[year, month])})

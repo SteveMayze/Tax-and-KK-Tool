@@ -1,36 +1,36 @@
 {% extends "base.html" %}
-{% load money %}
-{% block title %}Years{% endblock %}
+{% load money i18n %}
+{% block title %}{% trans "Years" %}{% endblock %}
 {% block content %}
-<h1>Years</h1>
-<p class="note">Totals: actual payments received, EUR, using each payment's stored exchange rate. Estimated monthly = annual total ÷ 12 (an average of actuals, not a recurring figure; always ÷ 12 even for partial years). It is <strong>not</strong> the figure SBK assesses: see the <a href="{% url 'report_view' 'sbk' %}?year=2026">SBK contribution estimate</a>, which follows SBK's allocation rules per income type.</p>
+<h1>{% trans "Years" %}</h1>
+<p class="note">{% url 'report_view' 'sbk' as sbk_url %}{% blocktrans trimmed %}Totals: actual payments received, EUR, using each payment's stored exchange rate. Estimated monthly = annual total ÷ 12 (an average of actuals, not a recurring figure; always ÷ 12 even for partial years). It is <strong>not</strong> the figure SBK assesses: see the <a href="{{ sbk_url }}?year=2026">SBK contribution estimate</a>, which follows SBK's allocation rules per income type.{% endblocktrans %}</p>
 {% if summaries %}
 <table>
-  <thead><tr><th>Year</th><th class="num">Payments</th><th class="num">Gross EUR</th><th class="num">Net EUR</th><th class="num">Est. monthly gross ÷ 12</th><th class="num">Est. monthly net ÷ 12</th><th>Notes</th><th></th></tr></thead>
+  <thead><tr><th>{% trans "Year" %}</th><th class="num">{% trans "Payments" %}</th><th class="num">{% trans "Gross EUR" %}</th><th class="num">{% trans "Net EUR" %}</th><th class="num">{% trans "Est. monthly gross ÷ 12" %}</th><th class="num">{% trans "Est. monthly net ÷ 12" %}</th><th>{% trans "Notes" %}</th><th></th></tr></thead>
   <tbody>
   {% for s in summaries %}
   <tr>
-    <td><a href="{% url 'year_detail' s.year.year %}">{{ s.year.year }}</a></td>
+    <td><a href="{% url 'year_detail' s.year.year %}">{{ s.year.year|stringformat:"d" }}</a></td>
     <td class="num">{{ s.totals.payment_count }}</td>
     <td class="num">{{ s.totals.gross_eur|money }}</td>
     <td class="num">{{ s.totals.net_eur|money }}</td>
     <td class="num">{{ s.avg.gross_eur|money }}</td>
     <td class="num">{{ s.avg.net_eur|money }}</td>
     <td class="note">
-      {{ s.months_with_payments }} of 12 months with payments.
-      {% if s.totals.unconverted_count %}<br>Excluded: {{ s.totals.unconverted_count }} unconverted payment(s).{% endif %}
-      {% if s.totals.net_missing_count %}<br>{{ s.totals.net_missing_count }} payment(s) without net amount (not in net total).{% endif %}
+      {% blocktrans trimmed with n=s.months_with_payments %}{{ n }} of 12 months with payments.{% endblocktrans %}
+      {% if s.totals.unconverted_count %}<br>{% blocktrans trimmed with n=s.totals.unconverted_count %}Excluded: {{ n }} unconverted payment(s).{% endblocktrans %}{% endif %}
+      {% if s.totals.net_missing_count %}<br>{% blocktrans trimmed with n=s.totals.net_missing_count %}{{ n }} payment(s) without net amount (not in net total).{% endblocktrans %}{% endif %}
     </td>
-    <td><a href="{% url 'year_delete' s.year.year %}">Delete</a></td>
+    <td><a href="{% url 'year_delete' s.year.year %}">{% trans "Delete" %}</a></td>
   </tr>
   {% endfor %}
   </tbody>
 </table>
-{% else %}<p>No years yet. Add one below.</p>{% endif %}
+{% else %}<p>{% trans "No years yet. Add one below." %}</p>{% endif %}
 
-<h2>Add year</h2>
+<h2>{% trans "Add year" %}</h2>
 <form method="post" action="{% url 'year_add' %}">{% csrf_token %}
   {{ form.as_p }}
-  <button type="submit">Add year</button>
+  <button type="submit">{% trans "Add year" %}</button>
 </form>
 {% endblock %}

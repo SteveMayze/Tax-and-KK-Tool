@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.utils.translation import gettext as _
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -14,7 +15,7 @@ def assessment_settings(request):
     form = AssessmentSettingsForm(request.POST or None, instance=settings)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, 'Assessment settings saved.')
+        messages.success(request, _('Assessment settings saved.'))
         return redirect('assessment_settings')
     return render(request, 'core/assessment_settings.html', {
         'form': form, 'params': sbk.PARAMETERS, 'years': ReportingYear.objects.all()})
@@ -29,7 +30,7 @@ def annual_inputs(request, year):
         AnnualInput.objects.update_or_create(
             year=y, treatment=cd['treatment'],
             defaults={k: cd[k] for k in ('costs_eur', 'first_month', 'last_month', 'note')})
-        messages.success(request, 'Saved.')
+        messages.success(request, _('Saved.'))
         return redirect('annual_inputs', year=year)
     return render(request, 'core/annual_inputs.html', {'year': y, 'form': form, 'inputs': y.annual_inputs.all()})
 
@@ -39,5 +40,5 @@ def annual_inputs(request, year):
 def annual_input_delete(request, year, pk):
     obj = get_object_or_404(AnnualInput, pk=pk, year__year=year)
     obj.delete()
-    messages.success(request, 'Removed; defaults (January to December, no costs) apply again.')
+    messages.success(request, _('Removed; defaults (January to December, no costs) apply again.'))
     return redirect('annual_inputs', year=year)

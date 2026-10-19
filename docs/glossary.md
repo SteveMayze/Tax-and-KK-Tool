@@ -2,9 +2,9 @@
 
 Single source for the wording of the reports (Phase 12) and for the information popups on the report headings (Phase 13). Report headings, popups and the German interface must use these strings; nothing is translated ad hoc.
 
-**Status values**
+**Status values** (the owner approved this glossary on 2026-10-19)
 - **verified (SBK page)**: the German wording is quoted from an SBK page the repo already cites (`docs/rules/sbk-contribution-rules.md`, [S5]); read 2026-10-19.
-- **proposed, needs owner review**: my proposal. It is not taken from an SBK or statute text. Please correct it; nothing German marked "proposed" should be treated as an official term.
+- **approved by owner 2026-10-19 (wording proposed)**: my proposal, approved by the owner as the working wording. It is not taken from an SBK or statute text and must not be treated as an official term.
 
 Nothing here is legal advice. The app's output is not an SBK assessment or a tax calculation.
 
@@ -14,18 +14,18 @@ Sources used below: **SBK-F** = https://www.sbk.org/versicherung-tarife/beitraeg
 
 | # | English label | German label | Explanation (shown in the info popup, in the selected language) | Source | Status |
 |---|---|---|---|---|---|
-| 1 | Employment | Arbeitsentgelt | Income from employment, counted in the month it is paid (payment date). | SBK-01, BVSz §3 via `docs/rules/` (German word from the app's category mapping label). SBK-F names only "geringfügige Beschäftigung" | proposed, needs owner review |
+| 1 | Employment | Arbeitsentgelt | Income from employment, counted in the month it is paid (payment date). | SBK-01, BVSz §3 via `docs/rules/` (German word from the app's category mapping label). SBK-F names only "geringfügige Beschäftigung" | approved by owner 2026-10-19 (wording proposed) |
 | 2 | Pension | Renten und Versorgungsbezüge | Pensions and company pensions, counted in the month they are paid. | SBK-F: "Renten und Versorgungsbezüge, zum Beispiel Betriebsrenten" | verified (SBK page) |
 | 3 | Self-employed | Einkünfte aus selbstständiger Tätigkeit | Profit from self-employment: the annual surplus after your entered costs, divided over the months you entered. | SBK-F: "Einkünfte aus selbstständiger Tätigkeit"; SBK-05 | verified (SBK page) |
 | 4 | Rental | Einkünfte aus Vermietung und Verpachtung | Rental surplus after your entered costs, divided over the months you entered. | SBK-F: "Einkünfte aus Vermietung und Verpachtung"; SBK-05 | verified (SBK page) |
 | 5 | Capital | Einkünfte aus Kapitalvermögen | Interest and dividends: annual surplus after the 51 EUR flat costs (or your higher proven costs), divided over the months you entered. | SBK-F: "Einkünfte aus Kapitalvermögen, zum Beispiel Zins- und Dividendenerträge"; SBK-03 | verified (SBK page) |
-| 6 | One-off (1/12) | Einmalige Einnahmen (1/12) | A one-off amount spread at one twelfth per month for twelve months, starting with the month of receipt. | SBK-06 (BVSz §5(3)); the phrase "Einmalzahlung" is not on SBK-F | proposed, needs owner review |
-| 7 | Base before limits | Beitragspflichtige Einnahmen vor Begrenzung | The month's total of the income types above, before the minimum and maximum are applied. | SBK-01, SBK-07 | proposed, needs owner review |
-| 8 | Assessed base | Beitragsbemessungsgrundlage | The monthly amount the contribution is calculated on, after the minimum and maximum. | SBK-08, SBK-09 | proposed, needs owner review |
+| 6 | One-off (1/12) | Einmalige Einnahmen (1/12) | A one-off amount spread at one twelfth per month for twelve months, starting with the month of receipt. | SBK-06 (BVSz §5(3)); the phrase "Einmalzahlung" is not on SBK-F | approved by owner 2026-10-19 (wording proposed) |
+| 7 | Base before limits | Beitragspflichtige Einnahmen vor Begrenzung | The month's total of the income types above, before the minimum and maximum are applied. | SBK-01, SBK-07 | approved by owner 2026-10-19 (wording proposed) |
+| 8 | Assessed base | Beitragsbemessungsgrundlage | The monthly amount the contribution is calculated on, after the minimum and maximum. | SBK-08, SBK-09 | approved by owner 2026-10-19 (wording proposed) |
 | 9 | Limit applied | Angewandte Grenze (Mindest- / Höchstgrenze) | Shows whether the legal minimum base ("minimum") or the ceiling ("maximum") replaced your income. Ceiling 2026: 5,812.50 EUR per month; minimum 1,318.33 EUR per month. | SBK-F: "Beitragsbemessungsgrenze von monatlich 5.812,50 €"; "Die untere Grenze zur Beitragsberechnung liegt bei monatlich 1.318,33 €" | verified (SBK page) for "Beitragsbemessungsgrenze" and "untere Grenze"; the label as a whole is proposed |
-| 10 | Health: general part | Krankenversicherung: allgemeiner Anteil (14,6 %) | Health contribution at the general rate of 14.6 % of the assessed base (the app uses the general rate as an upper bound until SBK confirms yours). | SBK-10; SBK-F "allgemeiner Beitragssatz" (that page quotes 18,4 % including the additional contribution) | proposed, needs owner review |
+| 10 | Health: general part | Krankenversicherung: allgemeiner Anteil (14,6 %) | Health contribution at the general rate of 14.6 % of the assessed base (the app uses the general rate as an upper bound until SBK confirms yours). | SBK-10; SBK-F "allgemeiner Beitragssatz" (that page quotes 18,4 % including the additional contribution) | approved by owner 2026-10-19 (wording proposed) |
 | 11 | Health: additional contribution | Krankenversicherung: Zusatzbeitrag (3,8 %) | SBK's additional contribution, 3.8 % of the assessed base; it can change during a year. | SBK-B: "Darin enthalten ist ein Zusatzbeitrag von 3,8 Prozent." | verified (SBK page) for "Zusatzbeitrag"; the label is proposed |
-| 12 | Health total | Krankenversicherung gesamt | General part plus additional contribution. SBK's own table calls the health-insurance amount "Krankenkassen-Beitrag". | SBK-F table; SBK-17 | proposed, needs owner review |
+| 12 | Health total | Krankenversicherung gesamt | General part plus additional contribution. SBK's own table calls the health-insurance amount "Krankenkassen-Beitrag". | SBK-F table; SBK-17 | approved by owner 2026-10-19 (wording proposed) |
 | 13 | Care insurance | Pflegeversicherung | Care-insurance contribution on the same base (4.2 % assumed: age 23 or over, no children). | SBK-F: "Pflegeversicherung", "Pflegekassen-Beitrag"; "Für Versicherte über 23 Jahren und ohne Kinder beträgt der Beitragssatz 4,2 %." | verified (SBK page) |
 | 14 | Total contribution | Gesamtbeitrag | Health total plus care insurance for the month. | SBK-F table: "Gesamtbeitrag/Monat" | verified (SBK page) |
 
@@ -33,7 +33,7 @@ Note: SBK-F writes the care-insurance age as "23 Jahren" and the child relief as
 
 ## B. Other headings and terms that appear on the reports and pages
 
-All are **proposed, needs owner review** unless stated. Where the repo's rule files already use a German word, that word is used.
+All are **approved by owner 2026-10-19 (wording proposed)** unless stated. Where the repo's rule files already use a German word, that word is used.
 
 | English | German (proposed) | Notes |
 |---|---|---|
@@ -73,6 +73,94 @@ All are **proposed, needs owner review** unless stated. Where the repo's rule fi
 | Actual payments received / Normalised monthly | Tatsächlich erhaltene Zahlungen / Normalisiert pro Monat | |
 | Information only, not credited | Nur zur Information, nicht angerechnet | withholding tax on the tax summary |
 
+## D. Every other report heading and title (derived)
+
+Generated from the reports themselves and checked by a test (`core/test_i18n.py`): every German heading and title on the report pages must appear in this file. They combine the approved terms above; status for all rows: **derived from approved terms, owner may amend**.
+
+| English | German |
+|---|---|
+| Year | Jahr |
+| Payments | Zahlungen |
+| Months with payments | Monate mit Zahlungen |
+| Gains EUR | Gewinne EUR |
+| Losses EUR (signed) | Verluste EUR (mit Vorzeichen) |
+| Corrections / reversals EUR (signed) | Korrekturen / Stornierungen EUR (mit Vorzeichen) |
+| Gross EUR (signed sum) | Brutto EUR (Summe mit Vorzeichen) |
+| Net EUR | Netto EUR |
+| Withholding tax EUR | Einbehaltene Steuer (Quellensteuer) EUR |
+| Expenses EUR | Ausgaben EUR |
+| Unallocated EUR | Nicht zugeordnet EUR |
+| Gross EUR / 12 | Brutto EUR / 12 |
+| Net EUR / 12 | Netto EUR / 12 |
+| Payments without net | Zahlungen ohne Netto |
+| Unconverted payments | Nicht umgerechnete Zahlungen |
+| Annual summary | Jahresübersicht |
+| Month | Monat |
+| Gross EUR | Brutto EUR |
+| Monthly breakdown | Monatsübersicht |
+| ID | ID |
+| Payment date | Zahlungsdatum |
+| Reporting month | Berichtsmonat |
+| Organisation | Organisation |
+| Category | Kategorie |
+| Type | Art |
+| Frequency | Häufigkeit |
+| Currency | Währung |
+| Gross (original) | Brutto (Original) |
+| Net (original) | Netto (Original) |
+| Conversion | Umrechnung |
+| Rate (EUR per 1 unit) | Kurs (EUR je 1 Einheit) |
+| Rate date | Kursdatum |
+| Rate source | Kursquelle |
+| Withholding tax (original) | Einbehaltene Steuer (Quellensteuer) (Original) |
+| Expenses (original) | Ausgaben (Original) |
+| Unallocated (original) | Nicht zugeordnet (Original) |
+| Monthly equivalent gross EUR (recurring only) | Brutto-Monatsäquivalent EUR (nur wiederkehrende) |
+| Income period start | Beginn des Einkommenszeitraums |
+| Income period end | Ende des Einkommenszeitraums |
+| Import batch | Importvorgang |
+| Comment | Kommentar |
+| Payment-level detail | Einzelne Zahlungen |
+| Share of gross | Anteil am Brutto |
+| By organisation | Nach Organisation |
+| By category | Nach Kategorie |
+| Original currency | Originalwährung |
+| Gross (original currency) | Brutto (Originalwährung) |
+| Net (original currency) | Netto (Originalwährung) |
+| Withholding tax (original currency) | Einbehaltene Steuer (Quellensteuer) (Originalwährung) |
+| Expenses (original currency) | Ausgaben (Originalwährung) |
+| Unallocated (original currency) | Nicht zugeordnet (Originalwährung) |
+| Converted payments | Umgerechnete Zahlungen |
+| Gross EUR (converted only) | Brutto EUR (nur umgerechnete) |
+| Net EUR (converted only) | Netto EUR (nur umgerechnete) |
+| Original-currency summary | Übersicht nach Originalwährung |
+| Gross monthly equivalent EUR | Brutto-Monatsäquivalent EUR |
+| Net monthly equivalent EUR | Netto-Monatsäquivalent EUR |
+| Recurring payments | Wiederkehrende Zahlungen |
+| One-off items excluded | Einmalige Posten ausgeschlossen |
+| Recurring without net | Wiederkehrende ohne Netto |
+| Normalised monthly recurring income | Normalisierte monatliche wiederkehrende Einnahmen |
+| Issue | Befund |
+| Payment ID | Zahlungs-ID |
+| Rate | Kurs |
+| Missing data and reconciliation | Fehlende Daten und Abgleich |
+| SBK contribution estimate | Schätzung des SBK-Beitrags |
+| Income type | Einkunftsart |
+| Organisation country | Land der Organisation |
+| Gross EUR (converted, signed sum) | Brutto EUR (umgerechnet, Summe mit Vorzeichen) |
+| of which losses EUR (shown separately, not netted across categories) | davon Verluste EUR (getrennt ausgewiesen, nicht zwischen Kategorien verrechnet) |
+| Original gross by currency | Originalbrutto je Währung |
+| Withholding tax EUR (information, not credited) | Einbehaltene Steuer (Quellensteuer) EUR (nur zur Information, nicht angerechnet) |
+| Manual-rate payments | Zahlungen mit manuellem Kurs |
+| Flags | Hinweise |
+| Tax information summary | Steuerübersicht (Information) |
+| Check | Prüfung |
+| Amount EUR | Betrag EUR |
+| Rule | Regel |
+| Result | Ergebnis |
+| Note | Notiz |
+| Tax checks (verified rules) | Steuerprüfungen (geprüfte Regeln) |
+
 ## C. Number, date and CSV formats (decided 2026-10-19)
 - **Screen and printed reports** follow the selected language: German `1.234,50` and `19.10.2026`; English `1,234.50` and `2026-10-19` as today. Amounts show their ISO currency code after the number, in their own currency.
-- **CSV exports** are **language-independent in format**: comma separator, dot decimal, no thousands separator, ISO dates, 2 decimals (the same as the stored values, rounded for export only). Only the *text* (headings, labels) is language-dependent; see the open question below.
+- **CSV exports** are **language-independent in format**: comma separator, dot decimal, no thousands separator, ISO dates, 2 decimals (the same as the stored values, rounded for export only). CSV headings and labels are **always English** (owner decision 2026-10-19: the CSV is mainly for bulk data input), so exports from either language can be mixed. A `Language` and a `Format` row in each CSV states this.

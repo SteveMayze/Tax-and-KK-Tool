@@ -71,6 +71,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.LanguageMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -128,7 +129,13 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en'
+# One language setting for the whole app (stored in the assessment settings row, changed in the page header). It drives
+# the interface text and the number/date formats. CSV exports are language-independent (see core.services.report_csv).
+LANGUAGES = [('en', 'English'), ('de', 'Deutsch')]
+LOCALE_PATHS = [BASE_DIR / 'core' / 'locale']
+FORMAT_MODULE_PATH = ['core.formats']
+USE_THOUSAND_SEPARATOR = False   # plain counts and years stay plain; money is grouped explicitly (core.services.i18n.number)
 
 TIME_ZONE = 'UTC'
 

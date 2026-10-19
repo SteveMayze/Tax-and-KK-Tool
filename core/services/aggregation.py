@@ -10,6 +10,8 @@ report how many were missing it. Unconverted payments are excluded and counted.
 from dataclasses import dataclass
 from decimal import Decimal
 
+from django.utils.translation import gettext as _
+
 from core.models import Payment, ReportingMonth
 
 from .normalisation import is_recurring, monthly_equivalent
@@ -69,7 +71,7 @@ def actual_totals(payments) -> ActualTotals:
     gains = sum((p.gross_eur for p in normal if p.gross_eur > 0), ZERO)
     losses = sum((p.gross_eur for p in normal if p.gross_eur < 0), ZERO)
     adjustments = sum((p.gross_eur for p in converted if p.kind != Payment.Kind.NORMAL), ZERO)
-    return ActualTotals('actual payments received, EUR, stored rates', len(payments), gross, net,
+    return ActualTotals(_('actual payments received, EUR, stored rates'), len(payments), gross, net,
                         len(converted) - len(with_net), unconverted, withholding, expenses, unallocated,
                         gains, losses, adjustments)
 
@@ -87,7 +89,7 @@ def normalised_monthly_totals(payments) -> NormalisedTotals:
     with_net = [p for p in recurring if p.net_eur is not None]
     net = sum((monthly_equivalent(p.net_eur, p.frequency) for p in with_net), ZERO)
     return NormalisedTotals(
-        'normalised recurring monthly equivalents, EUR, stored rates; one-off items excluded',
+        _('normalised recurring monthly equivalents, EUR, stored rates; one-off items excluded'),
         gross, net, len(recurring), len(converted) - len(recurring),
         len(recurring) - len(with_net), unconverted)
 
@@ -117,7 +119,7 @@ def average_of_actuals(t: ActualTotals) -> dict:
     even for a partial year. An average of actuals, NOT a recurring monthly figure, and not an
     official SBK calculation."""
     return {
-        'basis': 'annual actual total / 12 (average of actuals, not a recurring figure)',
+        'basis': _('annual actual total / 12 (average of actuals, not a recurring figure)'),
         'gross_eur': t.gross_eur / 12,
         'net_eur': t.net_eur / 12,
         'net_missing_count': t.net_missing_count,

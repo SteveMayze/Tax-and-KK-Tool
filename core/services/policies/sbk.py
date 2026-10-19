@@ -11,6 +11,10 @@ import calendar
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 
+from django.utils.translation import gettext as _, gettext_lazy
+
+from core.services.i18n import number
+
 from core.models import AnnualInput, AssessmentSettings, IncomeCategory, Payment, SbkTreatment
 
 POLICY_NAME = 'sbk-contribution-estimate'
@@ -58,23 +62,27 @@ PARAMETERS = {
 }
 
 ASSUMPTIONS = [
-    'Membership for all 12 months of the year, each month counted as 30 days.',
-    'The base is derived from the selected year\'s data. SBK itself uses the last proven year and the tax assessment, and its '
-    'contributions stay provisional until then.',
-    'Employment and pension income is allocated to the month of the payment date (income-period dates are not used).',
-    'Self-employed, rental and capital income: annual surplus divided by the months from "first month" to "last month" you '
-    'entered (default January to December) and applied to those months. This reading of BVSz section 5(2) is not confirmed with SBK.',
-    'A negative annual surplus is treated as 0; loss netting (including section 20(6) EStG) is not applied. Losses are recorded '
-    'as negative payments in categories marked "may be negative" and are listed in a run-specific note when present.',
-    'One-off income is spread at 1/12 per month for 12 months starting with the month of receipt (BVSz section 5(3)), '
-    'including one-offs received in the previous year.',
-    'Gross EUR amounts at the rate stored on each payment; unconverted payments are excluded. Net amounts are not used.',
-    'The category-to-treatment mapping is yours; unmapped categories are excluded.',
-    'Not modelled: spouse or partner income, child deductions, ranking of several income types, sick-pay or other '
-    'contribution-free periods, special rules for foreign pensions, minimum-base exceptions.',
-    'Contributions are rounded to 2 decimals half-up per component; the additional contribution is calculated on the '
-    'total base and rounded separately (BVSz section 9).',
+    gettext_lazy('Membership for all 12 months of the year, each month counted as 30 days.'),
+    gettext_lazy('The base is derived from the selected year\'s data. SBK itself uses the last proven year and the tax assessment, and its '
+    'contributions stay provisional until then.'),
+    gettext_lazy('Employment and pension income is allocated to the month of the payment date (income-period dates are not used).'),
+    gettext_lazy('Self-employed, rental and capital income: annual surplus divided by the months from "first month" to "last month" you '
+    'entered (default January to December) and applied to those months. This reading of BVSz section 5(2) is not confirmed with SBK.'),
+    gettext_lazy('A negative annual surplus is treated as 0; loss netting (including section 20(6) EStG) is not applied. Losses are recorded '
+    'as negative payments in categories marked "may be negative" and are listed in a run-specific note when present.'),
+    gettext_lazy('One-off income is spread at 1/12 per month for 12 months starting with the month of receipt (BVSz section 5(3)), '
+    'including one-offs received in the previous year.'),
+    gettext_lazy('Gross EUR amounts at the rate stored on each payment; unconverted payments are excluded. Net amounts are not used.'),
+    gettext_lazy('The category-to-treatment mapping is yours; unmapped categories are excluded.'),
+    gettext_lazy('Not modelled: spouse or partner income, child deductions, ranking of several income types, sick-pay or other '
+    'contribution-free periods, special rules for foreign pensions, minimum-base exceptions.'),
+    gettext_lazy('Contributions are rounded to 2 decimals half-up per component; the additional contribution is calculated on the '
+    'total base and rounded separately (BVSz section 9).'),
 ]
+
+
+def _short(treatment):
+    return str(SbkTreatment(treatment).label).split(':')[0]
 
 
 def round_cents(value: Decimal) -> Decimal:
@@ -131,8 +139,9 @@ def parameters_for(year: int) -> SbkParameters:
         return PARAMETERS[year]
     except KeyError:
         raise PolicyUnavailable(
-            f'No verified SBK parameters for {year}; only {", ".join(map(str, sorted(PARAMETERS)))} '
-            f'{"is" if len(PARAMETERS) == 1 else "are"} available. Add them to the register first (docs/rules/).')
+            _('No verified SBK parameters for %(year)s; only %(years)s %(verb)s available. Add them to the register first (docs/rules/).') % {
+                'year': year, 'years': ', '.join(map(str, sorted(PARAMETERS))),
+                'verb': _('is') if len(PARAMETERS) == 1 else _('are')})
 
 
 def rates_for(params: SbkParameters, settings: AssessmentSettings):
@@ -140,11 +149,11 @@ def rates_for(params: SbkParameters, settings: AssessmentSettings):
     pflege = params.pflege_base_pct + (
         params.pflege_childless_surcharge_pct if settings.pflege == AssessmentSettings.Pflege.CHILDLESS else ZERO)
     if settings.kv_rate_confirmed:
-        label = f'{settings.get_kv_rate_display()}, confirmed with SBK'
+        label = _('%(rate)s, confirmed with SBK') % {'rate': settings.get_kv_rate_display()}
     else:
-        label = (f'{settings.get_kv_rate_display()}: NOT confirmed with SBK; shown as an upper-bound "affordability" '
-                 f'figure, the amount you could expect to pay at most' if settings.kv_rate == settings.KvRate.GENERAL
-                 else f'{settings.get_kv_rate_display()}: NOT confirmed with SBK')
+        label = (_('%(rate)s: NOT confirmed with SBK; shown as an upper-bound "affordability" figure, the amount you could expect to pay at most')
+                 if settings.kv_rate == settings.KvRate.GENERAL
+                 else _('%(rate)s: NOT confirmed with SBK')) % {'rate': settings.get_kv_rate_display()}
     return kv, params.zusatz_pct, pflege, label
 
 
@@ -218,20 +227,21 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
             costs = max(costs, params.capital_costs_flat)        # SBK-03: 51 EUR unless higher costs proven
         surplus = gross - costs
         if surplus < 0:
-            notes.append(f'{SbkTreatment(treatment).label.split(":")[0]}: costs exceed income; treated as 0 (no loss netting).')
+            notes.append(_('%(type)s: costs exceed income; treated as 0 (no loss netting).') % {'type': _short(treatment)})
             surplus = ZERO
         per_month = surplus / (last - first + 1)
         for m in _month_range(first, last):
             comps[m][treatment] += per_month
         if inp is None:
-            notes.append(f'{SbkTreatment(treatment).label.split(":")[0]}: no months/costs entered for {year}; '
-                         f'assumed January to December and no costs' +
-                         (f' (capital: flat {params.capital_costs_flat} EUR)' if treatment == SbkTreatment.CAPITAL else '') + '.')
+            notes.append(_('%(type)s: no months/costs entered for %(year)s; assumed January to December and no costs') % {
+                'type': _short(treatment), 'year': year} +
+                (_(' (capital: flat %(flat)s EUR)') % {'flat': params.capital_costs_flat} if treatment == SbkTreatment.CAPITAL else '') + '.')
 
     for treatment, (count, total) in sorted(losses.items()):
-        notes.append(f'Loss recorded in {SbkTreatment(treatment).label.split(":")[0]} ({count} payment(s), {total:,.2f} EUR): it only '
-                     f'reduces that income type\'s own signed sum; a negative annual surplus counts as 0, and the loss is not netted '
-                     f'against other income types or carried over (loss-offset rules are unverified, docs/rules/).')
+        notes.append(_('Loss recorded in %(type)s (%(n)s payment(s), %(eur)s EUR): it only reduces that income type\'s own signed sum; '
+                       'a negative annual surplus counts as 0, and the loss is not netted against other income types or carried over '
+                       '(loss-offset rules are unverified, docs/rules/).') % {
+            'type': _short(treatment), 'n': count, 'eur': number(total)})
 
     months = []
     for m in range(1, 13):

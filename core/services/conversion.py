@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
+from django.utils.translation import gettext
 
 from core.currencies import BASE_CURRENCY
 from core.models import ConversionEvent, ExchangeRateRecord, Payment
@@ -85,9 +86,9 @@ def compute_conversion(payment: Payment, provider: RateProvider | None = None, m
         try:
             rate = to_decimal(manual_rate)
         except MoneyError as e:
-            raise ConversionError(f'Invalid manual rate: {e}') from e
+            raise ConversionError(gettext('Invalid manual rate: %(error)s') % {'error': e}) from e
         if rate <= 0:
-            raise ConversionError('Manual rate must be positive.')
+            raise ConversionError(gettext('Manual rate must be positive.'))
         wh, ex = breakdown_eur(payment, rate)
         return Conversion(
             rate, manual_rate_date or payment.payment_date, 'manual', True,
@@ -96,15 +97,16 @@ def compute_conversion(payment: Payment, provider: RateProvider | None = None, m
             withholding_tax_eur=wh, expenses_eur=ex)
 
     if provider is None:
-        raise ConversionError('No rate provider configured.')
+        raise ConversionError(gettext('No rate provider configured.'))
     quote = None if refresh else stored_quote(provider, payment.currency, payment.payment_date)
     if quote is None:
         try:
             quote = provider.get_rate(payment.currency, payment.payment_date)
         except RateError as e:
-            raise ConversionError(f'Could not obtain {payment.currency} rate for {payment.payment_date}: {e}') from e
+            raise ConversionError(gettext('Could not obtain %(ccy)s rate for %(date)s: %(error)s') % {
+                'ccy': payment.currency, 'date': payment.payment_date, 'error': e}) from e
     if quote.rate <= 0:
-        raise ConversionError(f'Provider returned an invalid rate ({quote.rate}).')
+        raise ConversionError(gettext('Provider returned an invalid rate (%(rate)s).') % {'rate': quote.rate})
     wh, ex = breakdown_eur(payment, quote.rate)
     return Conversion(
         quote.rate, quote.rate_date, quote.provider, False, quote_notes(quote),
@@ -148,7 +150,7 @@ def convert_payment(payment: Payment, provider: RateProvider | None = None, manu
     """
     converted = payment.conversion_status == Payment.ConversionStatus.CONVERTED
     if converted and not recalculate:
-        raise ConversionError('Payment already converted; recalculation must be requested explicitly.',
+        raise ConversionError(gettext('Payment already converted; recalculation must be requested explicitly.'),
                               manual_rate_possible=False)
     if kind is None:
         if not converted:
@@ -159,7 +161,7 @@ def convert_payment(payment: Payment, provider: RateProvider | None = None, manu
             kind = ConversionEvent.Kind.RECALCULATED
     reason = (reason or '').strip()
     if kind == ConversionEvent.Kind.MANUAL_CORRECTION and not reason:
-        raise ConversionError('A reason is required when manually correcting a stored rate.')
+        raise ConversionError(gettext('A reason is required when manually correcting a stored rate.'))
 
     previous = _snapshot(payment)
     c = compute_conversion(payment, provider, manual_rate, manual_rate_date, manual_note,
@@ -185,7 +187,7 @@ def reapply_stored_rate(payment: Payment) -> Payment:
     """After amounts change (same currency and payment date), recompute EUR with the STORED rate.
     The rate itself is not replaced; the change is logged."""
     if payment.conversion_status != Payment.ConversionStatus.CONVERTED or payment.rate is None:
-        raise ConversionError('Payment has no stored rate to reapply.')
+        raise ConversionError(gettext('Payment has no stored rate to reapply.'))
     previous = _snapshot(payment)
     payment.gross_eur = for_storage(eur_amount(payment.gross_amount, payment.rate))
     payment.net_eur = for_storage(eur_amount(payment.net_amount, payment.rate))

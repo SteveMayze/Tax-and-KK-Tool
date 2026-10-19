@@ -41,6 +41,8 @@ def render(report) -> str:
     w = csv.writer(out, lineterminator='\r\n')
     w.writerow(['Report', report.title])
     w.writerow(['Report format version', CSV_FORMAT_VERSION])
+    w.writerow(['Language', 'English (CSV headings are always English)'])
+    w.writerow(['Format', 'Comma-separated; decimal point; no thousands separator; ISO dates (YYYY-MM-DD); amounts rounded to 2 decimals'])
     w.writerow(['Generated (UTC)', report.generated_at.strftime('%Y-%m-%d %H:%M:%S')])
     for label, text in report.basis:
         w.writerow([label, safe_text(text)])

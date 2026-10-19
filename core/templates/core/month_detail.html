@@ -1,38 +1,38 @@
 {% extends "base.html" %}
-{% load money %}
-{% block title %}{{ month_name }} {{ month.year.year }}{% endblock %}
+{% load money i18n %}
+{% block title %}{{ month_name }} {{ month.year.year|stringformat:"d" }}{% endblock %}
 {% block content %}
-<p><a href="{% url 'year_detail' month.year.year %}">&larr; {{ month.year.year }}</a></p>
-<h1>{{ month_name }} {{ month.year.year }}</h1>
-<p><a href="{% url 'payment_add' month.year.year month.month %}">Add payment</a></p>
+<p><a href="{% url 'year_detail' month.year.year %}">&larr; {{ month.year.year|stringformat:"d" }}</a></p>
+<h1>{{ month_name }} {{ month.year.year|stringformat:"d" }}</h1>
+<p><a href="{% url 'payment_add' month.year.year month.month %}">{% trans "Add payment" %}</a></p>
 {% if rows %}
 <table>
   <thead><tr>
-    <th>Date</th><th>Organisation</th><th>Category</th><th class="num">Original</th>
-    <th class="num">Gross EUR</th><th class="num">Net EUR</th><th>Frequency</th>
-    <th class="num">Monthly equiv. (gross EUR)</th><th>Comment</th><th></th>
+    <th>{% trans "Date" %}</th><th>{% trans "Organisation" %}</th><th>{% trans "Category" %}</th><th class="num">{% trans "Original" %}</th>
+    <th class="num">{% trans "Gross EUR" %}</th><th class="num">{% trans "Net EUR" %}</th><th>{% trans "Frequency" %}</th>
+    <th class="num">{% trans "Monthly equiv. (gross EUR)" %}</th><th>{% trans "Comment" %}</th><th></th>
   </tr></thead>
   <tbody>
   {% for r in rows %}{% with p=r.p %}
   <tr>
-    <td><a href="{% url 'payment_detail' p.pk %}">{{ p.payment_date|date:"Y-m-d" }}</a>{% if p.kind != 'normal' %} <span class="note">({{ p.get_kind_display }})</span>{% endif %}</td>
+    <td><a href="{% url 'payment_detail' p.pk %}">{{ p.payment_date|date:"DATE_FORMAT" }}</a>{% if p.kind != 'normal' %} <span class="note">({{ p.get_kind_display }})</span>{% endif %}</td>
     <td>{{ p.organisation }}</td><td>{{ p.category }}</td>
-    <td class="num">{{ p.gross_amount|money }} {{ p.currency }}{% if p.net_amount is not None %}<br><span class="note">net {{ p.net_amount|money }}</span>{% endif %}{% if p.withholding_tax %}<br><span class="note">withholding {{ p.withholding_tax|money }}</span>{% endif %}{% if p.expenses %}<br><span class="note">expenses {{ p.expenses|money }}</span>{% endif %}{% if p.unallocated %}<br><span class="note warn">unallocated {{ p.unallocated|money }}</span>{% endif %}</td>
-    <td class="num">{% if p.conversion_status == 'converted' %}{{ p.gross_eur|money }}{% else %}<em>not converted</em>{% endif %}</td>
+    <td class="num">{{ p.gross_amount|money }} {{ p.currency }}{% if p.net_amount is not None %}<br><span class="note">{% trans "net" %} {{ p.net_amount|money }}</span>{% endif %}{% if p.withholding_tax %}<br><span class="note">{% trans "withholding" %} {{ p.withholding_tax|money }}</span>{% endif %}{% if p.expenses %}<br><span class="note">{% trans "expenses" %} {{ p.expenses|money }}</span>{% endif %}{% if p.unallocated %}<br><span class="note warn">{% trans "unallocated" %} {{ p.unallocated|money }}</span>{% endif %}</td>
+    <td class="num">{% if p.conversion_status == 'converted' %}{{ p.gross_eur|money }}{% else %}<em>{% trans "not converted" %}</em>{% endif %}</td>
     <td class="num">{{ p.net_eur|money }}</td>
     <td>{{ p.get_frequency_display }}</td>
-    <td class="num">{% if r.normalised is not None %}{{ r.normalised|money }}{% elif not r.recurring %}<span class="note">n/a (one-off)</span>{% else %}&mdash;{% endif %}</td>
+    <td class="num">{% if r.normalised is not None %}{{ r.normalised|money }}{% elif not r.recurring %}<span class="note">{% trans "n/a (one-off)" %}</span>{% else %}&mdash;{% endif %}</td>
     <td>{{ p.comment }}</td>
-    <td><a href="{% url 'payment_edit' p.pk %}">Edit</a> <a href="{% url 'payment_delete' p.pk %}">Delete</a></td>
+    <td><a href="{% url 'payment_edit' p.pk %}">{% trans "Edit" %}</a> <a href="{% url 'payment_delete' p.pk %}">{% trans "Delete" %}</a></td>
   </tr>
   {% endwith %}{% endfor %}
   </tbody>
 </table>
-<h2>Totals</h2>
-<p><strong>Actual</strong> ({{ actual.basis }}): gross {{ actual.gross_eur|money }}, net {{ actual.net_eur|money }} EUR from {{ actual.payment_count }} payment(s).</p>
-<p><strong>Normalised monthly</strong> ({{ normalised.basis }}): gross {{ normalised.gross_monthly_eur|money }}, net {{ normalised.net_monthly_eur|money }} EUR from {{ normalised.recurring_count }} recurring payment(s); {{ normalised.one_off_excluded_count }} one-off item(s) excluded.</p>
-{% if actual.unconverted_count %}<p class="warn">{{ actual.unconverted_count }} payment(s) not converted are excluded from totals.</p>{% endif %}
-{% if actual.net_missing_count %}<p class="warn">{{ actual.net_missing_count }} payment(s) have no net amount and are not in the net totals.</p>{% endif %}
-{% else %}<p>No payments in this month.</p>{% endif %}
-<p><a href="{% url 'month_delete' month.year.year month.month %}">Delete this month&hellip;</a></p>
+<h2>{% trans "Totals" %}</h2>
+<p>{% blocktrans trimmed with basis=actual.basis gross=actual.gross_eur|money net=actual.net_eur|money n=actual.payment_count %}<strong>Actual</strong> ({{ basis }}): gross {{ gross }}, net {{ net }} EUR from {{ n }} payment(s).{% endblocktrans %}</p>
+<p>{% blocktrans trimmed with basis=normalised.basis gross=normalised.gross_monthly_eur|money net=normalised.net_monthly_eur|money n=normalised.recurring_count off=normalised.one_off_excluded_count %}<strong>Normalised monthly</strong> ({{ basis }}): gross {{ gross }}, net {{ net }} EUR from {{ n }} recurring payment(s); {{ off }} one-off item(s) excluded.{% endblocktrans %}</p>
+{% if actual.unconverted_count %}<p class="warn">{% blocktrans trimmed with n=actual.unconverted_count %}{{ n }} payment(s) not converted are excluded from totals.{% endblocktrans %}</p>{% endif %}
+{% if actual.net_missing_count %}<p class="warn">{% blocktrans trimmed with n=actual.net_missing_count %}{{ n }} payment(s) have no net amount and are not in the net totals.{% endblocktrans %}</p>{% endif %}
+{% else %}<p>{% trans "No payments in this month." %}</p>{% endif %}
+<p><a href="{% url 'month_delete' month.year.year month.month %}">{% trans "Delete this month" %}&hellip;</a></p>
 {% endblock %}

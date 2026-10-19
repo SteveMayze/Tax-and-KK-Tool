@@ -9,7 +9,10 @@ from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
 
+from django.utils.translation import gettext as _, gettext_lazy
+
 from core.currencies import CURRENCY_COUNTRY
+from core.services.i18n import number
 from core.models import AssessmentSettings, IncomeCategory, Payment, TaxIncomeType
 
 POLICY_NAME = 'tax-information'
@@ -19,11 +22,11 @@ SPARER_PAUSCHBETRAG = Decimal('1000')          # section 20(9) EStG; 2,000 for j
 FREIGRENZE_PRIVATE_SALES = Decimal('1000')     # section 23(3) EStG, from 2024
 FLAT_TAX_PCT = Decimal('25')                   # section 32d(1) EStG, reference only
 NOT_APPLIED = [
-    'Double-taxation treaties (UK, Australia, USA), foreign-tax credit and progression reservation are not applied.',
-    'Currency conversion: the app uses the ECB rate of the payment date; whether the tax authorities require another rate is not verified.',
-    'Withholding tax already deducted at source is shown for information only and is NOT credited: treaty and foreign-tax-credit rules are not implemented. Recorded expenses are not deducted either.',
-    'Losses (negative payments) are shown separately and are not netted across categories; loss-offset rules (loss pots, carry-forward, relation to SBK) are unverified and not implemented.',
-    'No tax amount is calculated. Expenses, Anlage mapping and church tax/solidarity surcharge are not handled.',
+    gettext_lazy('Double-taxation treaties (UK, Australia, USA), foreign-tax credit and progression reservation are not applied.'),
+    gettext_lazy('Currency conversion: the app uses the ECB rate of the payment date; whether the tax authorities require another rate is not verified.'),
+    gettext_lazy('Withholding tax already deducted at source is shown for information only and is NOT credited: treaty and foreign-tax-credit rules are not implemented. Recorded expenses are not deducted either.'),
+    gettext_lazy('Losses (negative payments) are shown separately and are not netted across categories; loss-offset rules (loss pots, carry-forward, relation to SBK) are unverified and not implemented.'),
+    gettext_lazy('No tax amount is calculated. Expenses, Anlage mapping and church tax/solidarity surcharge are not handled.'),
 ]
 
 
@@ -60,28 +63,31 @@ def tax_checks(year: int, settings: AssessmentSettings | None = None):
     allowance = SPARER_PAUSCHBETRAG * (2 if settings.joint_assessment else 1)
     used = min(allowance, max(income, ZERO))
     results.append(CheckResult(
-        'Sparer-Pauschbetrag (section 20(9) EStG)', income,
-        f'Allowance {allowance:,.0f} EUR ({"joint" if settings.joint_assessment else "single"} assessment)',
-        f'Allowance used {used:,.2f} EUR, remaining {allowance - used:,.2f} EUR; capital income above the allowance {max(income - allowance, ZERO):,.2f} EUR',
-        'Gross EUR capital income of all mapped capital categories, including foreign. Tax already withheld and foreign tax are not modelled. '
-        'Actual costs cannot be deducted for capital income.' +
-        (f' A loss of {-capital_losses:,.2f} EUR in a capital category is NOT offset against other categories (loss-offset rules unverified).'
-         if capital_losses else '')))
+        _('Sparer-Pauschbetrag (section 20(9) EStG)'), income,
+        _('Allowance %(allowance)s EUR (%(kind)s assessment)') % {
+            'allowance': number(allowance, 0), 'kind': _('joint') if settings.joint_assessment else _('single')},
+        _('Allowance used %(used)s EUR, remaining %(rest)s EUR; capital income above the allowance %(above)s EUR') % {
+            'used': number(used), 'rest': number(allowance - used), 'above': number(max(income - allowance, ZERO))},
+        _('Gross EUR capital income of all mapped capital categories, including foreign. Tax already withheld and foreign tax are not modelled. '
+          'Actual costs cannot be deducted for capital income.') +
+        (_(' A loss of %(eur)s EUR in a capital category is NOT offset against other categories (loss-offset rules unverified).') % {
+            'eur': number(-capital_losses)} if capital_losses else '')))
 
     sales = _typed_payments(year, {TaxIncomeType.PRIVATE_SALE})
     total = sum((p.gross_eur for p in _converted(sales)), ZERO)
     if total < FREIGRENZE_PRIVATE_SALES:
-        outcome = ('Net loss for the year: it can only offset private sale gains of the same year.' if total < 0 else
-                   'Below the Freigrenze: no tax under section 23 on these gains.')
+        outcome = (_('Net loss for the year: it can only offset private sale gains of the same year.') if total < 0 else
+                   _('Below the Freigrenze: no tax under section 23 on these gains.'))
     else:
-        outcome = 'At or above the Freigrenze: the WHOLE gain is taxable under section 23 (holding-period conditions not checked).'
+        outcome = _('At or above the Freigrenze: the WHOLE gain is taxable under section 23 (holding-period conditions not checked).')
     results.append(CheckResult(
-        'Private sale gains Freigrenze (section 23(3) EStG)', total, f'Freigrenze {FREIGRENZE_PRIVATE_SALES:,.0f} EUR per person (all-or-nothing)',
-        outcome, 'Enter the GAIN (proceeds minus cost) as the payment amount, and losses as corrections. Holding periods (1 year / 10 years) are not checked.'))
+        _('Private sale gains Freigrenze (section 23(3) EStG)'), total,
+        _('Freigrenze %(limit)s EUR per person (all-or-nothing)') % {'limit': number(FREIGRENZE_PRIVATE_SALES, 0)},
+        outcome, _('Enter the GAIN (proceeds minus cost) as the payment amount, and losses as negative payments in a category marked "may be negative". Holding periods (1 year / 10 years) are not checked.')))
 
     results.append(CheckResult(
-        'Flat tax on capital income (section 32d(1) EStG)', None, f'Rate {FLAT_TAX_PCT} % (reference)',
-        'No amount calculated', 'Reduced by creditable foreign tax per section 32d(5); surcharges and exceptions not applied.'))
+        _('Flat tax on capital income (section 32d(1) EStG)'), None, _('Rate %(pct)s %% (reference)') % {'pct': FLAT_TAX_PCT},
+        _('No amount calculated'), _('Reduced by creditable foreign tax per section 32d(5); surcharges and exceptions not applied.')))
     return results
 
 
@@ -115,23 +121,24 @@ def tax_summary_rows(year=None):
             by_ccy[p.currency] += p.gross_amount
         flags = []
         if not itype:
-            flags.append('Category not mapped to an income type: left out of the checks.')
+            flags.append(_('Category not mapped to an income type: left out of the checks.'))
         if not country:
-            flags.append('Organisation country not set (EUR payments need it set on the organisation).')
+            flags.append(_('Organisation country not set (EUR payments need it set on the organisation).'))
         else:
             if inferred_in[(itype, country)]:
-                flags.append(f'Country taken from the payment currency for {inferred_in[(itype, country)]} payment(s); '
-                             'set it on the organisation to override.')
+                flags.append(_('Country taken from the payment currency for %(n)s payment(s); set it on the organisation to override.') % {
+                    'n': inferred_in[(itype, country)]})
         if country and country != 'DE':
-            flags.append('Foreign source: treaty treatment and foreign-tax credit not applied.')
+            flags.append(_('Foreign source: treaty treatment and foreign-tax credit not applied.'))
         rows.append({
-            'income_type': labels.get(itype, 'Not mapped'), 'country': country or '(not set)', 'payments': len(group),
+            'income_type': str(labels.get(itype, _('Not mapped'))), 'country': country or _('(not set)'), 'payments': len(group),
             'gross_eur': sum((p.gross_eur for p in converted), ZERO),
             'withholding_eur': sum((p.withholding_tax_eur or ZERO for p in converted), ZERO),
             'losses_eur': sum((p.gross_eur for p in converted if p.kind == Payment.Kind.NORMAL and p.gross_eur < 0), ZERO),
-            'original': '; '.join(f'{c} {a:,.2f}' for c, a in sorted(by_ccy.items())),
+            'original': '; '.join(f'{c} {number(a)}' for c, a in sorted(by_ccy.items())),
             'unconverted': len(group) - len(converted),
             'manual_rates': sum(1 for p in converted if p.rate_source == 'manual'),
             'flags': ' '.join(flags)})
-    rows.sort(key=lambda r: (r['income_type'] == 'Not mapped', r['income_type'], r['country']))
+    not_mapped = _('Not mapped')
+    rows.sort(key=lambda r: (r['income_type'] == not_mapped, r['income_type'], r['country']))
     return rows, qs

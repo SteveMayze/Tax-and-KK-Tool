@@ -18,3 +18,31 @@ class StripUrlPrefixMiddleware:
             request.path_info = request.path_info[len(prefix):] or '/'
             request.path = prefix + request.path_info
         return self.get_response(request)
+
+
+class LanguageMiddleware:
+    """Activate the app-wide language (a single setting, stored in the assessment settings row) for each request.
+
+    It also drives number and date formats. Failing to read the setting (for example before the first migration)
+    falls back to English; it never breaks a request."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from django.db import DatabaseError
+        from django.utils import translation
+
+        from core.models import AssessmentSettings
+        code = settings.LANGUAGE_CODE
+        try:
+            stored = AssessmentSettings.objects.values_list('language', flat=True).first()
+        except DatabaseError:
+            stored = None
+        if stored in dict(settings.LANGUAGES):
+            code = stored
+        with translation.override(code):
+            request.LANGUAGE_CODE = code
+            response = self.get_response(request)
+            response.headers.setdefault('Content-Language', code)
+        return response

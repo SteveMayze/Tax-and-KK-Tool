@@ -1,6 +1,6 @@
-from decimal import Decimal
-
 from django.contrib import messages
+from django.utils import translation
+from django.utils.translation import gettext as _
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
@@ -8,7 +8,7 @@ from django.views.decorators.http import require_GET
 
 from .models import ReportingYear
 from .services import report_csv
-from .services.money import round_for_display
+from .services import i18n
 from .services.policies.sbk import PolicyUnavailable
 from .services.reports import REPORTS, available_years
 
@@ -16,7 +16,7 @@ from .services.reports import REPORTS, available_years
 def _spec(key):
     spec = REPORTS.get(key)
     if spec is None:
-        raise Http404('Unknown report.')
+        raise Http404(_('Unknown report.'))
     return spec
 
 
@@ -26,7 +26,7 @@ def _year(request):
     if raw in ('', 'all'):
         return None, None
     if not raw.isdigit() or not ReportingYear.objects.filter(year=int(raw)).exists():
-        return None, f'Unknown year "{raw[:10]}".'
+        return None, _('Unknown year "%(year)s".') % {'year': raw[:10]}
     return int(raw), None
 
 
@@ -35,7 +35,7 @@ def _build(request, spec):
     if error:
         return None, None, error
     if spec.needs_year and year is None:
-        return None, None, f'"{spec.title}" needs a specific year.'
+        return None, None, _('"%(title)s" needs a specific year.') % {'title': spec.title}
     try:
         return spec.build(year), year, None
     except PolicyUnavailable as e:
@@ -46,13 +46,13 @@ def _display(value, kind):
     if value is None:
         return ''
     if kind == 'money':
-        return f'{round_for_display(Decimal(value), 2):,.2f}'
+        return i18n.number(value, 2)
     if kind == 'pct':
-        return f'{round_for_display(Decimal(value) * 100, 1):.1f}%'
+        return i18n.percent(value, 1)
     if kind == 'rate':
-        return report_csv.fmt(value, 'rate')
+        return i18n.plain_decimal(value)
     if kind == 'date':
-        return value.isoformat()
+        return i18n.date_text(value)
     return str(value)
 
 
@@ -84,11 +84,15 @@ def report_view(request, key):
 def report_csv_download(request, key):
     """Generated on demand and streamed to the logged-in user; nothing is written to disk."""
     spec = _spec(key)
-    report, year, error = _build(request, spec)
+    # CSV exports are language-independent: English headings and labels, comma separator, dot decimals, ISO dates,
+    # whatever the interface language is (the file is for bulk data input and for mixing exports).
+    with translation.override('en'):
+        report, year, error = _build(request, spec)
+        csv_text = report_csv.render(report) if not error else ''
     if error:
         messages.error(request, error)
         return redirect('report_index')
-    response = HttpResponse(report_csv.render(report), content_type='text/csv; charset=utf-8')
+    response = HttpResponse(csv_text, content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="report-{key}-{year or "all"}.csv"'
     response['Cache-Control'] = 'no-store'
     response['X-Content-Type-Options'] = 'nosniff'

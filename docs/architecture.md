@@ -33,5 +33,8 @@ Editing: if only amounts/text change, EUR amounts are recomputed with the stored
 ## Currency display
 There is no display-currency selector (removed in Phase 9, ADR 0006). Amounts are shown in their own currency; reports and totals are EUR at each payment's stored rate.
 
+## Language and locale (Phase 12, ADR 0012)
+One setting (`AssessmentSettings.language`) is activated per request by `core.middleware.LanguageMiddleware`. Texts use Django's gettext (`core/locale/de`); numbers and dates use `core/formats` and `core.services.i18n` (display only, never in calculations). CSV rendering is forced to English and to the fixed CSV format.
+
 ## Deployment (Phase 8; rootless since Phase 9A, see ADR 0007 and docs/podman-explained.md)
 Two settings modules: `config.settings` (development, safe defaults) and `config.settings_prod` (container; everything from the environment, refuses to start on missing or weak values). The container runs gunicorn as an unprivileged user with a read-only root file system; data lives on three mounted directories (`/data`, `/uploads`, `/backups`). Plain HTTP on its own port (no proxy). Backup and restore logic is in `core/services/backup.py` with the management commands `backup_db` and `restore_backup`. Infrastructure code is in `infra/` (Ansible playbooks and templates) and the `Makefile`. Details: `docs/deployment.md`.

@@ -1,23 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Confirm import{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "Confirm import" %}{% endblock %}
 {% block content %}
-<p><a href="{% url 'import_preview' batch.pk %}">&larr; Back to review</a></p>
-<h1>Import #{{ batch.pk }}: confirm</h1>
+<p><a href="{% url 'import_preview' batch.pk %}">&larr; {% trans "Back to review" %}</a></p>
+<h1>{% blocktrans trimmed with n=batch.pk %}Import #{{ n }}: confirm{% endblocktrans %}</h1>
 <table style="max-width:32rem">
-  <tr><th>Payments to be created</th><td class="num"><strong>{{ summary.importing }}</strong></td></tr>
-  <tr><td>&nbsp;&nbsp;with an exchange rate (as shown in the review)</td><td class="num">{{ summary.converted }}</td></tr>
-  <tr><td>&nbsp;&nbsp;without a rate (saved <em>unconverted</em>, excluded from EUR totals until fixed)</td><td class="num">{{ summary.unconverted }}</td></tr>
-  <tr><th>Duplicates skipped</th><td class="num">{{ summary.duplicates_skipped }}</td></tr>
-  <tr><th>Duplicates kept anyway</th><td class="num">{{ summary.duplicates_kept }}</td></tr>
-  <tr><th>Excluded rows</th><td class="num">{{ summary.excluded }}</td></tr>
-  <tr><th>Invalid rows</th><td class="num">{{ summary.invalid }}</td></tr>
+  <tr><th>{% trans "Payments to be created" %}</th><td class="num"><strong>{{ summary.importing }}</strong></td></tr>
+  <tr><td>&nbsp;&nbsp;{% trans "with an exchange rate (as shown in the review)" %}</td><td class="num">{{ summary.converted }}</td></tr>
+  <tr><td>&nbsp;&nbsp;{% blocktrans trimmed %}without a rate (saved <em>unconverted</em>, excluded from EUR totals until fixed){% endblocktrans %}</td><td class="num">{{ summary.unconverted }}</td></tr>
+  <tr><th>{% trans "Duplicates skipped" %}</th><td class="num">{{ summary.duplicates_skipped }}</td></tr>
+  <tr><th>{% trans "Duplicates kept anyway" %}</th><td class="num">{{ summary.duplicates_kept }}</td></tr>
+  <tr><th>{% trans "Excluded rows" %}</th><td class="num">{{ summary.excluded }}</td></tr>
+  <tr><th>{% trans "Invalid rows" %}</th><td class="num">{{ summary.invalid }}</td></tr>
 </table>
-{% if summary.new_organisations %}<p class="warn"><strong>New organisations will be created:</strong> {{ summary.new_organisations|join:", " }}. Check for typos of existing names.</p>{% endif %}
-{% if summary.new_categories %}<p class="warn"><strong>New categories will be created:</strong> {{ summary.new_categories|join:", " }}.</p>{% endif %}
-{% if summary.invalid %}<p role="alert" class="msg error">{{ summary.invalid }} row(s) are invalid. Fix or exclude them before importing.</p>{% endif %}
-<p class="note">All payments are created together or not at all. Rates are saved exactly as shown in the review.</p>
+{% if summary.new_organisations %}<p class="warn">{% blocktrans trimmed with names=summary.new_organisations|join:", " %}<strong>New organisations will be created:</strong> {{ names }}. Check for typos of existing names.{% endblocktrans %}</p>{% endif %}
+{% if summary.new_categories %}<p class="warn">{% blocktrans trimmed with names=summary.new_categories|join:", " %}<strong>New categories will be created:</strong> {{ names }}.{% endblocktrans %}</p>{% endif %}
+{% if summary.invalid %}<p role="alert" class="msg error">{% blocktrans trimmed with n=summary.invalid %}{{ n }} row(s) are invalid. Fix or exclude them before importing.{% endblocktrans %}</p>{% endif %}
+<p class="note">{% trans "All payments are created together or not at all. Rates are saved exactly as shown in the review." %}</p>
 <form method="post">{% csrf_token %}
-  {% if not summary.invalid and summary.importing %}<button type="submit">Import {{ summary.importing }} payment(s)</button>{% endif %}
-  <a href="{% url 'import_preview' batch.pk %}">Cancel</a>
+  {% if not summary.invalid and summary.importing %}<button type="submit">{% blocktrans trimmed with n=summary.importing %}Import {{ n }} payment(s){% endblocktrans %}</button>{% endif %}
+  <a href="{% url 'import_preview' batch.pk %}">{% trans "Cancel" %}</a>
 </form>
 {% endblock %}

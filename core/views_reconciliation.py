@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.utils.translation import gettext as _
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -6,6 +7,7 @@ from django.views.decorators.http import require_POST
 
 from .models import Payment, ReportingYear
 from .services.conversion import convert_pending
+from .services.i18n import date_text, number
 from .services.rates import get_provider
 from .services.reconciliation import build_report
 
@@ -31,13 +33,13 @@ def convert_pending_view(request):
     if year is not None:
         qs = qs.filter(month__year__year=year)
     results = convert_pending(get_provider(), list(qs))
-    done = sum(1 for _, err in results if err is None)
+    done = sum(1 for _p, err in results if err is None)
     failed = [(p, err) for p, err in results if err]
     if done:
-        messages.success(request, f'{done} payment(s) converted.')
+        messages.success(request, _('%(n)s payment(s) converted.') % {'n': done})
     for p, err in failed:
-        messages.error(request, f'{p.payment_date} {p.organisation} {p.gross_amount} {p.currency}: {err}')
+        messages.error(request, f'{date_text(p.payment_date)} {p.organisation} {number(p.gross_amount)} {p.currency}: {err}')
     if not results:
-        messages.info(request, 'No unconverted payments.')
+        messages.info(request, _('No unconverted payments.'))
     url = reverse('reconciliation')
     return redirect(f'{url}?year={year}' if year else url)

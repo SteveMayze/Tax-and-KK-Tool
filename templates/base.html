@@ -1,36 +1,41 @@
-{% load static %}<!doctype html>
-<html lang="en">
+{% load static i18n %}<!doctype html>
+<html lang="{{ request.LANGUAGE_CODE|default:'en' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Tax and Healthcare Tool{% endblock %}</title>
+  <title>{% block title %}{% trans "Tax and Healthcare Tool" %}{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'core/base.css' %}">
 </head>
 <body>
   <header>
-    <nav aria-label="Main">
-      <strong>Tax and Healthcare Tool</strong>
+    <nav aria-label="{% trans 'Main' %}">
+      <strong>{% trans "Tax and Healthcare Tool" %}</strong>
       {% if user.is_authenticated %}
-      <a href="{% url 'home' %}">Years</a>
-      <a href="{% url 'organisation_list' %}">Organisations</a>
-      <a href="{% url 'category_list' %}">Categories</a>
-      <a href="{% url 'report_index' %}">Reports</a>
-      <a href="{% url 'assessment_settings' %}">Assessment settings</a>
-      <a href="{% url 'import_list' %}">Imports</a>
-      <a href="{% url 'reconciliation' %}">Reconciliation</a>
+      <a href="{% url 'home' %}">{% trans "Years" %}</a>
+      <a href="{% url 'organisation_list' %}">{% trans "Organisations" %}</a>
+      <a href="{% url 'category_list' %}">{% trans "Categories" %}</a>
+      <a href="{% url 'report_index' %}">{% trans "Reports" %}</a>
+      <a href="{% url 'assessment_settings' %}">{% trans "Assessment settings" %}</a>
+      <a href="{% url 'import_list' %}">{% trans "Imports" %}</a>
+      <a href="{% url 'reconciliation' %}">{% trans "Reconciliation" %}</a>
       {% endif %}
     </nav>
     {% if user.is_authenticated %}
     <div>
+      <form method="post" action="{% url 'set_language' %}" class="inline" aria-label="{% trans 'Language' %}">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button type="submit" name="language" value="en"{% if request.LANGUAGE_CODE == 'en' %} aria-current="true" disabled{% endif %}>EN</button>
+        <button type="submit" name="language" value="de"{% if request.LANGUAGE_CODE == 'de' %} aria-current="true" disabled{% endif %}>DE</button>
+      </form>
       <form method="post" action="{% url 'logout' %}" class="inline">{% csrf_token %}
         <span class="note">{{ user.get_username }}</span>
-        <button type="submit">Log out</button>
+        <button type="submit">{% trans "Log out" %}</button>
       </form>
     </div>
     {% endif %}
   </header>
   {% for m in messages %}<div class="msg {{ m.tags }}" role="status">{{ m }}</div>{% endfor %}
   <main>{% block content %}{% endblock %}</main>
-  <footer class="note"><hr>General financial summaries only. Not an official SBK assessment or tax calculation.</footer>
+  <footer class="note"><hr>{% trans "General financial summaries only. Not an official SBK assessment or tax calculation." %}</footer>
 </body>
 </html>
