@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: tax-healthcare-tool\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-19 18:22+0000\n"
+"POT-Creation-Date: 2026-10-19 18:36+0000\n"
 "PO-Revision-Date: 2026-10-19 17:00+0000\n"
 "Last-Translator: Owner-reviewed glossary terms; remaining wording proposed\n"
 "Language-Team: German\n"
@@ -458,6 +458,15 @@ msgstr "Beim manuellen Korrigieren eines gespeicherten Kurses ist ein Grund erfo
 msgid "Payment has no stored rate to reapply."
 msgstr "Die Zahlung hat keinen gespeicherten Kurs, der erneut angewendet werden könnte."
 
+msgid "Dividend (PDF import)."
+msgstr "Dividende (PDF-Import)."
+
+msgid "Reinvested under a dividend reinvestment plan (no cash received)."
+msgstr "Im Rahmen eines Dividendenwiederanlageplans wiederangelegt (keine Barzahlung erhalten)."
+
+msgid "Dividend reinvestment plan wording found in the statement."
+msgstr "Wortlaut zum Dividendenwiederanlageplan in der Abrechnung gefunden."
+
 msgid "The payment date is ambiguous (several different dates are labelled as payment dates)."
 msgstr "Das Zahlungsdatum ist nicht eindeutig (mehrere verschiedene Daten sind als Zahlungsdatum bezeichnet)."
 
@@ -604,6 +613,33 @@ msgstr "Zeilen noch ungültig (korrigieren oder ausschließen): Zeilen %(lines)s
 msgid "Line %(n)s is no longer valid."
 msgstr "Zeile %(n)s ist nicht mehr gültig."
 
+msgid "Flexible Cash Funds return (PDF import)."
+msgstr "Ertrag aus Flexible Cash Funds (PDF-Import)."
+
+msgid "The statement period could not be found."
+msgstr "Der Abrechnungszeitraum konnte nicht gefunden werden."
+
+msgid "The statement period is not a single month."
+msgstr "Der Abrechnungszeitraum ist nicht ein einzelner Monat."
+
+msgid "The statement currency could not be found."
+msgstr "Die Währung der Abrechnung konnte nicht gefunden werden."
+
+msgid "The summary figures (total earned return, total fees) could not be found."
+msgstr "Die Summenzahlen (Gesamtertrag, Gesamtgebühren) konnten nicht gefunden werden."
+
+msgid "No return was earned in this period, so there is nothing to import."
+msgstr "In diesem Zeitraum wurde kein Ertrag erzielt, daher gibt es nichts zu importieren."
+
+msgid "The total fees have an unexpected sign; the figures could not be read reliably."
+msgstr "Die Gesamtgebühren haben ein unerwartetes Vorzeichen; die Zahlen konnten nicht zuverlässig gelesen werden."
+
+msgid "A daily line of the statement could not be read; the figures are not reliable."
+msgstr "Eine Tageszeile der Abrechnung konnte nicht gelesen werden; die Zahlen sind nicht zuverlässig."
+
+msgid "The daily returns and fees do not add up to the summary totals; nothing was staged."
+msgstr "Die täglichen Erträge und Gebühren ergeben nicht die Summen der Zusammenfassung; es wurde nichts vorbereitet."
+
 #, python-format
 msgid "\"%(name)s\" is inactive. Reactivate it first or choose another name."
 msgstr "„%(name)s“ ist inaktiv. Aktivieren Sie es zuerst erneut oder wählen Sie einen anderen Namen."
@@ -617,15 +653,6 @@ msgstr " (sie existiert noch nicht)"
 
 msgid ". Mark it on the Categories page first, or use a reversal/correction."
 msgstr ". Markieren Sie sie zuerst auf der Seite „Kategorien“ oder verwenden Sie eine Stornierung/Korrektur."
-
-msgid "Dividend (PDF import)."
-msgstr "Dividende (PDF-Import)."
-
-msgid "Reinvested under a dividend reinvestment plan (no cash received)."
-msgstr "Im Rahmen eines Dividendenwiederanlageplans wiederangelegt (keine Barzahlung erhalten)."
-
-msgid "Dividend reinvestment plan wording found in the statement."
-msgstr "Wortlaut zum Dividendenwiederanlageplan in der Abrechnung gefunden."
 
 msgid "No file was uploaded."
 msgstr "Es wurde keine Datei hochgeladen."
@@ -1574,8 +1601,8 @@ msgstr "Hochladen und Vorschau"
 msgid "Expected PDF statements"
 msgstr "Erwartete PDF-Abrechnungen"
 
-msgid "Text PDFs (not scans) of Australian dividend and distribution advices, in Australian dollars. Only the payment date, the payer (ASX code), the dividend paid (total payment) and the tax withheld are read; franking details are ignored. A statement whose layout is not recognised is refused with a reason and nothing is staged: enter that payment manually. You may select several PDFs at once; every value is shown with the page and text it was read from, and nothing is saved until you confirm."
-msgstr "Text-PDFs (keine Scans) australischer Dividenden- und Ausschüttungsabrechnungen in australischen Dollar. Gelesen werden nur das Zahlungsdatum, der Zahler (ASX-Code), die gezahlte Dividende (Gesamtzahlung) und die einbehaltene Steuer; Angaben zur Körperschaftsteuer-Anrechnung (Franking) werden ignoriert. Eine Abrechnung mit nicht erkanntem Layout wird mit einer Begründung abgelehnt, und es wird nichts vorbereitet: Erfassen Sie diese Zahlung manuell. Sie können mehrere PDFs gleichzeitig auswählen; jeder Wert wird mit Seite und Text angezeigt, aus dem er gelesen wurde, und nichts wird gespeichert, bevor Sie bestätigen."
+msgid "Text PDFs (not scans): Australian dividend and distribution advices in Australian dollars (only the payment date, the payer, the dividend paid and the tax withheld are read; franking details are ignored) and Revolut \"Flexible Cash Funds\" monthly statements (earned return and fees). A statement whose layout is not recognised is refused with a reason and nothing is staged: enter that payment manually. You may select several PDFs, or a whole folder, at once; every value is shown with the page and text it was read from, and nothing is saved until you confirm."
+msgstr "Text-PDFs (keine Scans): australische Dividenden- und Ausschüttungsabrechnungen in australischen Dollar (gelesen werden nur das Zahlungsdatum, der Zahler, die gezahlte Dividende und die einbehaltene Steuer; Angaben zur Körperschaftsteuer-Anrechnung werden ignoriert) sowie monatliche Revolut-Abrechnungen „Flexible Cash Funds“ (erzielter Ertrag und Gebühren). Eine Abrechnung mit nicht erkanntem Layout wird mit einer Begründung abgelehnt, und es wird nichts vorbereitet: Erfassen Sie diese Zahlung manuell. Sie können mehrere PDFs oder einen ganzen Ordner gleichzeitig auswählen; jeder Wert wird mit Seite und Text angezeigt, aus dem er gelesen wurde, und nichts wird gespeichert, bevor Sie bestätigen."
 
 msgid "Expected CSV format"
 msgstr "Erwartetes CSV-Format"

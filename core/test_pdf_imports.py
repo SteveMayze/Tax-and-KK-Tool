@@ -20,12 +20,13 @@ from django.urls import reverse
 from core.models import ImportBatch, ImportRow, Organisation, Payment
 from core.services import dividend_statements as ds
 from core.services import imports as svc
+from core.services import interest_statements as it
 from core.services import pdf_imports, pdf_text
 from core.services.rates import FakeRateProvider
 
 from .test_pdf_support import (
-    ACCEPTED, BONUS_SHARE_PLAN, DISAGREEING_NET, INCONSISTENT, MUFG_STYLE, NO_PAYMENT_DATE, REINVESTED, SCHEME_PAYMENT,
-    UNKNOWN_LAYOUT, make_pdf)
+    ACCEPTED, BONUS_SHARE_PLAN, DISAGREEING_NET, EXPECT_FUND, INCONSISTENT, MUFG_STYLE, NO_PAYMENT_DATE, REINVESTED, SCHEME_PAYMENT,
+    UNKNOWN_LAYOUT, fund_statement, make_pdf)
 
 import datetime
 
@@ -93,6 +94,40 @@ class ExtractionTests(SimpleTestCase):
             pdf_text.extract_pages(b'%PDF-1.4\nthis is damaged')
         with self.assertRaisesRegex(pdf_text.PdfError, 'larger than'):
             pdf_text.extract_pages(b'%PDF-' + b'0' * (pdf_text.MAX_PDF_BYTES + 1))
+
+
+def fund(**kw):
+    return it.parse(pdf_text.extract_pages(make_pdf([fund_statement(**kw)])))
+
+
+class FundStatementTests(SimpleTestCase):
+    def test_monthly_return_fees_and_net_are_worked_out_by_hand(self):
+        r = fund()
+        self.assertEqual((r.payment_date, r.currency, r.gross, r.expenses, r.net), EXPECT_FUND)   # 1.5000 - 0.5400 = 0.9600
+        self.assertEqual(r.days, 3)
+        self.assertEqual(r.evidence['gross_amount'], (1, 'Total Earned Return 1.5000'))
+
+    def test_daily_lines_must_add_up_to_the_summary(self):
+        with self.assertRaisesRegex(ds.UnsupportedStatement, 'do not add up'):
+            fund(earned='1.6000')
+        with self.assertRaisesRegex(ds.UnsupportedStatement, 'do not add up'):
+            fund(total_fees='-0.5300')
+
+    def test_other_problems_are_refused(self):
+        with self.assertRaisesRegex(ds.UnsupportedStatement, 'no return was earned|nothing to import'):
+            fund(returns=('0', '0', '0'), earned='0', fees=('0', '0', '0'), total_fees='0')
+        with self.assertRaisesRegex(ds.UnsupportedStatement, 'single month'):
+            fund(period='Period Jan 1, 2025 - Jun 30, 2025')
+        with self.assertRaisesRegex(ds.UnsupportedStatement, 'period'):
+            fund(period='Between June and July')
+
+    def test_the_ordinary_revolut_account_statement_is_still_not_recognised(self):
+        lines = ['EUR Statement', 'Generated on the Oct 16, 2026', 'Balance summary',
+                 'Account (Current Account) \u20ac4.63 \u20ac2,677.43 \u20ac2,676.09 \u20ac3.29', 'Sep 1, 2026 To EUR Flexible Cash Funds \u20ac100.00 \u20ac819.63']
+        pages = pdf_text.extract_pages(make_pdf([lines]))
+        self.assertFalse(it.recognises(pages))
+        with self.assertRaisesRegex(ds.UnsupportedStatement, 'not recognised'):
+            ds.parse(pages)
 
 
 class UploadDirMixin:
@@ -167,6 +202,25 @@ class StagingTests(UploadDirMixin, TestCase):
         svc.commit_batch(self.stage(('a.pdf', MUFG_STYLE)))
         again = self.stage(('b.pdf', MUFG_STYLE))
         self.assertEqual(again.rows.get().status, 'duplicate')
+
+    def test_fund_statements_stage_as_interest_with_fees_as_expenses_and_commit_at_rate_one(self):
+        batch = pdf_imports.stage_pdf_batch([('jun.pdf', make_pdf([fund_statement()]))], PROVIDER)
+        row = batch.rows.get()
+        self.assertEqual((row.data['payment_date'], row.data['organisation'], row.data['category'], row.data['currency'],
+                          row.data['gross_amount'], row.data['expenses'], row.data['net_amount'], row.data['withholding_tax'],
+                          row.data['frequency']),
+                         ('2025-06-30', 'Revolut Securities Europe UAB (Flexible Cash Funds)', 'Interest', 'EUR',
+                          '1.5000', '0.5400', '0.9600', '0', 'monthly'))
+        self.assertEqual((row.status, row.rate, row.rate_provider), ('valid', D('1'), 'identity'))
+        self.assertEqual(row.provenance['expenses'], {'page': 1, 'text': 'Total Fees -0.5400'})
+        svc.commit_batch(batch)
+        p = Payment.objects.get()
+        self.assertEqual((p.gross_amount, p.expenses, p.net_amount, p.withholding_tax, p.unallocated, p.gross_eur, p.expenses_eur),
+                         (D('1.5'), D('0.54'), D('0.96'), D('0'), D('0'), D('1.5'), D('0.54')))
+
+    def test_dividends_and_fund_statements_can_be_uploaded_together(self):
+        batch = self.stage(('a.pdf', MUFG_STYLE), ('z-fund.pdf', fund_statement()))
+        self.assertEqual([r.data['category'] for r in batch.rows.all()], ['Dividends', 'Interest'])
 
     def test_withholding_reinvestment_and_edit_flow(self):
         batch = self.stage(('w.pdf', ACCEPTED['withholding'][0]), ('r.pdf', REINVESTED))
@@ -290,3 +344,15 @@ class LocalSampleTests(SimpleTestCase):
             self.assertTrue(datetime.date(2020, 1, 1) < d.payment_date < datetime.date(2030, 1, 1), path.name)
             self.assertRegex(d.code, r'^[A-Z][A-Z0-9]{1,4}$', path.name)
         self.assertGreater(parsed_count, len(files) // 2)
+
+
+FUNDS = Path(settings.BASE_DIR) / 'local' / 'samples' / 'Statements' / 'Revolut'
+
+
+@skipUnless(any(FUNDS.glob('savings-statement*.pdf')) if FUNDS.is_dir() else False, 'owner-supplied Revolut statements are not present')
+class LocalFundSampleTests(SimpleTestCase):
+    def test_every_real_savings_statement_reconciles(self):
+        for path in sorted(FUNDS.glob('savings-statement*.pdf')):
+            r = it.parse(pdf_text.extract_pages(path.read_bytes()))      # raises unless the daily lines add up to the summary
+            self.assertEqual(r.net, r.gross - r.expenses, path.name)
+            self.assertEqual(r.currency, 'EUR')

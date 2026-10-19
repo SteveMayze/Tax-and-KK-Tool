@@ -44,6 +44,25 @@ class Dividend:
     reinvested: bool = False
     evidence: dict = field(default_factory=dict)      # field -> (page number, source line)
 
+    def row_data(self, columns):
+        """The import-row fields for this statement. Organisation: "<company name> (<ASX code>)" when the statement prints
+        the name next to its ABN, else just the code (nothing is looked up)."""
+        data = {c: '' for c in columns}
+        comment = gettext('Dividend (PDF import).')
+        if self.reinvested:
+            comment += ' ' + gettext('Reinvested under a dividend reinvestment plan (no cash received).')
+        organisation = f'{self.issuer} ({self.code})' if self.issuer else self.code
+        data.update(payment_date=self.payment_date.isoformat(), organisation=organisation, category='Dividends',
+                    currency='AUD', gross_amount=format(self.gross, 'f'), net_amount=format(self.net, 'f'),
+                    withholding_tax=format(self.withholding, 'f'), expenses='0', frequency='one_off', comment=comment)
+        return data
+
+    def provenance_items(self):
+        items = dict(self.evidence)
+        if self.reinvested:
+            items['reinvested'] = (1, gettext('Dividend reinvestment plan wording found in the statement.'))
+        return items
+
 
 def _decimal(text):
     return Decimal(text.replace(',', ''))

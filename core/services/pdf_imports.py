@@ -17,13 +17,11 @@ from django.utils.translation import gettext
 
 from core.models import ImportBatch, ImportRow
 
-from . import imports, pdf_text
-from .dividend_statements import Dividend, UnsupportedStatement, parse
+from . import dividend_statements, imports, interest_statements, pdf_text
+from .dividend_statements import UnsupportedStatement
 from .imports import COLUMNS, ImportFileError
 from .rates import RateProvider
 
-CATEGORY = 'Dividends'          # a seeded category; the owner can change it per row in the review
-FREQUENCY = 'one_off'           # dividends are irregular; never treated as recurring unless the owner edits the row
 MAX_FILES = 300
 MAX_SKIPPED_SHOWN = 8
 
@@ -38,28 +36,20 @@ def _clean_evidence(text):
     return re.sub(r'\d{6,}', '######', text)[:160]
 
 
-def _amount(value: Decimal):
-    return format(value, 'f')
+def _read(pages):
+    """Recognise the kind of statement and read it. Revolut Flexible Cash Funds statements have their own reader;
+    everything else is tried as an Australian dividend or distribution advice."""
+    if interest_statements.recognises(pages):
+        return interest_statements.parse(pages)
+    return dividend_statements.parse(pages)
 
 
-def _row_data(name, dividend: Dividend):
-    data = {c: '' for c in COLUMNS}
-    comment = gettext('Dividend (PDF import).')
-    if dividend.reinvested:
-        comment += ' ' + gettext('Reinvested under a dividend reinvestment plan (no cash received).')
-    # "<company name> (<ASX code>)" when the statement prints the company's name, else just the ASX code (nothing is looked up)
-    organisation = f'{dividend.issuer} ({dividend.code})' if dividend.issuer else dividend.code
-    data.update(payment_date=dividend.payment_date.isoformat(), organisation=organisation, category=CATEGORY,
-                currency='AUD', gross_amount=_amount(dividend.gross), net_amount=_amount(dividend.net),
-                withholding_tax=_amount(dividend.withholding), expenses='0', frequency=FREQUENCY, comment=comment)
-    return data
+def _row_data(statement):
+    return statement.row_data(COLUMNS)
 
 
-def _provenance(dividend: Dividend):
-    out = {field: {'page': page, 'text': _clean_evidence(text)} for field, (page, text) in dividend.evidence.items()}
-    if dividend.reinvested:
-        out['reinvested'] = {'page': 1, 'text': gettext('Dividend reinvestment plan wording found in the statement.')}
-    return out
+def _provenance(statement):
+    return {field: {'page': page, 'text': _clean_evidence(text)} for field, (page, text) in statement.provenance_items().items()}
 
 
 def _zip(originals):
@@ -85,7 +75,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
             continue
         seen.add(digest)
         try:
-            dividend = parse(pdf_text.extract_pages(raw))
+            dividend = _read(pdf_text.extract_pages(raw))
         except (pdf_text.PdfError, UnsupportedStatement) as e:
             skipped.append((name, str(e)))
             continue
@@ -118,7 +108,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
             stored = batch.stored_path = imports.store_upload(stored_bytes, batch, '.pdf' if single else '.zip')
             batch.save()
             ImportRow.objects.bulk_create([
-                ImportRow(batch=batch, line_number=number, data=_row_data(name, d), original=_row_data(name, d),
+                ImportRow(batch=batch, line_number=number, data=_row_data(d), original=_row_data(d),
                           source_name=name, provenance=_provenance(d))
                 for number, (name, _raw, d) in enumerate(staged, start=1)])
             imports.revalidate_batch(batch, provider)

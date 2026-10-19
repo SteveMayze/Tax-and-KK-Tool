@@ -124,3 +124,23 @@ INCONSISTENT = [line.replace('Net Amount AUD 50.00', 'Net Amount AUD 40.00').rep
                 .replace('amount of AUD 50.00', 'amount of AUD 40.00') for line in MUFG_STYLE]
 DISAGREEING_NET = [line.replace('Direct Credit amount AUD 50.00', 'Direct Credit amount AUD 49.00') for line in MUFG_STYLE]
 NO_PAYMENT_DATE = [line for line in MUFG_STYLE if not line.startswith('Payment Date')]
+
+
+# Revolut "Flexible Cash Funds" monthly statement (invented figures). Three daily returns of 0.5000 and three daily fees of
+# 0.1800 (as the real statements print them: description line, then ISIN and amount on the next line).
+def fund_statement(returns=('0.5000', '0.5000', '0.5000'), fees=('-0.1800', '-0.1800', '-0.1800'),
+                   earned='1.5000', total_fees='-0.5400', period='Period Jun 1, 2025 - Jun 30, 2025'):
+    lines = ['Flexible Cash Funds Statement', period, 'Generation date: Jul 2, 2025', 'MR TEST HOLDER', 'Germany',
+             'Value, EUR', 'Opening Balance 1,000.00', 'Total Value purchased 0', 'Total Value sold 0',
+             f'Total Earned Return {earned}', f'Total Fees {total_fees}', 'Total Withdrawn Return 0',
+             'Total Reinvested Return 0', 'Closing Balance 1,000.96', 'Flexible Cash Funds - EUR',
+             'Date Description Value Share price Shares']
+    for day, (ret, fee) in enumerate(zip(returns, fees), start=1):
+        lines += [f'Jun {day}, 2025, 3:03:17AM', 'Service Fee Charged EUR Class', f'IE0000TEST01 {fee}',
+                  f'Jun {day}, 2025, 3:03:17AM', 'Return PAID EUR Class R', f'IE0000TEST01 {ret}']
+    lines += ['Information about this Statement',
+              'This statement is provided by Revolut Securities Europe UAB ("Revolut") in respect of your Flexible Cash Funds.']
+    return lines
+
+
+EXPECT_FUND = (datetime.date(2025, 6, 30), 'EUR', D('1.5000'), D('0.5400'), D('0.9600'))
