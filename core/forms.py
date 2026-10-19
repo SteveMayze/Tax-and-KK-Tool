@@ -207,7 +207,7 @@ class MultipleFileField(forms.FileField):
     def clean(self, data, initial=None):
         clean_one = super().clean
         if not data:
-            return [clean_one(None, initial)]               # raises "This field is required"
+            return [clean_one(None, initial)] if self.required else []             # required: "This field is required"
         if isinstance(data, (list, tuple)):
             return [clean_one(item, initial) for item in data]
         return [clean_one(data, initial)]
@@ -215,8 +215,18 @@ class MultipleFileField(forms.FileField):
 
 class ImportUploadForm(forms.Form):
     file = MultipleFileField(
-        label=_('CSV file or PDF statements'),
+        label=_('CSV file or PDF statements'), required=False,
         help_text=_('One UTF-8 CSV with a header row (see the format description below), or one or more PDF dividend statements.'))
+    folder = MultipleFileField(
+        label=_('Or a whole folder of PDF statements'), required=False,
+        widget=MultipleFileInput(attrs={'webkitdirectory': True}),
+        help_text=_('Selects every file in the folder and its subfolders, so all statements can be uploaded at once. Hidden files such as .DS_Store are ignored.'))
+
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get('file') and not cleaned.get('folder') and 'file' not in self.errors:
+            self.add_error('file', gettext('This field is required.'))
+        return cleaned
 
     def clean_file(self):
         files = self.cleaned_data['file']

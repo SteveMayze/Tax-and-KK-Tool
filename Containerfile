@@ -32,5 +32,5 @@ RUN DJANGO_SETTINGS_MODULE=config.settings python manage.py collectstatic --noin
 USER 10001:10001
 EXPOSE 8000
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", \
-     "--worker-tmp-dir", "/dev/shm", "--timeout", "60", "--no-control-socket", \
+     "--worker-tmp-dir", "/dev/shm", "--timeout", "180", "--no-control-socket", \
      "--access-logfile", "-", "--error-logfile", "-"]

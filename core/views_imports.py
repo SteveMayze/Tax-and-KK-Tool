@@ -42,9 +42,13 @@ def import_list(request):
 def import_upload(request):
     form = ImportUploadForm(request.POST, request.FILES)
     if form.is_valid():
-        uploads = [(f.name, f.read()) for f in form.cleaned_data['file']]
+        chosen = list(form.cleaned_data['file']) + list(form.cleaned_data.get('folder') or [])
+        # Hidden files (.DS_Store and the like) that a folder selection brings along are not statements: ignore them.
+        uploads = [(f.name, f.read()) for f in chosen if not f.name.startswith('.')]
         pdfs = [(n, raw) for n, raw in uploads if pdf_text.looks_like_pdf(raw)]
         try:
+            if not uploads:
+                raise svc.ImportFileError(_('No usable file was selected.'))
             if pdfs and len(pdfs) != len(uploads):
                 raise svc.ImportFileError(_('Upload either one CSV file or PDF statements, not both together.'))
             if pdfs:
@@ -56,7 +60,11 @@ def import_upload(request):
         except svc.ImportFileError as e:
             form.add_error('file', str(e))
         else:
-            messages.success(request, _('File read. Review the rows below; nothing has been imported yet.'))
+            if batch.kind == ImportBatch.Kind.PDF and len(pdfs) > 1:
+                messages.success(request, _('%(staged)s of %(total)s PDF files read and staged; %(skipped)s not staged (listed below). Nothing has been imported yet.') % {
+                    'staged': batch.rows.count(), 'total': len(pdfs), 'skipped': len(pdfs) - batch.rows.count()})
+            else:
+                messages.success(request, _('File read. Review the rows below; nothing has been imported yet.'))
             return _preview_redirect(batch)
     return render(request, 'core/import_list.html', {
         'batches': ImportBatch.objects.all(), 'form': form, 'columns': svc.COLUMNS, 'required': svc.REQUIRED})

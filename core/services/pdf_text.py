@@ -5,11 +5,16 @@ core.services.dividend_statements, and the result is staged by core.services.pdf
 and never sent to an external service; extraction runs inside this process with pypdf (pure Python).
 """
 import io
+import logging
 
 from django.utils.translation import gettext
 
 MAX_PDF_BYTES = 5 * 1024 * 1024
 MAX_PAGES = 30
+
+
+# pypdf logs warnings about fonts and damaged objects; they say nothing useful here and must not reach the logs.
+logging.getLogger('pypdf').setLevel(logging.ERROR)
 
 
 class PdfError(Exception):

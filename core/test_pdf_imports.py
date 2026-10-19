@@ -228,6 +228,27 @@ class ViewTests(UploadDirMixin, TestCase):
         self.assertContains(r, 'one CSV file at a time')
         self.assertEqual(ImportBatch.objects.count(), 0)
 
+    def test_a_whole_folder_with_hidden_files_is_staged_and_the_counts_are_reported(self):
+        files = [('a.pdf', make_pdf([MUFG_STYLE])), ('b.pdf', make_pdf([ACCEPTED['computershare'][0]])),
+                 ('nab.pdf', make_pdf([BONUS_SHARE_PLAN])), ('.DS_Store', b'\x00\x00junk'), ('.hidden.pdf', make_pdf([UNKNOWN_LAYOUT]))]
+        r = self.client.post(reverse('import_upload'), {'folder': [SimpleUploadedFile(n, raw) for n, raw in files]}, follow=True)
+        batch = ImportBatch.objects.get()
+        self.assertEqual(batch.rows.count(), 2)
+        self.assertContains(r, '2 of 3 PDF files read and staged; 1 not staged')
+        self.assertContains(r, 'nab.pdf')                                 # listed with its reason
+        self.assertContains(r, 'bonus share plan')
+
+    def test_nothing_usable_in_the_selection_is_an_error(self):
+        r = self.client.post(reverse('import_upload'), {'folder': [SimpleUploadedFile('.DS_Store', b'junk')]})
+        self.assertContains(r, 'No usable file was selected')
+        self.assertEqual(ImportBatch.objects.count(), 0)
+
+    def test_the_form_offers_a_folder_picker_and_many_files_are_allowed(self):
+        page = self.client.get(reverse('import_list')).content.decode()
+        self.assertIn('webkitdirectory', page)
+        self.assertGreaterEqual(settings.DATA_UPLOAD_MAX_NUMBER_FILES, 300)                    # Django's default is 100
+        self.assertGreaterEqual(pdf_imports.MAX_FILES, 300)
+
     def test_original_pdf_download_is_protected_and_is_the_file(self):
         raw = make_pdf([MUFG_STYLE])
         self.upload(('a.pdf', raw))

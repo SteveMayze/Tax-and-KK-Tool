@@ -176,6 +176,8 @@ ENABLE_ADMIN = os.environ.get('DJANGO_ENABLE_ADMIN', '1' if DEBUG else '0') == '
 UPLOAD_DIR = os.environ.get('DJANGO_UPLOAD_DIR', str(BASE_DIR / 'local' / 'uploads'))
 IMPORT_MAX_BYTES = 2 * 1024 * 1024
 IMPORT_MAX_ROWS = 5000
+# A whole folder of PDF statements arrives as one request with one part per file (Django's default limit is 100).
+DATA_UPLOAD_MAX_NUMBER_FILES = 400
 
 # Exchange-rate provider (dotted path). Default: ECB reference rates via Frankfurter.
 # Set DJANGO_RATE_PROVIDER=core.services.rates.ManualOnlyProvider to work offline (manual rates only).

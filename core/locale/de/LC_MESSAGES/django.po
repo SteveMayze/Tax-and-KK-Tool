@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: tax-healthcare-tool\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-19 18:11+0000\n"
+"POT-Creation-Date: 2026-10-19 18:22+0000\n"
 "PO-Revision-Date: 2026-10-19 17:00+0000\n"
 "Last-Translator: Owner-reviewed glossary terms; remaining wording proposed\n"
 "Language-Team: German\n"
@@ -183,6 +183,12 @@ msgstr "CSV-Datei oder PDF-Auszüge"
 
 msgid "One UTF-8 CSV with a header row (see the format description below), or one or more PDF dividend statements."
 msgstr "Eine UTF-8-CSV mit Kopfzeile (siehe die Formatbeschreibung unten) oder ein oder mehrere PDF-Dividendenabrechnungen."
+
+msgid "Or a whole folder of PDF statements"
+msgstr "Oder ein ganzer Ordner mit PDF-Abrechnungen"
+
+msgid "Selects every file in the folder and its subfolders, so all statements can be uploaded at once. Hidden files such as .DS_Store are ignored."
+msgstr "Wählt jede Datei im Ordner und seinen Unterordnern aus, sodass alle Abrechnungen auf einmal hochgeladen werden können. Versteckte Dateien wie .DS_Store werden ignoriert."
 
 #, python-format
 msgid "File is larger than %(mb)s MB."
@@ -2164,11 +2170,18 @@ msgstr "Gespeichert."
 msgid "Removed; defaults (January to December, no costs) apply again."
 msgstr "Entfernt; es gelten wieder die Standardwerte (Januar bis Dezember, keine Kosten)."
 
+msgid "No usable file was selected."
+msgstr "Es wurde keine verwendbare Datei ausgewählt."
+
 msgid "Upload either one CSV file or PDF statements, not both together."
 msgstr "Laden Sie entweder eine CSV-Datei oder PDF-Abrechnungen hoch, nicht beides zusammen."
 
 msgid "Upload one CSV file at a time (PDF statements can be uploaded together)."
 msgstr "Laden Sie jeweils eine CSV-Datei hoch (PDF-Abrechnungen können zusammen hochgeladen werden)."
+
+#, python-format
+msgid "%(staged)s of %(total)s PDF files read and staged; %(skipped)s not staged (listed below). Nothing has been imported yet."
+msgstr "%(staged)s von %(total)s PDF-Dateien gelesen und vorbereitet; %(skipped)s nicht vorbereitet (unten aufgeführt). Es wurde noch nichts importiert."
 
 msgid "File read. Review the rows below; nothing has been imported yet."
 msgstr "Datei gelesen. Prüfen Sie die Zeilen unten; es wurde noch nichts importiert."

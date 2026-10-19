@@ -24,7 +24,7 @@ from .rates import RateProvider
 
 CATEGORY = 'Dividends'          # a seeded category; the owner can change it per row in the review
 FREQUENCY = 'one_off'           # dividends are irregular; never treated as recurring unless the owner edits the row
-MAX_FILES = 200
+MAX_FILES = 300
 MAX_SKIPPED_SHOWN = 8
 
 
