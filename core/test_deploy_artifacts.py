@@ -138,7 +138,7 @@ class AnsibleFilesTests(SimpleTestCase):
 
     def test_deploy_secret_handling(self):
         text = read('infra/deploy.yaml')
-        block = text[text.index('Generate the Django SECRET_KEY'):text.index('Make sure the secret file is root-only')]
+        block = text[text.index('Generate the Django SECRET_KEY'):text.index('Make sure the secret file can only be read by the service user')]
         self.assertIn('creates: "{{ etc_dir }}/env"', block)
         self.assertIn('no_log: true', block)
         self.assertIn('umask 077', block)
@@ -205,6 +205,110 @@ class AnsibleFilesTests(SimpleTestCase):
         timer = read('infra/templates/tax-healthcare-tool-backup.timer.j2')
         self.assertIn('Persistent=true', timer)
         self.assertIn('OnCalendar=*-*-* {{ backup_time }}', timer)
+
+
+class RootlessTests(SimpleTestCase):
+    """Phase 9A: routine deployment needs no root. Reads the real Makefile and playbooks."""
+    SUDO_FILES = {'infra/bootstrap-rootless.yml', 'infra/migrate-from-rootful.yaml'}     # the documented exceptions
+    SUDO_TARGETS = {'bootstrap-rootless', 'migrate-copy'}
+
+    def playbooks(self):
+        return sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / 'infra').rglob('*') if p.suffix in ('.yml', '.yaml'))
+
+    def makefile_targets(self):
+        return re.findall(r'^([a-z][a-z-]*):', read('Makefile'), re.M)
+
+    def test_no_sudo_become_or_password_prompt_outside_the_documented_exceptions(self):
+        for rel in self.playbooks() + [p.relative_to(ROOT).as_posix() for p in (ROOT / 'infra' / 'templates').iterdir()]:
+            if rel in self.SUDO_FILES:
+                continue
+            text = '\n'.join(l for l in read(rel).splitlines() if not l.lstrip().startswith('#'))
+            self.assertNotRegex(text, r'\bbecome\b|\bsudo\b|ask-become|--ask-become-pass', rel)
+            self.assertNotRegex(text, r'(^|\s)-K\b', rel)
+
+    def test_makefile_uses_sudo_only_for_the_two_documented_targets(self):
+        current = None
+        for line in read('Makefile').splitlines():
+            m = re.match(r'^([a-z][a-z-]*):', line)
+            if m:
+                current = m.group(1)
+            if line.startswith('\t') and re.search(r'(^|\s)-K\b|\bsudo\b|\bbecome\b', line):
+                self.assertIn(current, self.SUDO_TARGETS, line)
+        self.assertTrue(self.SUDO_TARGETS <= set(self.makefile_targets()))
+        for name in self.SUDO_FILES:
+            self.assertIn('become: true', read(name))
+
+    def test_routine_playbooks_connect_as_the_service_user_and_check_the_session_first(self):
+        for name in ('deploy', 'rollback', 'restore', 'restore-drill', 'fetch-backup', 'status', 'verify-migration'):
+            text = read(f'infra/{name}.yaml')
+            self.assertIn('hosts: taxtool\n', text, name)
+            self.assertIn('tasks/service-session.yml', text, name)
+            self.assertIn('XDG_RUNTIME_DIR', text, name)
+        session = read('infra/tasks/service-session.yml')
+        for needle in ('Linger', 'systemctl --user is-system-running', 'service_user'):
+            self.assertIn(needle, session)
+
+    def test_systemd_tasks_use_the_user_scope_and_the_user_unit_folders(self):
+        for name in ('deploy', 'rollback', 'restore'):
+            text = read(f'infra/{name}.yaml')
+            self.assertEqual(text.count('ansible.builtin.systemd:'), text.count('scope: user'), name)
+        deploy = read('infra/deploy.yaml')
+        self.assertIn('quadlet_file: "{{ quadlet_dir }}/{{ app_name }}.container"', deploy)
+        self.assertNotIn('/etc/', deploy.replace('/etc/os-release', ''))
+        self.assertNotIn('/usr/local/sbin', deploy)
+        groups = read('infra/group_vars/all.yml')
+        self.assertIn('quadlet_dir: "{{ service_home }}/.config/containers/systemd"', groups)
+        self.assertIn('unit_dir: "{{ service_home }}/.config/systemd/user"', groups)
+
+    def test_quadlet_is_a_user_unit_with_the_user_namespace_mapping(self):
+        text = read('infra/templates/tax-healthcare-tool.container.j2')
+        self.assertIn('UserNS={{ container_userns }}', text)
+        self.assertIn('User={{ app_uid }}', text)
+        self.assertIn('WantedBy=default.target', text)
+        self.assertNotIn('multi-user.target', text)
+        self.assertNotIn('RequiresMountsFor', text)
+        groups = read('infra/group_vars/all.yml')
+        self.assertIn('container_userns: "keep-id:uid={{ app_uid }},gid={{ app_uid }}"', groups)
+        self.assertIn('--userns={{ container_userns }} --user {{ app_uid }}:{{ app_uid }}', groups)
+        self.assertIn('--userns={{ container_userns }}', read('infra/restore-drill.yaml').replace('"--userns', '--userns').replace('}}"', '}}'))
+
+    def test_hardening_is_kept(self):
+        text = read('infra/templates/tax-healthcare-tool.container.j2')
+        for line in ('ReadOnly=true', 'NoNewPrivileges=true', 'DropCapability=ALL', 'HealthOnFailure=restart',
+                     'Restart=always', '--memory={{ memory_limit }}', '--pids-limit=256'):
+            self.assertIn(line, text)
+
+    def test_backup_is_a_user_timer(self):
+        deploy = read('infra/deploy.yaml')
+        self.assertIn('dest: "{{ unit_dir }}/{{ item }}"', deploy)
+        self.assertIn('{{ app_name }}-backup.timer', deploy)
+        self.assertIn('Persistent=true', read('infra/templates/tax-healthcare-tool-backup.timer.j2'))
+
+    def test_bootstrap_is_idempotent_commented_and_contains_no_app_secret_or_firewall_change(self):
+        text = read('infra/bootstrap-rootless.yml')
+        body = '\n'.join(l for l in text.splitlines() if not l.lstrip().startswith('#')).lower()
+        for forbidden in ('ufw', 'firewall', 'iptables', 'nft', 'secret_key', 'podman build', 'podman run', 'git archive'):
+            self.assertNotIn(forbidden, body)
+        for needle in ('password_lock: true', 'enable-linger', 'creates: "/var/lib/systemd/linger', 'passt', 'uidmap',
+                       '/etc/subuid', 'state: present'):
+            self.assertIn(needle, text)
+        tasks = re.findall(r'^    - name: ', text, re.M)
+        self.assertGreaterEqual(len(tasks), 10)
+        self.assertNotIn('shell: /usr/sbin/nologin', text)        # SSH needs a real shell
+        self.assertIn('unprivileged_port_start: null', read('infra/group_vars/all.yml'))    # off unless the owner decides
+
+    def test_every_make_target_is_explained_in_the_plain_language_guide(self):
+        guide = read('docs/podman-explained.md')
+        for target in self.makefile_targets():
+            self.assertRegex(guide, rf'make {re.escape(target)}\b', f'make {target} is not documented in docs/podman-explained.md')
+
+    def test_every_command_block_line_in_the_guide_has_an_explanation(self):
+        guide = read('docs/podman-explained.md')
+        blocks = re.findall(r'```\n(.*?)```', guide, re.S)
+        commands = [l for b in blocks for l in b.splitlines() if re.match(r'(make|systemctl|podman|ssh|sudo|journalctl|loginctl|ls) ', l)]
+        self.assertGreater(len(commands), 15)
+        for line in commands:
+            self.assertIn('#', line, f'command without a one-line explanation: {line}')
 
 
 class DeployArchiveTests(SimpleTestCase):

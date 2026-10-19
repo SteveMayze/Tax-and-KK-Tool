@@ -1,2 +1,8 @@
+# Two logins for the same server.
+# [taxtool]           the rootless service user: used by every routine command (no sudo).
+# [taxtool_bootstrap] your own admin login with sudo: used only by `make bootstrap-rootless` and `make migrate-copy`.
 [taxtool]
-your-host.example.com ansible_user=your-user
+your-host.example.com ansible_user=homeapps
+
+[taxtool_bootstrap]
+your-host.example.com ansible_user=your-admin-login

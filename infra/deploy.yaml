@@ -1,11 +1,15 @@
 ---
 # Deploys the COMMITTED revision (git archive: untracked files, local/ and databases can never be shipped).
-# Rootful Podman + Quadlet, like the existing Parts DB app, but: own image, own container, own data dir,
-# secrets in a root-only file, non-root user in the container, read-only root file system, loopback port.
-# Run with:  make deploy        (asks for the sudo password: -K)
+# ROOTLESS Podman + Quadlet, run as the ordinary service user (Phase 9A): no sudo, no -K. The container has its own
+# image, name, data folder and port, secrets in a file only the service user can read, a non-root user inside the
+# container, a read-only root file system and dropped capabilities.
+# Run with:  make deploy            (trial port:  make deploy PORT=8890)
 - name: Deploy tax-healthcare-tool
   hosts: taxtool
   gather_facts: false
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ service_uid | default('') }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ service_uid | default('') }}/bus"
   vars:
     repo_root: "{{ playbook_dir }}/.."
     app_commit: "{{ lookup('pipe', 'git -C ' ~ repo_root ~ ' rev-parse --short=12 HEAD') }}"
@@ -14,7 +18,7 @@
     image_new: "{{ image_repo }}:{{ app_commit }}"
     build_dir: "{{ data_root }}/build/{{ app_commit }}"
     archive_local: "/tmp/{{ app_name }}-{{ app_commit }}.tar.gz"
-    quadlet_file: "/etc/containers/systemd/{{ app_name }}.container"
+    quadlet_file: "{{ quadlet_dir }}/{{ app_name }}.container"
 
   pre_tasks:
     - name: Refuse to deploy uncommitted changes (the deployment is exactly the committed revision)
@@ -27,30 +31,31 @@
     - name: Check connectivity
       ansible.builtin.ping:
 
+    - name: Connected as the service user, with linger on and a running user systemd
+      ansible.builtin.include_tasks: tasks/service-session.yml
+
     - name: Check that Podman is installed (nothing is installed or upgraded by this playbook)
       ansible.builtin.command: podman --version
       changed_when: false
       register: podman_version
 
   tasks:
-    - name: Create the config and data directories
-      become: true
+    - name: Create the config and data directories (private to the service user)
       ansible.builtin.file:
-        path: "{{ item.path }}"
+        path: "{{ item }}"
         state: directory
-        owner: "{{ item.owner | default('root') }}"
-        group: "{{ item.group | default('root') }}"
-        mode: "{{ item.mode }}"
+        mode: "0700"
       loop:
-        - { path: "{{ etc_dir }}", mode: "0750" }
-        - { path: "{{ data_root }}", mode: "0755" }
-        - { path: "{{ data_root }}/build", mode: "0755" }
-        - { path: "{{ data_root }}/data", owner: "{{ app_uid }}", group: "{{ app_uid }}", mode: "0700" }
-        - { path: "{{ data_root }}/uploads", owner: "{{ app_uid }}", group: "{{ app_uid }}", mode: "0700" }
-        - { path: "{{ data_root }}/backups", owner: "{{ app_uid }}", group: "{{ app_uid }}", mode: "0700" }
+        - "{{ etc_dir }}"
+        - "{{ data_root }}/build"
+        - "{{ data_root }}/data"
+        - "{{ data_root }}/uploads"
+        - "{{ data_root }}/backups"
+        - "{{ bin_dir }}"
+        - "{{ quadlet_dir }}"
+        - "{{ unit_dir }}"
 
     - name: Generate the Django SECRET_KEY on the server (only if it does not exist yet; never overwritten)
-      become: true
       ansible.builtin.shell:
         cmd: >-
           umask 077 &&
@@ -58,23 +63,18 @@
         creates: "{{ etc_dir }}/env"
       no_log: true
 
-    - name: Make sure the secret file is root-only
-      become: true
+    - name: Make sure the secret file can only be read by the service user
       ansible.builtin.file:
         path: "{{ etc_dir }}/env"
-        owner: root
-        group: root
         mode: "0600"
 
     - name: Is there an image from a previous deploy?
-      become: true
       ansible.builtin.command: "podman image exists {{ image_repo }}:current"
       register: current_image
       failed_when: false
       changed_when: false
 
     - name: Is there a database already?
-      become: true
       ansible.builtin.stat:
         path: "{{ data_root }}/data/db.sqlite3"
       register: db_file
@@ -87,36 +87,29 @@
       changed_when: true
 
     - name: Remove any earlier build directory for this revision
-      become: true
       ansible.builtin.file:
         path: "{{ build_dir }}"
         state: absent
 
     - name: Create the build directory
-      become: true
       ansible.builtin.file:
         path: "{{ build_dir }}"
         state: directory
-        mode: "0755"
+        mode: "0700"
 
     - name: Unpack the revision on the server
-      become: true
       ansible.builtin.unarchive:
         src: "{{ archive_local }}"
         dest: "{{ build_dir }}"
-        owner: root
-        group: root
 
     - name: The unpacked revision must contain what the build needs (guards against a partial archive)
-      become: true
       ansible.builtin.stat:
         path: "{{ build_dir }}/src/{{ item }}"
       register: unpacked
       loop: [Containerfile, manage.py, healthcheck.py, requirements.txt, config/settings_prod.py, core/models.py]
       failed_when: not unpacked.stat.exists
 
-    - name: Build the image (installs the pinned requirements from PyPI)
-      become: true
+    - name: Build the image as the service user (installs the pinned requirements from PyPI)
       ansible.builtin.command:
         cmd: >-
           podman build --build-arg GIT_COMMIT={{ app_commit }}
@@ -125,14 +118,12 @@
       changed_when: true
 
     - name: Remember the image that is live now
-      become: true
       ansible.builtin.command: "podman image inspect --format {% raw %}'{{.Id}}'{% endraw %} {{ image_repo }}:current"
       register: live_image_id
       when: current_image.rc == 0
       changed_when: false
 
     - name: Id of the new image
-      become: true
       ansible.builtin.command: "podman image inspect --format {% raw %}'{{.Id}}'{% endraw %} {{ image_new }}"
       register: new_image_id
       changed_when: false
@@ -141,7 +132,6 @@
     # older image may not understand it (a settings change would otherwise break the backup). It still runs before
     # migrations, so it captures the database exactly as it was before this deploy. Nothing live has changed yet.
     - name: Back up before changing anything (database and uploads, verified; uses the newly built image)
-      become: true
       ansible.builtin.command: >-
         podman run {{ podman_run_flags }} {{ image_new }}
         python manage.py backup_db --label pre-deploy
@@ -150,18 +140,15 @@
       changed_when: "'BACKUP_CREATED' in pre_backup.stdout"
 
     - name: Keep the live image as 'previous' (for rollback) unless it is the same image
-      become: true
       ansible.builtin.command: "podman tag {{ image_repo }}:current {{ image_repo }}:previous"
       when: current_image.rc == 0 and live_image_id.stdout != new_image_id.stdout
       changed_when: true
 
     - name: Point 'current' at the new image
-      become: true
       ansible.builtin.command: "podman tag {{ image_new }} {{ image_repo }}:current"
       changed_when: true
 
     - name: Production configuration check (fails on errors, warnings listed; HSTS/redirect warnings are expected)
-      become: true
       ansible.builtin.command: >-
         podman run {{ podman_run_flags }} {{ image_repo }}:current
         python manage.py check --deploy --fail-level ERROR
@@ -169,63 +156,52 @@
       changed_when: false
 
     - name: Apply database migrations
-      become: true
       ansible.builtin.command: >-
         podman run {{ podman_run_flags }} {{ image_repo }}:current
         python manage.py migrate --noinput
       register: migrate
       changed_when: "'No migrations to apply' not in migrate.stdout"
 
-    - name: Install the Quadlet unit
-      become: true
+    - name: Install the Quadlet unit (in the service user's own folder)
       ansible.builtin.template:
         src: tax-healthcare-tool.container.j2
         dest: "{{ quadlet_file }}"
-        owner: root
-        group: root
         mode: "0644"
 
-    - name: Install the backup service and timer
-      become: true
+    - name: Install the backup service and timer (systemd user units)
       ansible.builtin.template:
         src: "{{ item }}.j2"
-        dest: "/etc/systemd/system/{{ item }}"
-        owner: root
-        group: root
+        dest: "{{ unit_dir }}/{{ item }}"
         mode: "0644"
       loop:
         - tax-healthcare-tool-backup.service
         - tax-healthcare-tool-backup.timer
 
     - name: Install the management wrapper (for createsuperuser, changepassword, manual backups)
-      become: true
       ansible.builtin.template:
         src: manage.sh.j2
-        dest: /usr/local/sbin/{{ app_name }}-manage
-        owner: root
-        group: root
+        dest: "{{ bin_dir }}/{{ app_name }}-manage"
         mode: "0750"
 
-    - name: Reload systemd (generates the service from the Quadlet file)
-      become: true
+    - name: Reload the user's systemd (generates the service from the Quadlet file)
       ansible.builtin.systemd:
+        scope: user
         daemon_reload: true
 
     - name: Start (or restart onto the new image) the web service
-      become: true
       ansible.builtin.systemd:
+        scope: user
         name: "{{ app_name }}.service"
         state: restarted
 
     - name: Enable the daily backup timer
-      become: true
       ansible.builtin.systemd:
+        scope: user
         name: "{{ app_name }}-backup.timer"
         enabled: true
         state: started
 
     - name: Wait until the container reports healthy
-      become: true
       ansible.builtin.command: "podman inspect --format {% raw %}'{{.State.Health.Status}}'{% endraw %} {{ container_name }}"
       register: health
       until: health.stdout == 'healthy'
@@ -240,20 +216,17 @@
       register: health_http
 
     - name: Record this deployment
-      become: true
       ansible.builtin.copy:
         dest: "{{ data_root }}/DEPLOYED"
-        owner: root
-        group: root
         mode: "0644"
         content: |
           commit={{ app_commit }}
           image_id={{ new_image_id.stdout }}
           previous_image_id={{ live_image_id.stdout | default('none') }}
+          port={{ app_port }}
           deployed_utc={{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}
 
     - name: Find old images to remove (keep current, previous and the newest {{ keep_images }} builds)
-      become: true
       ansible.builtin.shell:
         cmd: >-
           podman images {{ image_repo }} --format {% raw %}'{{.Tag}}'{% endraw %}
@@ -264,7 +237,6 @@
       failed_when: false
 
     - name: Remove old images (best effort; an image in use is left alone)
-      become: true
       ansible.builtin.command: "podman rmi {{ image_repo }}:{{ item }}"
       loop: "{{ old_images.stdout_lines }}"
       failed_when: false
@@ -280,8 +252,8 @@
     - name: Summary
       ansible.builtin.debug:
         msg:
-          - "Deployed commit {{ app_commit }}"
+          - "Deployed commit {{ app_commit }} (rootless, user {{ service_user }})"
           - "Pre-deploy backup: {{ (pre_backup.stdout | default('none (first deploy)')).strip() }}"
           - "Migrations: {{ 'applied' if migrate.changed else 'already up to date' }}"
-          - "Open {{ public_scheme }}://{{ public_host }}:{{ app_port }}/"
+          - "Open {{ public_scheme }}://{{ public_host }}:{{ app_port }}{{ url_prefix }}/"
           - "First deploy: create your login with: make createsuperuser"

@@ -1,0 +1,43 @@
+---
+# Proves the rootless instance holds exactly the data of a backup taken from the old rootful instance:
+# compares row counts and content hashes of (a) the backup archive and (b) the live rootless data. No sudo.
+#   make verify-migration BACKUP=backup-YYYYMMDD-HHMMSS-migrate.tar.gz
+# Only counts and hashes are printed, never row contents.
+- name: Compare the rootless data with the backup taken from the rootful instance
+  hosts: taxtool
+  gather_facts: false
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ service_uid | default('') }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ service_uid | default('') }}/bus"
+  tasks:
+    - name: Connected as the service user, with linger on and a running user systemd
+      ansible.builtin.include_tasks: tasks/service-session.yml
+
+    - name: A backup name is required
+      ansible.builtin.assert:
+        that: backup_file is defined and backup_file is match('^backup-[0-9]{8}-[0-9]{6}(-[a-z0-9-]+)?\\.tar\\.gz$')
+        fail_msg: "Pass BACKUP=backup-YYYYMMDD-HHMMSS-migrate.tar.gz (the name printed by make migrate-copy)."
+
+    - name: Fingerprint of the data inside the backup (taken from the rootful instance)
+      ansible.builtin.command: >-
+        podman run {{ podman_run_flags }} {{ image_repo }}:current
+        python manage.py data_fingerprint --archive {{ backup_file | quote }}
+      register: from_backup
+      changed_when: false
+
+    - name: Fingerprint of the live rootless data
+      ansible.builtin.command: >-
+        podman run {{ podman_run_flags }} {{ image_repo }}:current
+        python manage.py data_fingerprint
+      register: from_live
+      changed_when: false
+
+    - name: Show both
+      ansible.builtin.debug:
+        msg: ["backup: {{ from_backup.stdout_lines }}", "rootless: {{ from_live.stdout_lines }}"]
+
+    - name: Row counts, content hash and uploads hash must be identical
+      ansible.builtin.assert:
+        that: from_backup.stdout_lines[0] == from_live.stdout_lines[0] and from_backup.stdout_lines[1] == from_live.stdout_lines[1]
+        fail_msg: "The rootless data differs from the backup. Do NOT cut over; run make restore again and compare."
+        success_msg: "MATCH: the rootless instance holds exactly the backed-up data."

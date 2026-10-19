@@ -1,0 +1,128 @@
+---
+# ONE-TIME setup of the rootless service user. This is the ONLY routine playbook that uses sudo (become).
+# Run it once:   make bootstrap-rootless      (asks for your sudo password on the server; -K)
+# It is safe to run again: every task only changes something that is not already as described.
+#
+# What it does, in plain words: creates an ordinary Linux user that will run the containers, lets that user keep its
+# services running when nobody is logged in ("linger"), makes sure it may use the user-id ranges rootless Podman needs,
+# makes sure the needed programs are installed, and creates the user's folders. After this, deploys need no sudo.
+#
+# What it does NOT do: it does not contain the app, any secret or any firewall change, and it does not touch the old
+# rootful container or its data.
+- name: One-time bootstrap of the rootless service user
+  hosts: taxtool_bootstrap          # the admin login that is allowed to use sudo (see infra/inventory.ini.example)
+  gather_facts: false
+  become: true
+  vars:
+    # Your public SSH key, read on THIS computer and authorised for the service user. Override: make bootstrap-rootless KEY=path
+    key_candidates: ["{{ lookup('env', 'HOME') }}/.ssh/id_ed25519.pub", "{{ lookup('env', 'HOME') }}/.ssh/id_rsa.pub"]
+    owner_public_key_file: "{{ key | default(lookup('ansible.builtin.first_found', key_candidates, skip=true) | default('', true)) }}"
+    subid_count: 65536
+    packages:      # Podman itself, the rootless networking helper (pasta, in the passt package), the user-id mapping tools,
+      - podman     # the OCI runtime and the container DNS/network pieces, and the user-level D-Bus that `systemctl --user`
+      - passt      # needs over SSH on Debian.
+      - uidmap
+      - crun
+      - netavark
+      - aardvark-dns
+      - dbus-user-session
+
+  pre_tasks:
+    - name: Your public SSH key must be readable here (it is authorised for the service user)
+      ansible.builtin.assert:
+        that: owner_public_key_file | length > 0
+        fail_msg: "No public key found. Pass one: make bootstrap-rootless KEY=~/.ssh/your_key.pub"
+      delegate_to: localhost
+      become: false
+
+  tasks:
+    - name: Make sure the programs rootless Podman needs are installed (does nothing if they already are)
+      ansible.builtin.apt:
+        name: "{{ packages }}"
+        state: present
+
+    - name: Create the service user (no password login, the password is locked; reached by SSH key only)
+      ansible.builtin.user:
+        name: "{{ service_user }}"
+        comment: "Rootless container services"
+        shell: /bin/bash          # SSH runs commands through the user's shell, so it must be a real shell
+        password_lock: true
+        create_home: true
+        home: "{{ service_home }}"
+
+    - name: The user's .ssh folder (private to the user)
+      ansible.builtin.file:
+        path: "{{ service_home }}/.ssh"
+        state: directory
+        owner: "{{ service_user }}"
+        group: "{{ service_user }}"
+        mode: "0700"
+
+    - name: Authorise your SSH key for the service user (added once; an existing line is left alone)
+      ansible.builtin.lineinfile:
+        path: "{{ service_home }}/.ssh/authorized_keys"
+        line: "{{ lookup('file', owner_public_key_file) | trim }}"
+        create: true
+        owner: "{{ service_user }}"
+        group: "{{ service_user }}"
+        mode: "0600"
+
+    # Rootless Podman maps the container's user ids onto a private range of "subordinate" ids owned by the user.
+    - name: Does the service user already have a subordinate user-id and group-id range?
+      ansible.builtin.shell:
+        cmd: "grep -q '^{{ service_user }}:' /etc/subuid && grep -q '^{{ service_user }}:' /etc/subgid && echo yes || echo no"
+      register: has_subids
+      changed_when: false
+      check_mode: false
+
+    - name: Give it a range right after the highest one in use (only if it has none)
+      ansible.builtin.shell:
+        cmd: |
+          set -e
+          start=$(cat /etc/subuid /etc/subgid | awk -F: 'BEGIN{m=99999} {e=$2+$3; if (e>m) m=e} END{print m}')
+          usermod --add-subuids "$start-$((start + {{ subid_count }} - 1))" --add-subgids "$start-$((start + {{ subid_count }} - 1))" {{ service_user }}
+        executable: /bin/bash
+      when: has_subids.stdout == 'no'
+
+    # Linger: without it the user's systemd stops when the last session ends, and so would the container.
+    - name: Let the user's services run at boot and without anyone logged in (linger)
+      ansible.builtin.command:
+        cmd: "loginctl enable-linger {{ service_user }}"
+        creates: "/var/lib/systemd/linger/{{ service_user }}"
+
+    - name: Create the user's folders (data, uploads, backups, config, build, bin, unit folders), private to the user
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ service_user }}"
+        group: "{{ service_user }}"
+        mode: "0700"
+      loop:
+        - "{{ data_root }}"
+        - "{{ data_root }}/data"
+        - "{{ data_root }}/uploads"
+        - "{{ data_root }}/backups"
+        - "{{ data_root }}/build"
+        - "{{ etc_dir }}"
+        - "{{ bin_dir }}"
+        - "{{ service_home }}/.config"
+        - "{{ service_home }}/.config/containers"
+        - "{{ quadlet_dir }}"
+        - "{{ service_home }}/.config/systemd"
+        - "{{ unit_dir }}"
+
+    # Optional and OFF by default: the app needs no privileged port. The future gateway needs 443, which a non-root user
+    # may not bind until this system-wide setting is lowered. It affects every user on the server, so it is a decision.
+    - name: Optionally lower the first port a non-root user may bind (only when unprivileged_port_start is set)
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/90-unprivileged-ports.conf
+        content: "net.ipv4.ip_unprivileged_port_start = {{ unprivileged_port_start }}\n"
+        owner: root
+        group: root
+        mode: "0644"
+      register: port_setting
+      when: unprivileged_port_start is not none
+
+    - name: Apply that setting now
+      ansible.builtin.command: "sysctl -w net.ipv4.ip_unprivileged_port_start={{ unprivileged_port_start }}"
+      when: unprivileged_port_start is not none and port_setting is changed

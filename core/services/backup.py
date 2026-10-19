@@ -55,6 +55,39 @@ def inspect_db(path: Path) -> dict:
     return {'integrity_check': result, 'row_counts': counts}
 
 
+def fingerprint(db_path, uploads_dir=None) -> dict:
+    """Content fingerprint used to prove that two instances hold the same data (Phase 9A migration).
+
+    Row counts per table, one SHA-256 over every row of every table (ordered by rowid; the session table is left out
+    because every login changes it) and one over the uploaded files (relative path + content hash). Only counts and
+    hashes are returned, never row contents.
+    """
+    try:
+        conn = sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)
+        try:
+            digest, counts = hashlib.sha256(), {}
+            for table in _tables(conn):
+                counts[table] = conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
+                if table == 'django_session':
+                    continue
+                digest.update(f'table {table}\n'.encode())
+                for row in conn.execute(f'SELECT * FROM "{table}" ORDER BY rowid'):
+                    digest.update(repr(row).encode() + b'\n')
+        finally:
+            conn.close()
+    except sqlite3.Error as e:
+        raise BackupError(f'Database cannot be read: {e}') from e
+    uploads = hashlib.sha256()
+    files = 0
+    if uploads_dir and Path(uploads_dir).is_dir():
+        root = Path(uploads_dir)
+        for src in sorted(p for p in root.rglob('*') if p.is_file() and not p.is_symlink()):
+            uploads.update(f'{src.relative_to(root).as_posix()} {_sha256(src)}\n'.encode())
+            files += 1
+    return {'row_counts': counts, 'rows': sum(c for t, c in counts.items() if t != 'django_session'),
+            'content_sha256': digest.hexdigest(), 'upload_files': files, 'uploads_sha256': uploads.hexdigest()}
+
+
 def _copy_db(source: Path, dest: Path):
     """Consistent online copy (SQLite backup API)."""
     try:

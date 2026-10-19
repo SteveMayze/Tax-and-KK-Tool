@@ -4,9 +4,14 @@
 - name: Fetch a backup
   hosts: taxtool
   gather_facts: false
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ service_uid | default('') }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ service_uid | default('') }}/bus"
   tasks:
+    - name: Connected as the service user, with linger on and a running user systemd
+      ansible.builtin.include_tasks: tasks/service-session.yml
+
     - name: Find the newest backup
-      become: true
       ansible.builtin.find:
         paths: "{{ data_root }}/backups"
         patterns: "backup-*.tar.gz"
@@ -18,7 +23,6 @@
         fetch_file: "{{ backup_file | default((found.files | sort(attribute='mtime') | last).path | basename) }}"
 
     - name: Copy it here
-      become: true
       ansible.builtin.fetch:
         src: "{{ data_root }}/backups/{{ fetch_file }}"
         dest: "{{ playbook_dir }}/../local/backups/{{ fetch_file }}"

@@ -5,9 +5,14 @@
 - name: Restore drill (non-destructive)
   hosts: taxtool
   gather_facts: false
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ service_uid | default('') }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ service_uid | default('') }}/bus"
   tasks:
+    - name: Connected as the service user, with linger on and a running user systemd
+      ansible.builtin.include_tasks: tasks/service-session.yml
+
     - name: Find the newest backup
-      become: true
       ansible.builtin.find:
         paths: "{{ data_root }}/backups"
         patterns: "backup-*.tar.gz"
@@ -19,7 +24,6 @@
         drill_file: "{{ backup_file | default((found.files | sort(attribute='mtime') | last).path | basename) }}"
 
     - name: Verify and restore into a temporary directory, then check the restored database
-      become: true
       ansible.builtin.command:
         argv:
           - podman
@@ -30,6 +34,9 @@
           - /tmp
           - --cap-drop=ALL
           - --security-opt=no-new-privileges
+          - "--userns={{ container_userns }}"
+          - --user
+          - "{{ app_uid }}:{{ app_uid }}"
           - --env-file
           - "{{ etc_dir }}/env"
           - -e
@@ -41,9 +48,9 @@
           - -e
           - DJANGO_BACKUP_DIR=/backups
           - -e
-          - "DJANGO_ALLOWED_HOSTS={{ public_host }},localhost,127.0.0.1"
+          - "DJANGO_ALLOWED_HOSTS={{ allowed_hosts }}"
           - -e
-          - "DJANGO_CSRF_TRUSTED_ORIGINS={{ public_scheme }}://{{ public_host }}:{{ app_port }}"
+          - "DJANGO_CSRF_TRUSTED_ORIGINS={{ csrf_trusted_origins }}"
           - -e
           - "DJANGO_HTTPS={{ '1' if use_https else '0' }}"
           - -v

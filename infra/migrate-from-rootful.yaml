@@ -1,0 +1,42 @@
+---
+# Copies a fresh backup of the OLD rootful instance into the rootless instance's backup folder.
+# THIS IS A DOCUMENTED SUDO EXCEPTION (like bootstrap-rootless.yml): the old data belongs to root, so only root can read it.
+#   make migrate-copy        (asks for your sudo password; -K)
+# It does not stop, change or delete anything of the old setup. It runs the old instance's own backup command
+# (read-only for the live data), then copies the resulting archive to the rootless backup folder.
+# Afterwards (no sudo): make restore BACKUP=<printed name>, then make verify-migration BACKUP=<printed name>.
+- name: Copy a fresh rootful backup to the rootless instance
+  hosts: taxtool_bootstrap
+  gather_facts: false
+  become: true
+  tasks:
+    - name: The old rootful wrapper must exist
+      ansible.builtin.stat:
+        path: "{{ rootful_manage }}"
+      register: old_wrapper
+      failed_when: not old_wrapper.stat.exists
+
+    - name: Take a fresh, verified backup with the old instance's own image (changes no live data)
+      ansible.builtin.command: "{{ rootful_manage }} backup_db --label migrate"
+      register: old_backup
+      changed_when: true
+
+    - name: Name of the new archive
+      ansible.builtin.set_fact:
+        migrated_name: "{{ (old_backup.stdout_lines | select('match', '^BACKUP_CREATED ') | first).split(' ')[1] }}"
+
+    - name: Copy it into the rootless backup folder, owned by the service user
+      ansible.builtin.copy:
+        src: "{{ rootful_data_root }}/backups/{{ migrated_name }}"
+        dest: "{{ data_root }}/backups/{{ migrated_name }}"
+        remote_src: true
+        owner: "{{ service_user }}"
+        group: "{{ service_user }}"
+        mode: "0600"
+
+    - name: Next steps
+      ansible.builtin.debug:
+        msg:
+          - "Backup copied: {{ migrated_name }}"
+          - "make restore BACKUP={{ migrated_name }}"
+          - "make verify-migration BACKUP={{ migrated_name }}"

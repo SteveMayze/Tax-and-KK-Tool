@@ -1,7 +1,6 @@
-# Managed by Ansible (infra/deploy.yaml).
+# Managed by Ansible (infra/deploy.yaml). A systemd USER service, run by the service user's own systemd.
 [Unit]
 Description=Tax and Healthcare Tool: database and uploads backup
-After=network-online.target
 
 [Service]
 Type=oneshot

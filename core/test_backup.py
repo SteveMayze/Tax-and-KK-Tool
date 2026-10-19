@@ -369,3 +369,62 @@ class ManagementCommandTests(Workspace):
         outside.write_bytes(self.make().read_bytes())
         with self.assertRaises(CommandError):
             self.run_cmd('restore_backup', '../outside.tar.gz', '--backup-dir', str(self.backups / 'sub'))
+
+
+class FingerprintTests(Workspace):
+    def archive(self):
+        return backup.create_backup(self.db, self.uploads, self.backups, now=t(2026, 1, 1))
+
+    def run_cmd(self, **opts):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            call_command('data_fingerprint', **opts)
+        return buf.getvalue().splitlines()
+
+    def test_restored_copy_has_the_same_fingerprint_as_the_archive_it_came_from(self):
+        (self.uploads / 'imports' / 'a.csv').write_text('x')
+        archive = self.archive()
+        target = self.root / 'restored'
+        backup.restore_archive(archive, target / 'db.sqlite3', target / 'up')
+        self.assertEqual(backup.fingerprint(target / 'db.sqlite3', target / 'up'),
+                         backup.fingerprint(self.db, self.uploads))
+
+    def test_any_change_to_a_row_a_file_or_a_count_changes_it(self):
+        base = backup.fingerprint(self.db, self.uploads)
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE payment SET amount='10.01' WHERE id=1")
+        conn.commit()
+        changed = backup.fingerprint(self.db, self.uploads)
+        self.assertNotEqual(base['content_sha256'], changed['content_sha256'])
+        conn.execute("INSERT INTO payment (amount) VALUES ('1')")
+        conn.commit()
+        conn.close()
+        self.assertEqual(backup.fingerprint(self.db, self.uploads)['rows'], base['rows'] + 1)
+        (self.uploads / 'imports' / 'new.csv').write_text('y')
+        self.assertNotEqual(base['uploads_sha256'], backup.fingerprint(self.db, self.uploads)['uploads_sha256'])
+
+    def test_session_rows_are_ignored(self):
+        conn = sqlite3.connect(self.db)
+        conn.execute('CREATE TABLE django_session (k TEXT)')
+        conn.commit()
+        before = backup.fingerprint(self.db)
+        conn.execute("INSERT INTO django_session VALUES ('s')")
+        conn.commit()
+        conn.close()
+        after = backup.fingerprint(self.db)
+        self.assertEqual((before['content_sha256'], before['rows']), (after['content_sha256'], after['rows']))
+
+    def test_command_reports_counts_and_hashes_only(self):
+        archive = self.archive()
+        with self.settings(BACKUP_DIR=str(self.backups), UPLOAD_DIR=str(self.uploads),
+                           DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': str(self.db)}}):
+            from_archive = self.run_cmd(archive=archive.name)
+            live = self.run_cmd()
+        self.assertEqual(from_archive, live)
+        self.assertTrue(live[0].startswith('FINGERPRINT rows=3 content='))
+        self.assertNotIn('20.50', '\n'.join(live))
+
+    def test_unknown_archive_is_an_error(self):
+        with self.settings(BACKUP_DIR=str(self.backups)):
+            with self.assertRaises(CommandError):
+                self.run_cmd(archive='backup-20200101-000000.tar.gz')

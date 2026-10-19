@@ -1,17 +1,33 @@
 ---
 # Non-secret deployment settings. Secrets are NOT stored here: the Django SECRET_KEY is generated on the
 # server on first deploy (see docs/deployment.md). Host name and user come from the git-ignored inventory.
+#
+# ROOTLESS (Phase 9A): everything below runs as the ordinary Linux user `service_user`, not as root. See
+# docs/podman-explained.md for what that means in plain language.
 app_name: tax-healthcare-tool
 container_name: tax-healthcare-tool-web
 image_repo: localhost/tax-healthcare-tool
-app_uid: 10001                       # must match the user in Containerfile
-app_port: 8889                       # the app is reached directly on this port (no reverse proxy)
+app_uid: 10001                       # the user INSIDE the container; must match the user in Containerfile
+app_port: 8889                       # the app is reached directly on this port (use 8890 for the rootless trial run)
 listen_address: 0.0.0.0              # all interfaces, like the other app on this host; use the server's LAN IP to narrow it
 public_host: "{{ inventory_hostname }}"
 use_https: false                     # plain HTTP on the LAN (owner decision); set true only behind a TLS-terminating proxy
 public_scheme: "{{ 'https' if use_https else 'http' }}"
-data_root: /var/lib/tax-healthcare-tool
-etc_dir: /etc/tax-healthcare-tool
+
+# --- The service user and where everything lives (all inside its home folder) ---
+service_user: homeapps               # logs in by SSH key only (created by bootstrap-rootless.yml)
+service_home: "/home/{{ service_user }}"
+data_root: "{{ service_home }}/{{ app_name }}"          # data/, uploads/, backups/, build/, config/
+etc_dir: "{{ data_root }}/config"                       # holds the secret file `env` (mode 0600, owned by the service user)
+quadlet_dir: "{{ service_home }}/.config/containers/systemd"   # Quadlet container files for the user's systemd
+unit_dir: "{{ service_home }}/.config/systemd/user"            # ordinary user units (the backup service and timer)
+bin_dir: "{{ service_home }}/bin"
+
+# --- Mapping of the container user to a host user (user-namespace) ---
+# keep-id with an explicit uid/gid: the host user `service_user` appears INSIDE the container as uid/gid 10001, so the
+# data folders, owned by the service user on the host, are writable by the container's unprivileged app user, and
+# nothing needs root. Every other uid in the container (root, for example) maps to the user's subordinate id range.
+container_userns: "keep-id:uid={{ app_uid }},gid={{ app_uid }}"
 
 # --- URL prefix and reverse proxy (Phase 9). The app answers on its own port with or without the prefix, so it stays
 # reachable at http://<host>:8889/ and also at http://<host>:8889/tax-healthcare/ during the move behind the gateway.
@@ -27,9 +43,10 @@ memory_limit: 512m
 backup_time: "03:15:00"
 keep_images: 5
 
-# Flags shared by every one-off `podman run` (migrate, backup, restore): same mounts and environment as the service.
+# Flags shared by every one-off `podman run` (migrate, backup, restore): same mounts, user mapping and environment as the service.
 podman_run_flags: >-
   --rm --read-only --tmpfs /tmp --cap-drop=ALL --security-opt=no-new-privileges
+  --userns={{ container_userns }} --user {{ app_uid }}:{{ app_uid }}
   --env-file {{ etc_dir }}/env
   -e DJANGO_SETTINGS_MODULE=config.settings_prod
   -e DJANGO_DB_PATH=/data/db.sqlite3 -e DJANGO_UPLOAD_DIR=/uploads -e DJANGO_BACKUP_DIR=/backups
@@ -40,3 +57,10 @@ podman_run_flags: >-
   -e DJANGO_BEHIND_TLS_PROXY={{ '1' if behind_tls_proxy else '0' }}
   -e DJANGO_HSTS_SECONDS={{ hsts_seconds }}
   -v {{ data_root }}/data:/data -v {{ data_root }}/uploads:/uploads -v {{ data_root }}/backups:/backups
+
+# --- The old rootful setup (read by migrate-from-rootful.yaml only; never changed by the routine playbooks) ---
+rootful_data_root: /var/lib/tax-healthcare-tool
+rootful_manage: /usr/local/sbin/tax-healthcare-tool-manage
+
+# --- Optional, bootstrap only: lower the first port a non-root user may bind (the gateway will need 443). null = leave as is.
+unprivileged_port_start: null

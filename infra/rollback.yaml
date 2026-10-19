@@ -5,31 +5,33 @@
 - name: Roll back tax-healthcare-tool
   hosts: taxtool
   gather_facts: false
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ service_uid | default('') }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ service_uid | default('') }}/bus"
   vars:
     restore_backup: "{{ backup_file | default('') }}"
   tasks:
+    - name: Connected as the service user, with linger on and a running user systemd
+      ansible.builtin.include_tasks: tasks/service-session.yml
+
     - name: A previous image must exist
-      become: true
       ansible.builtin.command: "podman image exists {{ image_repo }}:previous"
       changed_when: false
 
     # The running unit file and environment belong to the release being rolled back. An older image may not accept
     # them (for example a settings change). Prove it does BEFORE changing anything, otherwise it would not start.
     - name: The previous image must start with the current configuration (nothing is changed if it does not)
-      become: true
       ansible.builtin.command: >-
         podman run {{ podman_run_flags }} {{ image_repo }}:previous
         python manage.py check
       changed_when: false
 
     - name: Is there a database to protect?
-      become: true
       ansible.builtin.stat:
         path: "{{ data_root }}/data/db.sqlite3"
       register: db_file
 
     - name: Safety backup of the current state first
-      become: true
       ansible.builtin.command: >-
         podman run {{ podman_run_flags }} {{ image_repo }}:current
         python manage.py backup_db --label pre-rollback
@@ -37,24 +39,21 @@
       changed_when: true
 
     - name: Keep the image being rolled back under its own tag
-      become: true
       ansible.builtin.command: "podman tag {{ image_repo }}:current {{ image_repo }}:rolled-back"
       changed_when: true
 
     - name: Make 'previous' the current image
-      become: true
       ansible.builtin.command: "podman tag {{ image_repo }}:previous {{ image_repo }}:current"
       changed_when: true
 
     - name: Stop the service before restoring data
-      become: true
       ansible.builtin.systemd:
+        scope: user
         name: "{{ app_name }}.service"
         state: stopped
       when: restore_backup | length > 0
 
     - name: Restore the chosen backup (existing data is moved aside, never deleted)
-      become: true
       ansible.builtin.command: >-
         podman run {{ podman_run_flags }} {{ image_repo }}:current
         python manage.py restore_backup {{ restore_backup | quote }}
@@ -63,13 +62,12 @@
       changed_when: true
 
     - name: Start the service on the previous image
-      become: true
       ansible.builtin.systemd:
+        scope: user
         name: "{{ app_name }}.service"
         state: restarted
 
     - name: Wait until the container reports healthy
-      become: true
       ansible.builtin.command: "podman inspect --format {% raw %}'{{.State.Health.Status}}'{% endraw %} {{ container_name }}"
       register: health
       until: health.stdout == 'healthy'

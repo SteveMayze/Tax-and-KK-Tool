@@ -1,6 +1,6 @@
 # ADR 0005: Container deployment next to an existing app
 
-Status: accepted (Phase 8). Partly superseded by ADR 0006 on one point: static files are now served (WhiteNoise) and the app can run under a URL prefix.
+Status: accepted (Phase 8). Partly superseded by ADR 0006 (static files are now served by WhiteNoise; the app can run under a URL prefix) and by ADR 0007 (rootless Podman: the "rootful Podman + Quadlet" decision and "deploying needs the sudo password" no longer hold; the other decisions stand).
 
 ## Context
 The target host already runs "Parts DB" (rootful Podman + Quadlet, plain-text secret in a world-readable unit file, port published on all interfaces). Caddy is installed but is a leftover from earlier research work. CLAUDE.md requires a separate image, container, data directory, database, port/route, health check, WSGI server, backups with a tested restore, a rollback plan, and no changes to shared infrastructure without approval.

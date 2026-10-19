@@ -3,16 +3,27 @@
 - name: Status of tax-healthcare-tool
   hosts: taxtool
   gather_facts: false
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ service_uid | default('') }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ service_uid | default('') }}/bus"
   tasks:
-    - name: Gather facts about the service, the container, the timer and the backups
-      become: true
+    - name: Connected as the service user, with linger on and a running user systemd
+      ansible.builtin.include_tasks: tasks/service-session.yml
+
+    - name: Gather facts about the service, the container, the timer, the backups and the rootless set-up
       ansible.builtin.shell:
         cmd: |
           echo "--- deployed"; cat {{ data_root }}/DEPLOYED 2>&1
-          echo "--- service";  systemctl is-active {{ app_name }}.service
+          echo "--- who runs it (must be the service user, not root)"; id -un; podman info --format {% raw %}'rootless={{.Host.Security.Rootless}} graphroot={{.Store.GraphRoot}}'{% endraw %} 2>&1
+          echo "--- service";  systemctl --user is-active {{ app_name }}.service
           echo "--- container health"; podman inspect --format {% raw %}'{{.State.Health.Status}}'{% endraw %} {{ container_name }} 2>&1
-          echo "--- backup timer"; systemctl list-timers {{ app_name }}-backup.timer --no-pager 2>&1 | head -3
-          echo "--- last backup run"; systemctl show {{ app_name }}-backup.service -p Result -p ExecMainExitTimestamp 2>&1
+          echo "--- container processes (host user vs user inside)"; podman top {{ container_name }} huser user pid args 2>&1 | head -6
+          echo "--- owner of the data files (numeric ids)"; ls -ln {{ data_root }}/data 2>&1 | head -5
+          echo "--- linger"; loginctl show-user {{ service_user }} --property=Linger 2>&1
+          echo "--- limits applied (memory bytes, pids)"; podman inspect --format {% raw %}'memory={{.HostConfig.Memory}} pids={{.HostConfig.PidsLimit}}'{% endraw %} {{ container_name }} 2>&1
+          echo "--- cgroup controllers delegated to this user"; cat /sys/fs/cgroup/user.slice/user-{{ service_uid }}.slice/user@{{ service_uid }}.service/cgroup.controllers 2>&1
+          echo "--- backup timer"; systemctl --user list-timers {{ app_name }}-backup.timer --no-pager 2>&1 | head -3
+          echo "--- last backup run"; systemctl --user show {{ app_name }}-backup.service -p Result -p ExecMainExitTimestamp 2>&1
           echo "--- backups (newest first)"; ls -lt {{ data_root }}/backups 2>&1 | head -8
           echo "--- disk"; du -sh {{ data_root }}/data {{ data_root }}/uploads {{ data_root }}/backups 2>&1
           echo "--- http probe"; curl -s -m 5 -w " [http=%{http_code}]" http://127.0.0.1:{{ app_port }}/health/ 2>&1; echo

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Managed by Ansible (infra/deploy.yaml). Runs one Django management command in a throw-away container
-# with the production settings and the real data directories. Usage (as root):
+# with the production settings and the real data directories. Run as the service user (no sudo needed):
 #   tax-healthcare-tool-manage createsuperuser
 #   tax-healthcare-tool-manage changepassword <user>
 #   tax-healthcare-tool-manage backup_db --label manual
