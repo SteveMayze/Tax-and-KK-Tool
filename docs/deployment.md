@@ -15,7 +15,7 @@ Host and user names are not stored in the repository: they live in the git-ignor
 | Existing app | "Parts DB": **rootful** Podman container run as a system service from a Quadlet file in `/etc/containers/systemd/`, image built on the server from rsynced source, data under the admin user's home, published on port 8888 |
 | Existing Ansible | In the Parts DB project (`infra/`): `deploy-playbook-podman-quadlet.yaml`, `configure-caddy-playbook.yaml`, plain-text secrets in a git-ignored `group_vars/all.yml`, `-K` on the command line via Make |
 | Caddy | Installed, but a leftover from earlier research work; **not used by this app** and not modified by it |
-| Ports in use | 22, 80, 443 (Caddy), 8888 (Parts DB), 2019 (Caddy admin, loopback); this app uses **8889** |
+| Ports in use | 22, 80, 443 (Caddy), 8888 (Parts DB), 2019 (Caddy admin, loopback); this app: loopback only since G3 (the old rootful copy may still hold 8889) |
 
 Phase 8 followed the same conventions (rootful Podman, Quadlet in `/etc/containers/systemd/`, image built on the server, Ansible with `-K`). Phase 9A moves this app to rootless (ADR 0007); Parts DB is not touched and stays rootful.
 
@@ -33,7 +33,7 @@ Phase 8 followed the same conventions (rootful Podman, Quadlet in `/etc/containe
 | Backups today | a root-owned systemd timer (`tax-healthcare-tool-backup.timer`, daily about 03:15, last run on schedule) running the backup in a container |
 | Ports | 22, 80, 443, 8888 (Parts DB), 8889 (this app) |
 
-### Plain HTTP (owner decision, 2026-10-18)
+### Plain HTTP (owner decision, 2026-10-18; **superseded by ADR 0009**: the port is now loopback-only and the app is used through the gateway over https; the text below is the original reasoning)
 No TLS and no reverse proxy: the app is served as plain HTTP on port 8889 of the server, like Parts DB on 8888. Consequences to be aware of: the login password, the session cookie and all financial data cross the home network **unencrypted**, and anyone on the LAN can reach the login page (there is no firewall on the host). Mitigations in place: login is required for every financial page, passwords are hashed, the container is hardened, and the port can be narrowed by setting `listen_address` in `infra/group_vars/all.yml` to the server's LAN address. If TLS is wanted later, set `use_https: true` and put a TLS-terminating proxy in front (the settings then switch to secure cookies).
 
 ## Design
@@ -50,7 +50,7 @@ browser --HTTP--> <server>:8889 --> container (gunicorn, 2 workers)
 | Settings | `config.settings_prod`: everything from environment variables, start-up fails on a missing or weak value, `DEBUG` off, admin site off, `ALLOWED_HOSTS` and CSRF origins explicit, console logging at WARNING; `DJANGO_HTTPS=0` here (plain HTTP: cookies cannot be "secure"), default is HTTPS-hardened |
 | Secret | `DJANGO_SECRET_KEY` generated **on the server** on first deploy into `~homeapps/tax-healthcare-tool/config/env` (owned by the service user, mode 0600), passed with `EnvironmentFile`; never in the repository, on the Mac, or in the unit file; never overwritten by later deploys |
 | Data | `/home/homeapps/tax-healthcare-tool/{data,uploads,backups}` owned by `homeapps`, mode 0700 (inside the container that user is 10001); the database is `.../data/db.sqlite3` |
-| Port | container 8000 published on `<listen_address>:8889` (default all interfaces) |
+| Port | container 8000 published on `127.0.0.1:<app_port>` only (health probes; the LAN cannot reach it). The gateway reaches the app by name on the `gateway` network |
 | Service names | user services `tax-healthcare-tool.service` (from the Quadlet file `~/.config/containers/systemd/tax-healthcare-tool.container`), `tax-healthcare-tool-backup.service` and `.timer` (in `~/.config/systemd/user/`); manage with `systemctl --user` |
 | Wrapper | `~/bin/tax-healthcare-tool-manage` (as the service user, no sudo) runs a Django management command in a throw-away container with the real data (used for `createsuperuser`, `changepassword`, manual backups) |
 
@@ -67,7 +67,7 @@ make bootstrap-rootless # ONCE: service user, linger, sub-ids, folders (see docs
 make deploy             # directories, secret, pre-deploy backup (if any), build, migrate, service, backup timer
 make createsuperuser    # your login (prompted on the server)
 ```
-Open `http://<server>:8889/tax-healthcare/`.
+Open `https://<server>/tax-healthcare/` (through the gateway).
 
 Then prove the safety net works before relying on it:
 ```
@@ -129,14 +129,14 @@ Prepares the app for the gateway (a separate repository) that serves it over HTT
 - **HSTS** (`hsts_seconds`, `DJANGO_HSTS_SECONDS`) stays **0**. HSTS tells a browser to refuse the site whenever its certificate is not trusted; with a local CA that cannot be undone quickly, so enable it only after the CA is installed on every device, and start with a small value.
 - **Cookies.** Session `taxhc_sessionid`, CSRF `taxhc_csrftoken` (Django's defaults would collide with the other app on the same host: browsers share cookies across ports and paths). Their path is the prefix when one is set. A login made on a direct `:8889/` URL is therefore sent on to the prefixed pages. After this update everyone is logged out once.
 - **Static files.** The stylesheet (`core/static/core/base.css`, moved out of the page) is collected into `/app/staticfiles` while the image is built and served by WhiteNoise (pinned in `requirements.txt`) at `<prefix>/static/`. The admin site stays off.
-- **`listen_address`** (default `0.0.0.0`) is the interface the container port is published on; set it to the server's LAN address to narrow it, or `127.0.0.1` when only the gateway on the same host should reach the app. It is rendered into `PublishPort=` in the Quadlet unit.
+- **`listen_address`** (default `127.0.0.1` since G3; `0.0.0.0` would reopen the plain-HTTP port to the LAN) is the interface the container port is published on; set it to the server's LAN address to narrow it, or `127.0.0.1` when only the gateway on the same host should reach the app. It is rendered into `PublishPort=` in the Quadlet unit.
 - The new settings are plain variables and environment lines in `group_vars/all.yml` and the Quadlet template; Phase 9A moved them unchanged to the rootless layout.
 
 ## Gateway network (Phase 9B, ADR 0008)
 The gateway (a separate repository; Caddy as a rootless container of the same service user) listens on 80/443 and forwards `/tax-healthcare/` to this app. Plain language: a **Podman network** is a private virtual switch between containers; containers on it find each other by name. The gateway made one called `gateway`; this app's unit now also plugs into it (`Network=gateway.network`), so the proxy can call `tax-healthcare-tool-web:8000` without any published port.
 
 - `make deploy` first checks that `~/.config/containers/systemd/gateway.network` exists for the service user and stops with a clear message if not (deploy the gateway first). Nothing changes in that case.
-- Defaults in `infra/group_vars/all.yml`: `behind_tls_proxy: true`, `extra_csrf_origins: ["https://{{ public_host }}"]`, `hsts_seconds: 0`, `use_https: false`. The plain `http://<server>:<port>` origin and the published port stay until the gateway track closes them (G3); then set `use_https: true`, `extra_csrf_origins` as is, and remove the plain origin.
+- Defaults in `infra/group_vars/all.yml`: `behind_tls_proxy: true`, `extra_csrf_origins: ["https://{{ public_host }}"]`, `hsts_seconds: 0`, `use_https: false`. Since G3 (ADR 0009) the published port is loopback-only and the plain-HTTP origin is gone; `use_https` is still `false` (open question: see ADR 0009).
 - Why cookies are not Secure yet: see ADR 0008, decision 4.
 - Check it: `ssh homeapps@<server> podman ps --format '{{.Names}} {{.Networks}}'` should list `tax-healthcare-tool-web` with `gateway` (and the default network). `podman network inspect gateway` lists both containers.
 - If the proxy shows 502/connection errors: the app container is not on the network (`podman ps` network column), or its health check is failing (`make status`). If a form post gives 403: the browser origin is not in `DJANGO_CSRF_TRUSTED_ORIGINS`.
@@ -149,7 +149,7 @@ The gateway (a separate repository; Caddy as a rootless container of the same se
 |---|---|---|
 | `DJANGO_SETTINGS_MODULE=config.settings_prod` | image and unit | production settings |
 | `DJANGO_SECRET_KEY` | `~homeapps/tax-healthcare-tool/config/env` | session/CSRF signing key (at least 50 characters) |
-| `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` | unit | `<server>` plus loopback names for the health check; `http://<server>:8889` |
+| `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` | unit | `<server>` plus loopback names for the health check; `https://<server>` (no plain-HTTP origin since G3) |
 | `DJANGO_HTTPS` | unit | `0` for plain HTTP (secure cookies off), default `1` |
 | `DJANGO_DB_PATH`, `DJANGO_UPLOAD_DIR`, `DJANGO_BACKUP_DIR` | unit | absolute paths inside the container (`/data/db.sqlite3`, `/uploads`, `/backups`) |
 | `DJANGO_RATE_PROVIDER`, `FRANKFURTER_*` | optional | exchange-rate source (default Frankfurter/ECB; the container needs outbound HTTPS to `api.frankfurter.dev`) |
@@ -175,7 +175,7 @@ Found only by running on the real server (each fixed, each with a regression tes
 | `make deploy` stops at "Refuse to deploy uncommitted changes" | commit first, or `-e allow_dirty=true` to deploy HEAD anyway |
 | Container restarts in a loop | `sudo journalctl -u tax-healthcare-tool -n 50`: a missing/invalid environment value stops start-up with a clear message |
 | 400 "Bad Request" from the browser | the host name used in the URL is not in `DJANGO_ALLOWED_HOSTS` |
-| 403 on form submit | the origin is not in `DJANGO_CSRF_TRUSTED_ORIGINS` (must be `http://<server>:8889`) |
+| 403 on form submit | the origin is not in `DJANGO_CSRF_TRUSTED_ORIGINS` (must be `https://<server>`, the gateway's address) |
 | Login page loads but login does nothing | secure cookies with plain HTTP: `DJANGO_HTTPS` must be `0` when served over HTTP |
 | `make deploy` waits then fails on "healthy" | `sudo journalctl -u tax-healthcare-tool -n 80` and `curl http://127.0.0.1:8889/health/` on the server; the second tells whether the app or only the check is failing |
 | Exchange-rate lookups fail | the container needs outbound HTTPS; manual rates still work |

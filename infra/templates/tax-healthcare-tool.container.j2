@@ -7,7 +7,8 @@ Description=Tax and Healthcare Tool web app (rootless Podman Quadlet)
 [Container]
 Image={{ image_repo }}:current
 ContainerName={{ container_name }}
-# Reached directly over plain HTTP on the LAN (owner decision). Narrow with listen_address in group_vars.
+# Published on the server's loopback only (listen_address), for the health probes; the LAN cannot reach it. The gateway
+# reaches the app by name on the gateway network instead (see Network= below).
 PublishPort={{ listen_address }}:{{ app_port }}:8000
 # Also joins the gateway network (created by the separate gateway repository), so the reverse proxy reaches this container by
 # name ({{ container_name }}:8000, the port INSIDE the container). Quadlet makes this unit wait for gateway.network.

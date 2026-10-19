@@ -8,8 +8,8 @@ app_name: tax-healthcare-tool
 container_name: tax-healthcare-tool-web
 image_repo: localhost/tax-healthcare-tool
 app_uid: 10001                       # the user INSIDE the container; must match the user in Containerfile
-app_port: 8889                       # the app is reached directly on this port (use 8890 for the rootless trial run)
-listen_address: 0.0.0.0              # all interfaces, like the other app on this host; use the server's LAN IP to narrow it
+app_port: 8889                       # loopback port on the server (health probes only); use 8890 while the old rootful copy still holds 8889
+listen_address: 127.0.0.1            # the server's own loopback only (G3): health probes and ssh tunnels; the gateway reaches the app by name on the gateway network
 public_host: "{{ ansible_host | default(inventory_hostname) }}"   # the real server name, not the inventory alias
 use_https: false                     # plain HTTP on the LAN (owner decision); set true only behind a TLS-terminating proxy
 public_scheme: "{{ 'https' if use_https else 'http' }}"
@@ -35,10 +35,10 @@ url_prefix: /tax-healthcare          # "" serves the app at the root, as before
 behind_tls_proxy: true               # the gateway (Caddy) sends X-Forwarded-Proto; the app trusts that header
 gateway_network: gateway.network     # Quadlet network file owned by the separate gateway repository (rootless, same service user)
 extra_allowed_hosts: []              # host names the proxy forwards, e.g. ["tax.home.example"]
-extra_csrf_origins: ["https://{{ public_host }}"]   # browser origin of the gateway (https, no port); the plain-HTTP origin stays while the old port is open
+extra_csrf_origins: ["https://{{ public_host }}"]   # browser origin of the gateway (https, no port); no plain-HTTP origin any more (G3)
 hsts_seconds: 0                      # keep 0 until the local CA is installed on every device (see docs/deployment.md)
 allowed_hosts: "{{ ([public_host, 'localhost', '127.0.0.1'] + extra_allowed_hosts) | join(',') }}"
-csrf_trusted_origins: "{{ ([public_scheme ~ '://' ~ public_host ~ ':' ~ app_port] + extra_csrf_origins) | join(',') }}"
+csrf_trusted_origins: "{{ extra_csrf_origins | join(',') }}"
 
 memory_limit: 512m
 backup_time: "03:15:00"

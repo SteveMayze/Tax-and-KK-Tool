@@ -80,7 +80,8 @@ class QuadletTests(SimpleTestCase):
         ports = re.findall(r'^PublishPort=(.+)$', self.text, re.M)
         self.assertEqual(ports, ['{{ listen_address }}:{{ app_port }}:8000'])
         groups = read('infra/group_vars/all.yml')
-        self.assertRegex(groups, r'listen_address: 0\.0\.0\.0')            # owner decision: reachable on the LAN, like the other app
+        self.assertRegex(groups, r'(?m)^listen_address: 127\.0\.0\.1\b')      # G3: loopback only; the gateway uses the network
+        self.assertNotRegex(ports[0], r'^(0\.0\.0\.0|:)')                      # never an empty or wildcard host part
         self.assertIn('use_https: false', groups)
 
     def test_unit_joins_the_gateway_network_and_keeps_its_name_and_port(self):
@@ -97,12 +98,19 @@ class QuadletTests(SimpleTestCase):
         self.assertIn('hsts_seconds: 0', groups)
         self.assertIn('use_https: false', groups)                # plain HTTP on the old port must keep working
         self.assertIn('extra_csrf_origins: ["https://{{ public_host }}"]', groups)
-        self.assertIn("[public_scheme ~ '://' ~ public_host ~ ':' ~ app_port] + extra_csrf_origins", groups)
+        self.assertIn('csrf_trusted_origins: "{{ extra_csrf_origins | join(\',\') }}"', groups)     # no plain-HTTP origin (G3)
+        self.assertNotIn('http://', groups.split('csrf_trusted_origins:')[1].splitlines()[0])
 
     def test_deploy_checks_that_the_gateway_network_exists(self):
         text = read('infra/deploy.yaml')
         self.assertIn('{{ quadlet_dir }}/{{ gateway_network }}', text)
         self.assertIn('gateway_network_file.stat.exists', text)
+
+    def test_substituted_unit_publishes_no_non_loopback_port(self):
+        host = re.search(r'(?m)^listen_address:\s*(\S+)', read('infra/group_vars/all.yml')).group(1)
+        rendered = self.text.replace('{{ listen_address }}', host).replace('{{ app_port }}', '8889')
+        for spec in re.findall(r'^PublishPort=(.+)$', rendered, re.M):
+            self.assertTrue(spec.startswith('127.0.0.1:'), spec)
 
     def test_hardening(self):
         for line in ('ReadOnly=true', 'NoNewPrivileges=true', 'DropCapability=ALL', 'Tmpfs=/tmp', 'Restart=always'):
