@@ -4,7 +4,7 @@
 {% block content %}
 <p><a href="{% url 'import_preview' batch.pk %}">&larr; {% trans "Back to review" %}</a></p>
 <h1>{% blocktrans trimmed with n=batch.pk %}Import #{{ n }}: confirm{% endblocktrans %}</h1>
-<table style="max-width:32rem">
+<table class="narrow">
   <tr><th>{% trans "Payments to be created" %}</th><td class="num"><strong>{{ summary.importing }}</strong></td></tr>
   <tr><td>&nbsp;&nbsp;{% trans "with an exchange rate (as shown in the review)" %}</td><td class="num">{{ summary.converted }}</td></tr>
   <tr><td>&nbsp;&nbsp;{% blocktrans trimmed %}without a rate (saved <em>unconverted</em>, excluded from EUR totals until fixed){% endblocktrans %}</td><td class="num">{{ summary.unconverted }}</td></tr>
@@ -19,6 +19,6 @@
 <p class="note">{% trans "All payments are created together or not at all. Rates are saved exactly as shown in the review." %}</p>
 <form method="post">{% csrf_token %}
   {% if not summary.invalid and summary.importing %}<button type="submit">{% blocktrans trimmed with n=summary.importing %}Import {{ n }} payment(s){% endblocktrans %}</button>{% endif %}
-  <a href="{% url 'import_preview' batch.pk %}">{% trans "Cancel" %}</a>
+  <a href="{% url 'import_preview' batch.pk %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
 </form>
 {% endblock %}

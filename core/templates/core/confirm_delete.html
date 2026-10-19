@@ -5,7 +5,7 @@
 <h1>{% blocktrans trimmed %}Delete {{ what }}?{% endblocktrans %}</h1>
 <p class="warn">{{ consequence }}</p>
 <form method="post">{% csrf_token %}
-  {% if not blocked %}<button type="submit" class="danger">{% trans "Yes, delete" %}</button>{% endif %}
-  <a href="{{ cancel_href }}">{% trans "Cancel" %}</a>
+  {% if not blocked %}<button type="submit" class="btn-danger">{% trans "Yes, delete" %}</button>{% endif %}
+  <a href="{{ cancel_href }}" class="btn btn-secondary">{% trans "Cancel" %}</a>
 </form>
 {% endblock %}

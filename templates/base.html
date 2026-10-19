@@ -24,12 +24,12 @@
     <div>
       <form method="post" action="{% url 'set_language' %}" class="inline" aria-label="{% trans 'Language' %}">{% csrf_token %}
         <input type="hidden" name="next" value="{{ request.get_full_path }}">
-        <button type="submit" name="language" value="en"{% if request.LANGUAGE_CODE == 'en' %} aria-current="true" disabled{% endif %}>EN</button>
-        <button type="submit" name="language" value="de"{% if request.LANGUAGE_CODE == 'de' %} aria-current="true" disabled{% endif %}>DE</button>
+        <button type="submit" class="btn-secondary" name="language" value="en"{% if request.LANGUAGE_CODE == 'en' %} aria-current="true" disabled{% endif %}>EN</button>
+        <button type="submit" class="btn-secondary" name="language" value="de"{% if request.LANGUAGE_CODE == 'de' %} aria-current="true" disabled{% endif %}>DE</button>
       </form>
       <form method="post" action="{% url 'logout' %}" class="inline">{% csrf_token %}
         <span class="note">{{ user.get_username }}</span>
-        <button type="submit">{% trans "Log out" %}</button>
+        <button type="submit" class="btn-secondary">{% trans "Log out" %}</button>
       </form>
     </div>
     {% endif %}
@@ -37,5 +37,6 @@
   {% for m in messages %}<div class="msg {{ m.tags }}" role="status">{{ m }}</div>{% endfor %}
   <main>{% block content %}{% endblock %}</main>
   <footer class="note"><hr>{% trans "General financial summaries only. Not an official SBK assessment or tax calculation." %}</footer>
+  <script src="{% static 'core/autosize.js' %}"></script>
 </body>
 </html>

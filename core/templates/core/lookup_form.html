@@ -4,5 +4,5 @@
 {% block content %}
 <p><a href="{% url kind|add:'_list' %}">&larr; {{ cfg.title }}</a></p>
 <h1>{% if obj %}{% trans "Edit" %}{% else %}{% trans "Add" %}{% endif %} {{ cfg.singular }}</h1>
-<form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<button type="submit">{% trans "Save" %}</button></form>
+<form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<p class="actions"><button type="submit">{% trans "Save" %}</button> <a href="{% url kind|add:'_list' %}" class="btn btn-secondary">{% trans "Cancel" %}</a></p></form>
 {% endblock %}

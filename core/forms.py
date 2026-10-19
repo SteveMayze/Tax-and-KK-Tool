@@ -9,6 +9,9 @@ from .models import AnnualInput, AssessmentSettings, IncomeCategory, Organisatio
 from .services import lookups
 
 DATE = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
+# Note and description fields: a text area of about 4 rows that grows with its content (CSS field-sizing, core/autosize.js).
+NOTE = forms.Textarea(attrs={'rows': 4})
+WIDE = {'class': 'field-wide'}                # names and descriptions get a wider text input
 
 
 class YearForm(forms.ModelForm):
@@ -16,7 +19,7 @@ class YearForm(forms.ModelForm):
         model = ReportingYear
         fields = ['year', 'notes']
         labels = {'year': _('Year'), 'notes': _('Notes')}
-        widgets = {'notes': forms.Textarea(attrs={'rows': 3})}
+        widgets = {'notes': NOTE}
 
 
 class YearNotesForm(forms.ModelForm):
@@ -24,7 +27,7 @@ class YearNotesForm(forms.ModelForm):
         model = ReportingYear
         fields = ['notes']
         labels = {'notes': _('Notes')}
-        widgets = {'notes': forms.Textarea(attrs={'rows': 3})}
+        widgets = {'notes': NOTE}
 
 
 class UniqueNameMixin:
@@ -47,6 +50,7 @@ class OrganisationForm(UniqueNameMixin, forms.ModelForm):
         fields = ['name', 'country', 'active']
         labels = {'name': _('Name'), 'country': _('Country'), 'active': _('Active')}
         help_texts = {'country': _('ISO 3166-1 alpha-2, e.g. DE')}
+        widgets = {'name': forms.TextInput(attrs=WIDE)}
 
 
 class CategoryForm(UniqueNameMixin, forms.ModelForm):
@@ -55,6 +59,7 @@ class CategoryForm(UniqueNameMixin, forms.ModelForm):
         fields = ['name', 'active', 'sbk_treatment', 'tax_income_type', 'may_be_negative']
         labels = {'name': _('Name'), 'active': _('Active'), 'sbk_treatment': _('SBK treatment'),
                   'tax_income_type': _('Tax income type'), 'may_be_negative': _('May be negative')}
+        widgets = {'name': forms.TextInput(attrs=WIDE)}
         help_texts = {
             'sbk_treatment': _('How SBK treats this income (docs/rules). Leave blank if unsure: it is then left out of the SBK estimate and flagged.'),
             'tax_income_type': _('Einkunftsart for the tax information summary. Leave blank if unsure.'),
@@ -65,8 +70,8 @@ class CategoryForm(UniqueNameMixin, forms.ModelForm):
 class PaymentForm(forms.ModelForm):
     """Original transaction plus optional manual-rate fields. Organisation and category are
     combo-style: type or pick a name; a new name is created only when the payment is saved."""
-    organisation_name = forms.CharField(label=_('Organisation'), max_length=200)
-    category_name = forms.CharField(label=_('Category'), max_length=100)
+    organisation_name = forms.CharField(label=_('Organisation'), max_length=200, widget=forms.TextInput(attrs=WIDE))
+    category_name = forms.CharField(label=_('Category'), max_length=100, widget=forms.TextInput(attrs=WIDE))
     currency = forms.ChoiceField(label=_('Currency'), choices=[(c, c) for c in SUPPORTED_CURRENCIES])
 
     manual_rate = forms.CharField(
@@ -74,7 +79,7 @@ class PaymentForm(forms.ModelForm):
         help_text=_('Only needed if no automatic rate is available. EUR = original amount x rate.'))
     manual_rate_date = forms.DateField(label=_('Rate date'), required=False, widget=DATE,
                                        help_text=_('Defaults to the payment date.'))
-    manual_note = forms.CharField(label=_('Rate source / note'), required=False, max_length=300)
+    manual_note = forms.CharField(label=_('Rate source / note'), required=False, max_length=1000, widget=NOTE)
 
     field_order = ['payment_date', 'organisation_name', 'category_name', 'currency', 'gross_amount',
                    'net_amount', 'withholding_tax', 'expenses', 'frequency', 'income_period_start', 'income_period_end', 'comment',
@@ -92,7 +97,7 @@ class PaymentForm(forms.ModelForm):
         }
         widgets = {
             'payment_date': DATE, 'income_period_start': DATE, 'income_period_end': DATE,
-            'comment': forms.Textarea(attrs={'rows': 2}),
+            'comment': NOTE,
         }
         help_texts = {
             'net_amount': _('Optional. When given, gross must equal net + withholding tax + expenses.'),
@@ -178,7 +183,7 @@ class ManualCorrectionForm(forms.Form):
     rate = forms.CharField(label=_('Rate (EUR per 1 unit of the payment currency)'))
     rate_date = forms.DateField(label=_('Rate date'), required=False, widget=DATE,
                                 help_text=_('Date the rate applies to; defaults to the payment date.'))
-    reason = forms.CharField(label=_('Reason / source'), max_length=300,
+    reason = forms.CharField(label=_('Reason / source'), max_length=1000, widget=NOTE,
                              help_text=_('Required; kept in the payment history (e.g. "rate on bank statement").'))
 
     def clean_reason(self):
@@ -207,7 +212,7 @@ class ImportRowForm(forms.Form):
         for name in COLUMNS:
             self.fields[name] = forms.CharField(
                 required=False, label=name + (' *' if name in REQUIRED else ''), max_length=1000,
-                widget=forms.Textarea(attrs={'rows': 2}) if name == 'comment' else forms.TextInput())
+                widget=NOTE if name == 'comment' else forms.TextInput(attrs=WIDE if name in ('organisation', 'category') else {}))
 
 
 class AssessmentSettingsForm(forms.ModelForm):
@@ -226,6 +231,7 @@ class AnnualInputForm(forms.ModelForm):
         fields = ['treatment', 'costs_eur', 'first_month', 'last_month', 'note']
         labels = {'treatment': _('Treatment'), 'costs_eur': _('Annual costs EUR (Werbungskosten / Betriebsausgaben)'),
                   'first_month': _('First month earned (1-12)'), 'last_month': _('Last month earned (1-12)'), 'note': _('Note')}
+        widgets = {'note': NOTE}
 
     ALLOWED = ('self_employed', 'rental', 'capital')
 

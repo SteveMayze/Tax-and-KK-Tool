@@ -31,7 +31,7 @@ def glossary_tables():
             continue
         parts = [c.strip() for c in line.strip().strip('|').split('|')]
         cells.update(parts)
-        if len(parts) == 6 and parts[0].isdigit():
+        if len(parts) == 7 and parts[0].isdigit():
             section_a[parts[1]] = parts[2]
     return section_a, cells
 

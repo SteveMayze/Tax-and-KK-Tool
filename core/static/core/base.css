@@ -1,15 +1,121 @@
-body { font-family: system-ui, sans-serif; max-width: 70rem; margin: 1rem auto; padding: 0 1rem; line-height: 1.4; }
-header { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: .5rem; }
+/* Design tokens (Phase 13, ADR 0013). Blue/teal palette; every text/background pair below is checked at >= 4.5:1
+   by tools/check_contrast.py (run by the test suite). Change a colour only together with that script's pair list. */
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #eef5f7;          /* table header, panels */
+  --color-text: #17272f;             /* body text */
+  --color-text-muted: #4a5b66;       /* notes */
+  --color-border: #b8c7d0;
+  --color-border-strong: #5f7684;    /* form controls (needs 3:1 against the background) */
+  --color-primary: #0b6b66;          /* teal: primary actions, links */
+  --color-primary-hover: #084f4b;
+  --color-on-primary: #ffffff;
+  --color-heading: #0b3a5b;          /* deep blue: headings, focus ring */
+  --color-link: #0b5f8a;
+  --color-secondary-bg: #e3eff4;
+  --color-secondary-text: #0b3a5b;
+  --color-danger: #b42318;
+  --color-danger-hover: #8f1c12;
+  --color-on-danger: #ffffff;
+  --color-danger-bg: #fdecea;
+  --color-danger-text: #7a1a12;
+  --color-success-bg: #e6f4ec;
+  --color-success-text: #0b4a2c;
+  --color-success-border: #1f8a52;
+  --color-warning-bg: #fff3d6;
+  --color-warning-text: #5c3d00;
+  --color-warning-border: #b9770e;
+  --space: .5rem;
+  --radius: .35rem;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body { font-family: var(--font); color: var(--color-text); background: var(--color-bg);
+       max-width: 72rem; margin: 1rem auto; padding: 0 1rem; line-height: 1.45; }
+h1, h2, h3 { color: var(--color-heading); line-height: 1.2; }
+a { color: var(--color-link); }
+header { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;
+         border-bottom: 3px solid var(--color-primary); padding-bottom: var(--space); }
 nav a { margin-right: 1rem; }
-table { border-collapse: collapse; width: 100%; margin: .5rem 0 1rem; }
-th, td { border-bottom: 1px solid #ddd; padding: .3rem .5rem; text-align: left; vertical-align: top; }
+nav strong { color: var(--color-heading); margin-right: 1rem; }
+footer { margin-top: 2rem; }
+
+/* Tables */
+table { border-collapse: collapse; width: 100%; margin: var(--space) 0 1rem; }
+th, td { border-bottom: 1px solid var(--color-border); padding: .35rem .5rem; text-align: left; vertical-align: top; }
+thead th { background: var(--color-surface); color: var(--color-heading); border-bottom: 2px solid var(--color-border-strong); }
 td.num, th.num { text-align: right; white-space: nowrap; }
-.note { color: #555; font-size: .9rem; }
-.msg { padding: .5rem .75rem; margin: .5rem 0; border-left: 4px solid #2a7; background: #eefaf3; }
-.msg.error, .errorlist, [role=alert] { border-left-color: #c33; background: #fdeeee; color: #800; }
-.warn { border-left: 4px solid #c90; background: #fff8e6; padding: .5rem .75rem; margin: .5rem 0; }
+tr.total-row td { font-weight: 600; border-top: 2px solid var(--color-border-strong); }
+tr.row-excluded { opacity: .75; text-decoration: line-through; text-decoration-color: var(--color-border-strong); }
+table.narrow { max-width: 32rem; }
+
+/* Messages */
+.note { color: var(--color-text-muted); font-size: .9rem; }
+.msg { padding: .5rem .75rem; margin: var(--space) 0; border-left: 4px solid var(--color-success-border);
+       background: var(--color-success-bg); color: var(--color-success-text); }
+.msg.error, .errorlist, [role=alert] { border-left-color: var(--color-danger); background: var(--color-danger-bg);
+       color: var(--color-danger-text); }
+.msg.warning, .warn { border-left: 4px solid var(--color-warning-border); background: var(--color-warning-bg);
+       color: var(--color-warning-text); padding: .5rem .75rem; margin: var(--space) 0; }
+.errorlist { list-style: none; padding: .25rem .75rem; margin: .25rem 0; }
 .inline { display: inline; }
-form p, form div.field { margin: .6rem 0; }
-label { display: block; font-weight: 600; }
-:focus-visible { outline: 3px solid #05c; outline-offset: 2px; }
-button.danger { color: #900; }
+
+/* Forms: comfortable, consistent controls */
+form p, form div.field { margin: .75rem 0; }
+label { display: block; font-weight: 600; margin-bottom: .2rem; }
+input[type=text], input[type=number], input[type=date], input[type=password], input[type=file], select, textarea {
+  font: inherit; color: var(--color-text); background: var(--color-bg);
+  border: 1px solid var(--color-border-strong); border-radius: var(--radius); padding: .4rem .55rem;
+  min-height: 2.4rem; box-sizing: border-box; max-width: 100%; }
+input[type=text], input[type=number], input[type=password], select { min-width: 20ch; }
+input[type=date] { min-width: 14ch; }
+input.field-wide, textarea { width: min(100%, 44rem); }
+input.field-wide { min-width: 30ch; }
+/* Note and description fields: about 4 rows, growing with their content (field-sizing where supported,
+   core/autosize.js elsewhere). */
+textarea { min-height: 6.5em; resize: vertical; field-sizing: content; }
+input[type=checkbox] { width: 1.15rem; height: 1.15rem; vertical-align: middle; margin-right: .4rem; }
+:focus-visible { outline: 3px solid var(--color-heading); outline-offset: 2px; }
+
+/* Buttons. Links that lead to a page can look like buttons (.btn); anything that changes or deletes data is a
+   POST <form> with a <button>. */
+.btn, button { font: inherit; display: inline-block; border: 1px solid transparent; border-radius: var(--radius);
+  padding: .4rem .9rem; min-height: 2.4rem; box-sizing: border-box; cursor: pointer; text-decoration: none;
+  line-height: 1.4; margin: .15rem .25rem .15rem 0;
+  background: var(--color-secondary-bg); color: var(--color-secondary-text); border-color: var(--color-border-strong); }
+.btn:hover, button:hover { background: var(--color-border); }
+.btn-primary, button[type=submit]:not(.btn-secondary):not(.btn-danger):not(.danger):not(.btn-link) {
+  background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
+.btn-primary:hover, button[type=submit]:not(.btn-secondary):not(.btn-danger):not(.danger):not(.btn-link):hover {
+  background: var(--color-primary-hover); }
+.btn-secondary { background: var(--color-secondary-bg); color: var(--color-secondary-text); border-color: var(--color-border-strong); }
+.btn-danger, button.danger { background: var(--color-danger); color: var(--color-on-danger); border-color: var(--color-danger); }
+.btn-danger:hover, button.danger:hover { background: var(--color-danger-hover); }
+button:disabled { opacity: .7; cursor: default; }
+header button { padding: .2rem .6rem; min-height: 2rem; }
+.actions { margin: .75rem 0; }
+
+/* Information popups on report headings (Popover API: a real button, keyboard reachable, closes with Escape). */
+.info-btn { padding: 0 .45rem; min-height: 1.5rem; margin-left: .35rem; border-radius: 50%; font-weight: 700;
+  font-size: .8rem; background: var(--color-surface); color: var(--color-heading); border-color: var(--color-border-strong); }
+.info-pop { max-width: 28rem; padding: 1rem 1.25rem; border: 2px solid var(--color-heading); border-radius: var(--radius);
+  background: var(--color-bg); color: var(--color-text); font-weight: 400; text-align: left; }
+.info-pop h3 { margin-top: 0; font-size: 1.05rem; }
+.info-pop dl { margin: .5rem 0 0; }
+.info-pop dt { font-weight: 600; margin-top: .5rem; }
+.info-pop dd { margin: 0; }
+.info-pop .note { margin-top: .75rem; }
+
+/* Reports: basis block stays with the table; the descriptive notes come after it. */
+.report-basis dt { margin-top: .4rem; }
+.report-basis dd { margin: 0 0 .2rem 0; }
+.report-notes { margin-top: 1rem; border-top: 1px solid var(--color-border); padding-top: var(--space); }
+
+@media print {
+  nav, header form, .actions, .info-btn, .no-print, button, .btn { display: none !important; }
+  body { max-width: none; margin: 0; color: #000; }
+  a { color: inherit; text-decoration: none; }
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  thead { display: table-header-group; }
+}

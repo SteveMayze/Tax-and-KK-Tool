@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.utils import translation
+from django.utils.translation import get_language
 from django.utils.translation import gettext as _
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse
@@ -8,6 +9,7 @@ from django.views.decorators.http import require_GET
 
 from .models import ReportingYear
 from .services import report_csv
+from . import glossary
 from .services import i18n
 from .services.policies.sbk import PolicyUnavailable
 from .services.reports import REPORTS, available_years
@@ -74,9 +76,13 @@ def report_view(request, key):
     rows = [[(_display(r.get(c.key), c.kind), align.get(c.kind, '')) for c in report.columns] for r in report.rows]
     totals = ([(_display(report.totals.get(c.key), c.kind), align.get(c.kind, '')) for c in report.columns]
               if report.totals else None)
+    # The SBK estimate's 14 column headings get an information popup whose text is the glossary entry (Phase 13).
+    language = (get_language() or 'en')[:2]
+    infos = [glossary.entry(c.key, language) if report.key == 'sbk' else None for c in report.columns]
+    headers = [(c.label, align.get(c.kind, ''), info) for c, info in zip(report.columns, infos)]
     return render(request, 'core/report.html', {
         'report': report, 'rows': rows, 'totals': totals, 'year': year, 'spec': spec,
-        'years': available_years(), 'headers': [(c.label, align.get(c.kind, '')) for c in report.columns]})
+        'years': available_years(), 'headers': headers, 'popups': [i for i in infos if i]})
 
 
 @login_required

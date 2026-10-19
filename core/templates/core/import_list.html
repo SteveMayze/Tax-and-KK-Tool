@@ -34,7 +34,7 @@
     <td class="num">{% if b.status == 'committed' %}{{ b.imported_count }}{% endif %}</td>
     <td class="num">{% if b.status == 'committed' %}{{ b.skipped_count }}{% endif %}</td>
     <td class="num">{% if b.status == 'committed' %}{{ b.unconverted_count }}{% endif %}</td>
-    <td><a href="{% url 'import_preview' b.pk %}">{% if b.status == 'preview' %}{% trans "Review" %}{% else %}{% trans "View" %}{% endif %}</a>{% if b.stored_path %} &middot; <a href="{% url 'import_file' b.pk %}">{% trans "Original file" %}</a>{% endif %}</td></tr>
+    <td><a href="{% url 'import_preview' b.pk %}" class="btn btn-secondary">{% if b.status == 'preview' %}{% trans "Review" %}{% else %}{% trans "View" %}{% endif %}</a>{% if b.stored_path %} &middot; <a href="{% url 'import_file' b.pk %}">{% trans "Original file" %}</a>{% endif %}</td></tr>
   {% endfor %}
   </tbody>
 </table>

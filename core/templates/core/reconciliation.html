@@ -7,7 +7,7 @@
 <form method="get">
   <label for="year" class="inline">{% trans "Year" %}</label>
   <select name="year" id="year"><option value="">{% trans "All" %}</option>{% for y in years %}<option value="{{ y.year|stringformat:"d" }}" {% if y.year == year %}selected{% endif %}>{{ y.year|stringformat:"d" }}</option>{% endfor %}</select>
-  <button type="submit">{% trans "Filter" %}</button>
+  <button type="submit" class="btn-secondary">{% trans "Filter" %}</button>
 </form>
 <p>{% blocktrans trimmed with n=report.issue_count %}<strong>{{ n }}</strong> item(s) flagged.{% endblocktrans %}</p>
 

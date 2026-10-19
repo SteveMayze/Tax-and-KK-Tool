@@ -34,6 +34,9 @@ Period; currency; basis (actual vs normalised); gross/net treatment; exchange-ra
 ## Gains and losses (Phase 11)
 The annual summary and the by-category and by-organisation reports show **Gains EUR** (normal payments above 0), **Losses EUR** (normal payments below 0, signed), **Corrections / reversals EUR** (signed) and **Gross EUR (signed sum)**, which is their sum. A reversal is never counted as a loss. The tax information summary shows losses in their own column and nets nothing across categories; the SBK estimate adds a run-specific note to its basis block when a loss was recorded. No loss-offset rule is applied (unverified, `docs/rules/`).
 
+## Layout (Phase 13)
+Each report page shows the title, period selector and CSV button, then the **Basis** block directly above the table, the table with its totals row, and only then the descriptive **Notes**. The SBK estimate's 14 column headings carry an (i) button that opens a popup with the glossary text (label, explanation, source, status) in the selected language; popups and icons never appear in the CSV, and printing hides them but keeps the table and the notes.
+
 ## Language (Phase 12)
 The interface language (English or German, one setting in the page header) changes headings, notes, labels, number and date formats **on screen**. CSV downloads ignore it: English headings and labels, comma separator, dot decimals, ISO dates, plus `Language` and `Format` rows. German terms come from `docs/glossary.md`.
 

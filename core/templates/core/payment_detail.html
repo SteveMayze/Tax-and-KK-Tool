@@ -24,11 +24,11 @@
   {% endif %}
   {% if p.comment %}<tr><th>{% trans "Comment" %}</th><td>{{ p.comment }}</td></tr>{% endif %}
 </table>
-<p>
-  <a href="{% url 'payment_edit' p.pk %}">{% trans "Edit" %}</a> &middot;
-  {% if p.currency != 'EUR' %}<a href="{% url 'payment_recalculate' p.pk %}">{% if p.conversion_status == 'converted' %}{% trans "Recalculate from source" %}{% else %}{% trans "Convert" %}{% endif %}</a> &middot;
-  <a href="{% url 'payment_correct_rate' p.pk %}">{% if p.conversion_status == 'converted' %}{% trans "Correct rate manually" %}{% else %}{% trans "Enter rate manually" %}{% endif %}</a> &middot;{% endif %}
-  <a href="{% url 'payment_delete' p.pk %}">{% trans "Delete" %}</a>
+<p class="actions">
+  <a href="{% url 'payment_edit' p.pk %}" class="btn btn-secondary">{% trans "Edit" %}</a>
+  {% if p.currency != 'EUR' %}<a href="{% url 'payment_recalculate' p.pk %}" class="btn btn-secondary">{% if p.conversion_status == 'converted' %}{% trans "Recalculate from source" %}{% else %}{% trans "Convert" %}{% endif %}</a>
+  <a href="{% url 'payment_correct_rate' p.pk %}" class="btn btn-secondary">{% if p.conversion_status == 'converted' %}{% trans "Correct rate manually" %}{% else %}{% trans "Enter rate manually" %}{% endif %}</a>{% endif %}
+  <a href="{% url 'payment_delete' p.pk %}" class="btn btn-danger">{% trans "Delete" %}</a>
 </p>
 <h2>{% trans "Conversion history" %}</h2>
 {% if p.conversion_events.all %}

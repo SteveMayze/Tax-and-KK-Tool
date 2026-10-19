@@ -4,5 +4,5 @@
 {% block content %}
 <h1>{% blocktrans trimmed with n=batch.pk %}Discard import #{{ n }}?{% endblocktrans %}</h1>
 <p class="warn">{% trans "The staged rows and the stored copy of the uploaded file will be deleted. No payments exist from this import yet, so none are affected." %}</p>
-<form method="post">{% csrf_token %}<button type="submit" class="danger">{% trans "Yes, discard" %}</button> <a href="{% url 'import_preview' batch.pk %}">{% trans "Cancel" %}</a></form>
+<form method="post">{% csrf_token %}<button type="submit" class="btn-danger">{% trans "Yes, discard" %}</button> <a href="{% url 'import_preview' batch.pk %}" class="btn btn-secondary">{% trans "Cancel" %}</a></form>
 {% endblock %}

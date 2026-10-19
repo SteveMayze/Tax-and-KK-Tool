@@ -466,7 +466,7 @@ class AnnualInput(models.Model):
     costs_eur = models.DecimalField(max_digits=14, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     first_month = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(12)])
     last_month = models.PositiveSmallIntegerField(default=12, validators=[MinValueValidator(1), MaxValueValidator(12)])
-    note = models.CharField(max_length=300, blank=True)
+    note = models.TextField(max_length=1000, blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['year', 'treatment'], name='unique_annual_input')]

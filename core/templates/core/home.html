@@ -21,7 +21,7 @@
       {% if s.totals.unconverted_count %}<br>{% blocktrans trimmed with n=s.totals.unconverted_count %}Excluded: {{ n }} unconverted payment(s).{% endblocktrans %}{% endif %}
       {% if s.totals.net_missing_count %}<br>{% blocktrans trimmed with n=s.totals.net_missing_count %}{{ n }} payment(s) without net amount (not in net total).{% endblocktrans %}{% endif %}
     </td>
-    <td><a href="{% url 'year_delete' s.year.year %}">{% trans "Delete" %}</a></td>
+    <td><a href="{% url 'year_delete' s.year.year %}" class="btn btn-danger">{% trans "Delete" %}</a></td>
   </tr>
   {% endfor %}
   </tbody>

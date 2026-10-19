@@ -43,7 +43,7 @@
     {% endfor %}
   </details>
   <p id="unallocated" class="note" aria-live="polite" data-empty="{% trans 'Unallocated: enter gross and net to see it.' %}" data-label="{% trans 'Unallocated (gross - net - withholding tax - expenses):' %}" data-ok="{% trans '(OK)' %}" data-bad="{% trans '(must be 0.00 to save)' %}">{% trans "Unallocated: enter gross and net to see it." %}</p>
-  <p><button type="submit">{% trans "Save payment" %}</button></p>
+  <p class="actions"><button type="submit">{% trans "Save payment" %}</button> <a href="{% if editing %}{% url 'payment_detail' payment.pk %}{% else %}{% url 'month_detail' month.year.year month.month %}{% endif %}" class="btn btn-secondary">{% trans "Cancel" %}</a></p>
 </form>
 <script src="{% static 'core/unallocated.js' %}"></script>
 {% endblock %}

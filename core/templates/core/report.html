@@ -4,31 +4,51 @@
 {% block content %}
 <p><a href="{% url 'report_index' %}">&larr; {% trans "Reports" %}</a></p>
 <h1>{{ report.title }}</h1>
-<form method="get" class="inline">
+<form method="get" class="inline no-print">
   <label for="year" class="inline">{% trans "Period" %}</label>
   <select name="year" id="year">
     {% if not spec.needs_year %}<option value="all" {% if not year %}selected{% endif %}>{% trans "All years" %}</option>{% endif %}
     {% for y in years %}<option value="{{ y|stringformat:"d" }}" {% if y == year %}selected{% endif %}>{{ y|stringformat:"d" }}</option>{% endfor %}
   </select>
-  <button type="submit">{% trans "Show" %}</button>
+  <button type="submit" class="btn-secondary">{% trans "Show" %}</button>
 </form>
-<a href="{% url 'report_csv' report.key %}?year={{ year|default:'all'|stringformat:"s" }}">{% trans "Download CSV" %}</a>
+<a href="{% url 'report_csv' report.key %}?year={{ year|default:'all'|stringformat:"s" }}" class="btn btn-secondary">{% trans "Download CSV" %}</a>
 
-{% if report.key == 'sbk' or report.key == 'tax_checks' %}<p><a href="{% url 'assessment_settings' %}">{% trans "Assessment settings" %}</a>{% if year %} &middot; <a href="{% url 'annual_inputs' year %}">{% trans "Annual costs and months earned" %} {{ year|stringformat:"d" }}</a>{% endif %} &middot; <a href="{% url 'category_list' %}">{% trans "Map categories" %}</a></p>{% endif %}
-<h2>{% trans "Basis" %}</h2>
+{% if report.key == 'sbk' or report.key == 'tax_checks' %}<p class="no-print"><a href="{% url 'assessment_settings' %}">{% trans "Assessment settings" %}</a>{% if year %} &middot; <a href="{% url 'annual_inputs' year %}">{% trans "Annual costs and months earned" %} {{ year|stringformat:"d" }}</a>{% endif %} &middot; <a href="{% url 'category_list' %}">{% trans "Map categories" %}</a></p>{% endif %}
+<section class="report-basis" aria-labelledby="basis-heading">
+<h2 id="basis-heading">{% trans "Basis" %}</h2>
 <dl>
   {% for label, text in report.basis %}<dt><strong>{{ label }}</strong></dt><dd>{{ text }}</dd>{% endfor %}
 </dl>
-{% for n in report.notes %}<p class="note">{{ n }}</p>{% endfor %}
+</section>
 
 {% if rows %}
-<table>
-  <thead><tr>{% for label, cls in headers %}<th class="{{ cls }}">{{ label }}</th>{% endfor %}</tr></thead>
+<table class="report-table">
+  <thead><tr>{% for label, cls, info in headers %}<th class="{{ cls }}">{{ label }}{% if info %}<button type="button" class="info-btn" popovertarget="info-{{ info.key }}" aria-label="{% blocktrans with label=info.label %}Information: {{ label }}{% endblocktrans %}">i</button>{% endif %}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for row in rows %}<tr>{% for text, cls in row %}<td class="{{ cls }}">{{ text }}</td>{% endfor %}</tr>{% endfor %}
-  {% if totals %}<tr style="font-weight:600">{% for text, cls in totals %}<td class="{{ cls }}">{{ text }}</td>{% endfor %}</tr>{% endif %}
+  {% if totals %}<tr class="total-row">{% for text, cls in totals %}<td class="{{ cls }}">{{ text }}</td>{% endfor %}</tr>{% endif %}
   </tbody>
 </table>
 {% else %}<p>{% trans "No data for this period." %}</p>{% endif %}
+
+{% for info in popups %}
+<div id="info-{{ info.key }}" popover class="info-pop" role="dialog" aria-label="{{ info.label }}">
+  <h3>{{ info.label }}</h3>
+  <p>{{ info.text }}</p>
+  <dl>
+    <dt>{% trans "Source" %}</dt><dd>{{ info.source }}</dd>
+    <dt>{% trans "Status" %}</dt><dd>{{ info.status }}</dd>
+  </dl>
+  <p class="note">{% trans "Press Escape to close." %}</p>
+</div>
+{% endfor %}
+
+{% if report.notes %}
+<section class="report-notes" aria-labelledby="notes-heading">
+<h2 id="notes-heading">{% trans "Notes" %}</h2>
+{% for n in report.notes %}<p class="note">{{ n }}</p>{% endfor %}
+</section>
+{% endif %}
 <p class="note">{% blocktrans trimmed with when=report.generated_at|date:"DATETIME_FORMAT" %}Generated {{ when }} UTC from saved data.{% endblocktrans %}</p>
 {% endblock %}
