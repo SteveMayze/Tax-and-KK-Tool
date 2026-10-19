@@ -41,3 +41,10 @@ claude --resume 029f19fa-b396-4b9b-a79d-6dded62731db
 
 ## Phase 8 — Podman and Ansible
 Do Phase 8 only. First inspect the existing host and Ansible conventions (I will give access or paste them). Then define the separate container, config, database and document storage. Create the container build, Ansible role, WSGI server and proxy setup, health checks, backup/restore, upgrade and rollback. Do not modify shared infrastructure without my approval. Stop for review.
+
+
+
+Move the descriptive text in the reports to after the report output.
+Introduce some UI colour scheme
+Multi-lingal UI
+The application of the currency on the front page should apply to the pag - and reports.

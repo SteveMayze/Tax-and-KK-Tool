@@ -9,6 +9,7 @@ LABEL org.opencontainers.image.title="tax-healthcare-tool" \
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DJANGO_SETTINGS_MODULE=config.settings_prod \
+    DJANGO_STATIC_ROOT=/app/staticfiles \
     APP_VERSION=${GIT_COMMIT}
 
 # Unprivileged user. Data directories on the host are owned by this numeric uid.
@@ -25,6 +26,8 @@ COPY config ./config
 COPY core ./core
 COPY templates ./templates
 RUN echo "${GIT_COMMIT}" > /app/VERSION
+# Collect the stylesheet for WhiteNoise at build time (the development settings are enough here: nothing secret is read).
+RUN DJANGO_SETTINGS_MODULE=config.settings python manage.py collectstatic --noinput
 
 USER 10001:10001
 EXPOSE 8000

@@ -19,8 +19,8 @@ from .normalisation import is_recurring, monthly_equivalent
 from .reconciliation import build_report
 
 ZERO = Decimal(0)
-CURRENCY_NOTE = ('EUR. Each payment is converted at the rate stored on it. The display-currency '
-                 'selector does not apply to reports (no conversion beyond the stored EUR amounts).')
+CURRENCY_NOTE = ('EUR. Each payment is converted at the rate stored on it '
+                 '(no conversion beyond the stored EUR amounts).')
 ROUNDING_NOTE = ('Amounts are rounded to 2 decimals only when shown or exported; totals are rounded '
                  'once from unrounded sums, so they can differ by a cent from the sum of rounded rows.')
 

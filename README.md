@@ -2,7 +2,7 @@
 
 Django app to record, convert and report personal income for German statutory health insurance (SBK) income assessments and the annual tax return. It produces general financial summaries only; it is **not** an official SBK assessment or tax calculation.
 
-Status: Phase 8 (container deployment). See `CLAUDE.md` for standing instructions and `docs/` (`architecture.md`, `data-model.md`, `financial-calculations.md`, `exchange-rates.md`, `imports.md`, `reporting.md`, `deployment.md`, `rules/`, `decisions/`).
+Status: Phase 9 (sub-path readiness; phases 9 to 14 are in `docs/prompts/PHASES_2.md`). See `CLAUDE.md` for standing instructions and `docs/` (`architecture.md`, `data-model.md`, `financial-calculations.md`, `exchange-rates.md`, `imports.md`, `reporting.md`, `deployment.md`, `rules/`, `decisions/`).
 
 ## Requirements
 - Python 3.14 (developed on 3.14.5; Django 5.2 supports 3.10–3.14)
@@ -25,6 +25,9 @@ pip install -r requirements.txt
 | `DJANGO_RATE_PROVIDER` | Frankfurter/ECB | Set to `core.services.rates.ManualOnlyProvider` to work offline (manual rates only) |
 | `FRANKFURTER_BASE_URL` / `FRANKFURTER_TIMEOUT` | `https://api.frankfurter.dev` / `10` | Rate service URL (https) and timeout in seconds |
 | `DJANGO_UPLOAD_DIR` | `local/uploads` | Where uploaded import files are stored (git-ignored; use an absolute path in production) |
+| `DJANGO_URL_PREFIX` | empty | Serve the app under a sub-path, e.g. `/tax-healthcare` (see `docs/deployment.md`) |
+| `DJANGO_BEHIND_TLS_PROXY` | `0` | `1` trusts `X-Forwarded-Proto` from a TLS-terminating proxy |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | empty | Comma-separated origins with scheme, for a proxy |
 | `RATE_MAX_LOOKBACK_DAYS` | `7` | Oldest acceptable rate date before a payment date |
 
 See `.env.example`. Django does not load `.env` itself; export the variables in your shell.

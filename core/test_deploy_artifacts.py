@@ -59,7 +59,7 @@ class ContainerfileTests(SimpleTestCase):
         self.assertTrue(lines)
         self.assertTrue(all('==' in l for l in lines), lines)
         names = {l.split('==')[0].lower() for l in lines}
-        self.assertEqual(names, {'asgiref', 'django', 'gunicorn', 'sqlparse'})      # nothing unneeded
+        self.assertEqual(names, {'asgiref', 'django', 'gunicorn', 'sqlparse', 'whitenoise'})      # nothing unneeded
 
     def test_ignore_files_keep_private_data_out_of_the_build_context(self):
         for name in ('.containerignore', '.dockerignore'):
@@ -104,7 +104,11 @@ class QuadletTests(SimpleTestCase):
 
     def test_http_mode_is_passed_to_the_app(self):
         self.assertIn("Environment=DJANGO_HTTPS={{ '1' if use_https else '0' }}", self.text)
-        self.assertIn('DJANGO_CSRF_TRUSTED_ORIGINS={{ public_scheme }}://{{ public_host }}:{{ app_port }}', self.text)
+        self.assertIn('DJANGO_CSRF_TRUSTED_ORIGINS={{ csrf_trusted_origins }}', self.text)
+        for name in ('DJANGO_ALLOWED_HOSTS={{ allowed_hosts }}', 'DJANGO_URL_PREFIX={{ url_prefix }}',
+                     'DJANGO_HSTS_SECONDS={{ hsts_seconds }}', "DJANGO_BEHIND_TLS_PROXY={{ '1' if behind_tls_proxy else '0' }}"):
+            self.assertIn('Environment=' + name, self.text)
+            self.assertIn('-e ' + name, read('infra/group_vars/all.yml'))     # one-off runs get the same environment
 
     def test_uses_the_current_tag_and_production_settings(self):
         self.assertIn('Image={{ image_repo }}:current', self.text)

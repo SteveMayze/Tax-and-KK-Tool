@@ -6,11 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
-from .context_processors import SESSION_KEY
-from .currencies import SUPPORTED_CURRENCIES
 from .forms import YearForm, YearNotesForm
 from .models import Payment, ReportingMonth, ReportingYear
 from .services.aggregation import (
@@ -23,19 +20,6 @@ def health(request):
     """Unauthenticated liveness check. Returns no data beyond status."""
     return JsonResponse({'status': 'ok'})
 
-
-@login_required
-@require_POST
-def set_display_currency(request):
-    code = request.POST.get('display_currency')
-    if code in SUPPORTED_CURRENCIES:
-        request.session[SESSION_KEY] = code
-    else:
-        messages.error(request, 'Unsupported display currency.')
-    target = request.POST.get('next', '')
-    if not url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}):
-        target = '/'
-    return redirect(target)
 
 
 def _year_summary(year):

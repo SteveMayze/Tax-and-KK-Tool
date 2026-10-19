@@ -148,8 +148,8 @@ class DeploymentCheckTests(SimpleTestCase):
                 "get_user_model().objects.create_user('tester', password='pw-for-tests-123'); "
                 "from django.test import Client; "
                 "c = Client(HTTP_HOST='app.example.test:8889', enforce_csrf_checks=True); "
-                "page = c.get('/accounts/login/'); token = c.cookies['csrftoken'].value; "
-                "secure = bool(c.cookies['csrftoken']['secure']); "
+                "page = c.get('/accounts/login/'); token = c.cookies['taxhc_csrftoken'].value; "
+                "secure = bool(c.cookies['taxhc_csrftoken']['secure']); "
                 "r = c.post('/accounts/login/', {'username': 'tester', 'password': 'pw-for-tests-123', 'csrfmiddlewaretoken': token}, "
                 "HTTP_ORIGIN='http://app.example.test:8889'); "
                 "home = c.get('/'); "
@@ -176,7 +176,7 @@ class DeploymentCheckTests(SimpleTestCase):
                 "import django; django.setup(); from django.test import Client; "
                 "bad = Client(HTTP_HOST='evil.example').get('/health/'); "
                 "ok = Client(HTTP_HOST='app.example.test', HTTP_X_FORWARDED_PROTO='https').get('/accounts/login/'); "
-                "print(bad.status_code, ok.status_code, ok.cookies['csrftoken']['secure'], ok.cookies['csrftoken']['samesite'])")
+                "print(bad.status_code, ok.status_code, ok.cookies['taxhc_csrftoken']['secure'], ok.cookies['taxhc_csrftoken']['samesite'])")
             r = run(code, env_overrides=env)
             self.assertEqual(r.returncode, 0, r.stderr[-500:])
             self.assertEqual(r.stdout.strip(), '400 200 True Lax')

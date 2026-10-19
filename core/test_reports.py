@@ -189,7 +189,7 @@ class ReportNumbersTests(TestCase):
         b = dict(rep.basis)
         self.assertEqual(b['Period'], 'Calendar year 2024')
         self.assertIn('EUR', b['Currency'])
-        self.assertIn('display-currency selector does not apply', b['Currency'])
+        self.assertIn('stored on it', b['Currency'])
         self.assertEqual(b['Basis'], 'Actual payments received (not normalised)')
         self.assertIn('never mixed', b['Gross/net'])
         self.assertEqual(b['Exchange-rate basis'],

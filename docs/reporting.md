@@ -23,7 +23,7 @@ Period: a specific calendar year or all years (reports marked "needs a year" req
 Period; currency; basis (actual vs normalised); gross/net treatment; exchange-rate basis (counts of EUR, ECB and manual rates, and how many used the nearest earlier ECB rate); excluded/missing items; rounding. Exclusions state the number of unconverted payments with their original gross per currency, converted payments without a net amount, and the number of correction/reversal entries included.
 
 ## Rules
-- **Currency:** EUR at each payment's stored rate. The display-currency selector does not apply to reports, and no rate is looked up while reporting.
+- **Currency:** EUR at each payment's stored rate. No rate is looked up while reporting.
 - **Gross vs net:** separate columns, never mixed. Net totals include only payments with a net amount; the number without is shown.
 - **Unconverted payments** contribute nothing to EUR figures and are reported as exclusions. Original-currency columns do include them.
 - **Corrections/reversals** are included as signed amounts.

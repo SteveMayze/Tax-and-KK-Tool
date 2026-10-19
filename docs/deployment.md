@@ -101,6 +101,21 @@ Rule that keeps rollback possible: configuration changes (new environment variab
 | Rotate the secret key | delete `/etc/tax-healthcare-tool/env` on the server and deploy again (all sessions end) |
 | Backup timer | `systemctl list-timers tax-healthcare-tool-backup.timer`; a failed run shows in `make status` |
 
+## URL prefix, reverse proxy, cookies and static files (Phase 9)
+Prepares the app for the gateway (a separate repository) that serves it over HTTPS at `/tax-healthcare`. Nothing here configures Caddy, and **the deployed port stays 8889**.
+
+- **Prefix.** `url_prefix` in `infra/group_vars/all.yml` (`DJANGO_URL_PREFIX`) is `/tax-healthcare`. Every generated URL (links, form actions, redirects, login redirect, static files) then starts with it (`FORCE_SCRIPT_NAME`). The app answers **both** when the proxy strips the prefix before forwarding (`handle_path`) and when a request still carries it, so the same container works behind the gateway and directly on its own port. Direct use therefore becomes `http://<server>:8889/tax-healthcare/` (the old `http://<server>:8889/` also still answers, and its pages link to the prefixed URLs). Set `url_prefix: ""` to go back to root-only URLs. Health checks use `/health/` and need no prefix.
+- **TLS proxy.** `behind_tls_proxy: true` (`DJANGO_BEHIND_TLS_PROXY=1`) makes Django trust `X-Forwarded-Proto: https`, so HTTPS requests count as secure. Only set it when the proxy is in place; while port 8889 is still open, a LAN client could send that header itself (the effect is limited to Django treating its own request as secure; closing 8889 is a later step in the gateway track). Secure cookies stay governed by `use_https`, which must stay `false` while the app is also used over plain HTTP on 8889, otherwise those logins break.
+- **Hosts and origins.** `extra_allowed_hosts` and `extra_csrf_origins` (full origin with scheme, e.g. `https://tax.example.test`) add the gateway's host name and browser origin to `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS`. A form post from an origin that is not listed is refused with 403.
+- **HSTS** (`hsts_seconds`, `DJANGO_HSTS_SECONDS`) stays **0**. HSTS tells a browser to refuse the site whenever its certificate is not trusted; with a local CA that cannot be undone quickly, so enable it only after the CA is installed on every device, and start with a small value.
+- **Cookies.** Session `taxhc_sessionid`, CSRF `taxhc_csrftoken` (Django's defaults would collide with the other app on the same host: browsers share cookies across ports and paths). Their path is the prefix when one is set. A login made on a direct `:8889/` URL is therefore sent on to the prefixed pages. After this update everyone is logged out once.
+- **Static files.** The stylesheet (`core/static/core/base.css`, moved out of the page) is collected into `/app/staticfiles` while the image is built and served by WhiteNoise (pinned in `requirements.txt`) at `<prefix>/static/`. The admin site stays off.
+- **`listen_address`** (default `0.0.0.0`) is the interface the container port is published on; set it to the server's LAN address to narrow it, or `127.0.0.1` when only the gateway on the same host should reach the app. It is rendered into `PublishPort=` in the Quadlet unit.
+- The deployment stays rootful here. Phase 9A converts it to rootless; the new settings are plain variables and environment lines in the same two places (`group_vars/all.yml` and the Quadlet template), so they move unchanged.
+
+### Rehearsal run for this phase
+`make syntax` passes for all six playbooks. The Quadlet template and `podman_run_flags` were rendered with Ansible's own template engine (default values and with a proxy host, origin and `behind_tls_proxy: true`). `ansible-playbook --check` against the server and a container build were **not** run (see the Phase 9 report: `--check` needs the sudo password, and there is no container runtime on the development Mac).
+
 ## Configuration reference
 | Variable | Where | Purpose |
 |---|---|---|
@@ -110,7 +125,10 @@ Rule that keeps rollback possible: configuration changes (new environment variab
 | `DJANGO_HTTPS` | unit | `0` for plain HTTP (secure cookies off), default `1` |
 | `DJANGO_DB_PATH`, `DJANGO_UPLOAD_DIR`, `DJANGO_BACKUP_DIR` | unit | absolute paths inside the container (`/data/db.sqlite3`, `/uploads`, `/backups`) |
 | `DJANGO_RATE_PROVIDER`, `FRANKFURTER_*` | optional | exchange-rate source (default Frankfurter/ECB; the container needs outbound HTTPS to `api.frankfurter.dev`) |
-| `DJANGO_HSTS_SECONDS` | optional | HSTS, off by default (only meaningful over HTTPS) |
+| `DJANGO_HSTS_SECONDS` | unit (`hsts_seconds`) | HSTS, `0` (off) by default, see "URL prefix" below |
+| `DJANGO_URL_PREFIX` | unit (`url_prefix`) | `/tax-healthcare`; empty serves at the root |
+| `DJANGO_BEHIND_TLS_PROXY` | unit (`behind_tls_proxy`) | `1` makes the app trust `X-Forwarded-Proto` from a TLS proxy |
+| `DJANGO_STATIC_ROOT` | image | `/app/staticfiles`, filled by `collectstatic` during the image build |
 | `DJANGO_ENABLE_ADMIN` | optional | Django admin, off in production |
 
 ## What has and has not been verified

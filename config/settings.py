@@ -11,7 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import re
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,6 +30,26 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'insecure-dev-key-do-not-use-in
 DEBUG = os.environ.get('DJANGO_DEBUG', '0') == '1'
 
 ALLOWED_HOSTS = [h for h in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h]
+CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if o]
+
+
+# URL prefix (sub-path). Empty by default, so local development is unchanged. A reverse proxy serves the app under
+# e.g. /tax-healthcare: with DJANGO_URL_PREFIX=/tax-healthcare every generated URL carries the prefix. The app
+# answers both when the proxy strips the prefix and when it does not (core.middleware.StripUrlPrefixMiddleware).
+def _url_prefix(raw):
+    prefix = raw.strip().strip('/')
+    if prefix and not re.fullmatch(r'[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*', prefix):
+        raise ImproperlyConfigured('DJANGO_URL_PREFIX may contain only letters, digits and . _ ~ - /')
+    return f'/{prefix}' if prefix else ''
+
+
+URL_PREFIX = _url_prefix(os.environ.get('DJANGO_URL_PREFIX', ''))
+FORCE_SCRIPT_NAME = URL_PREFIX or None
+
+# Set to 1 when a TLS-terminating reverse proxy sits in front and sends X-Forwarded-Proto. Only then is that header
+# trusted (the app must not be reachable around the proxy, or a client could forge it).
+BEHIND_TLS_PROXY = os.environ.get('DJANGO_BEHIND_TLS_PROXY', '0') == '1'
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') if BEHIND_TLS_PROXY else None
 
 
 # Application definition
@@ -42,6 +65,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'core.middleware.StripUrlPrefixMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -116,7 +140,15 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = f'{URL_PREFIX}/static/'
+STATIC_ROOT = os.environ.get('DJANGO_STATIC_ROOT', str(BASE_DIR / 'staticfiles'))
+
+# Own cookie names, so this app and other apps on the same host (cookies are shared across ports and paths) do not
+# overwrite each other's session or CSRF cookie. The path is the URL prefix when there is one.
+SESSION_COOKIE_NAME = 'taxhc_sessionid'
+CSRF_COOKIE_NAME = 'taxhc_csrftoken'
+SESSION_COOKIE_PATH = URL_PREFIX or '/'
+CSRF_COOKIE_PATH = URL_PREFIX or '/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -147,5 +179,3 @@ FRANKFURTER_TIMEOUT = float(os.environ.get('FRANKFURTER_TIMEOUT', '10'))
 RATE_MAX_LOOKBACK_DAYS = int(os.environ.get('RATE_MAX_LOOKBACK_DAYS', '7'))
 
 TEST_RUNNER = 'config.testrunner.NoNetworkRunner'
-
-TEMPLATES[0]['OPTIONS']['context_processors'].append('core.context_processors.display_currency')

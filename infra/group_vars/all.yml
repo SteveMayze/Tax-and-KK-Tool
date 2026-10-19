@@ -12,6 +12,17 @@ use_https: false                     # plain HTTP on the LAN (owner decision); s
 public_scheme: "{{ 'https' if use_https else 'http' }}"
 data_root: /var/lib/tax-healthcare-tool
 etc_dir: /etc/tax-healthcare-tool
+
+# --- URL prefix and reverse proxy (Phase 9). The app answers on its own port with or without the prefix, so it stays
+# reachable at http://<host>:8889/ and also at http://<host>:8889/tax-healthcare/ during the move behind the gateway.
+url_prefix: /tax-healthcare          # "" serves the app at the root, as before
+behind_tls_proxy: false              # true only once a TLS proxy sends X-Forwarded-Proto (the app trusts that header then)
+extra_allowed_hosts: []              # host names the proxy forwards, e.g. ["tax.home.example"]
+extra_csrf_origins: []               # browser origins of the proxy, with scheme, e.g. ["https://tax.home.example"]
+hsts_seconds: 0                      # keep 0 until the local CA is installed on every device (see docs/deployment.md)
+allowed_hosts: "{{ ([public_host, 'localhost', '127.0.0.1'] + extra_allowed_hosts) | join(',') }}"
+csrf_trusted_origins: "{{ ([public_scheme ~ '://' ~ public_host ~ ':' ~ app_port] + extra_csrf_origins) | join(',') }}"
+
 memory_limit: 512m
 backup_time: "03:15:00"
 keep_images: 5
@@ -22,7 +33,10 @@ podman_run_flags: >-
   --env-file {{ etc_dir }}/env
   -e DJANGO_SETTINGS_MODULE=config.settings_prod
   -e DJANGO_DB_PATH=/data/db.sqlite3 -e DJANGO_UPLOAD_DIR=/uploads -e DJANGO_BACKUP_DIR=/backups
-  -e DJANGO_ALLOWED_HOSTS={{ public_host }},localhost,127.0.0.1
-  -e DJANGO_CSRF_TRUSTED_ORIGINS={{ public_scheme }}://{{ public_host }}:{{ app_port }}
+  -e DJANGO_ALLOWED_HOSTS={{ allowed_hosts }}
+  -e DJANGO_CSRF_TRUSTED_ORIGINS={{ csrf_trusted_origins }}
   -e DJANGO_HTTPS={{ '1' if use_https else '0' }}
+  -e DJANGO_URL_PREFIX={{ url_prefix }}
+  -e DJANGO_BEHIND_TLS_PROXY={{ '1' if behind_tls_proxy else '0' }}
+  -e DJANGO_HSTS_SECONDS={{ hsts_seconds }}
   -v {{ data_root }}/data:/data -v {{ data_root }}/uploads:/uploads -v {{ data_root }}/backups:/backups

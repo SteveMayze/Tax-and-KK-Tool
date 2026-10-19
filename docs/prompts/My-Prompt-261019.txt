@@ -1,0 +1,43 @@
+
+The eight phases were successfully executed. I requested Claude-Code to generate a feedback document to report on the progress here in Claude-Chat so that the next features and advances can be specified. One of the outstanding requriements that was not executed during the phased implementation was the implementation of the PDF parsing. I figured that this was a complex area with possbily many corner cases that it would hold up progress for the general implementation. Additionally, now that I have seen the application in action, there are a few other aspects that I think need attention. I have listed them in a rough order of priority i.e. what I think would be the easiest and more worthwhile to implement first
+
+- There is still an issue with the integration with Caddy. 
+	- Originally this was implemneted to experiment with enabling https on an ESP32 as a type of reverse proxy. However, in a home situation with the AVM FritzBox, this experiment was abanded on not able to be implemented in a domestic situation with a domestic router. However, the Caddy file is still there with the old settings. Since then, the parts-db (https://github.com/SteveMayze/parts-db) Django application was created and implemented on this server. Some ways this https was disabled for this application and we access the application through http://cornil.fritz.box/8888.
+	- Idally, since we don't need to create a reverse proxy to another server, it would be nice, if possible, to re-introduce the https prototcol for this local cornil.firtz.box stch that the two applications can be accessed via
+
+		https://cornil.fritz.box/parts-db
+		https://cornil.firtz.box/tax-healthcare
+
+	- A sugguestion as to the best way to achive this is required such as to know if this should be addressed in a seperate caddy project since this will affect two seperate and distinct repositories and Django Applicaitons
+
+- The application records the gross and net amounts. The differency is not tracked as a first class citizen and might lead to some quesionts. One major reason for the discrepancy is withholding tax. In some cases, there are expenses and fees involved (i.e. rental income). I might be useful to track witholding tax and expenses as seperate items such that gross income = net income + withholding tax + expenses.
+
+- Support for Capital Loss
+	- I assume that this would inherently be treated as "A negative annual surplus counts as 0; loss netting is not applied" as suggested in the Assumptions section.
+
+- Language
+	- The UI is in English, wich is preferred but for the purpose of the reports, it would be useful to be able to render these in German. A language selection on the UI to determine the overall language and locale migh be useful here.
+
+- Reporting Currency
+	- There is a currency drop down on most pages but it has no influcence on the displayed currency. I would suggest to have this removed since it has not impact but at least use the language and region settings to determine the language and number and date formats. This does not mean that the different currencies should be converted. They should stay in their base currency - just their regional format should change so that there is some consistency.
+
+- Colour Scheme
+	- I envisage a Blue/Teal colour scheme, with buttons instead of links
+	- Text boxes should be large enough to accept a small paragraph
+	- Text input should not be too narrow
+
+- Descriptive text
+	- The reports have a block of descriptive text at the top of the page. This should be moved to below the report ouput
+	- Report headings that is specific for tax and the health insurance should be annotated with an info icon (i) or (?) as a link to a popup info box that explains that term candidates are
+		- Month	Employment EUR,	Pension EUR, Self-employed EUR,	Rental EUR,	Capital EUR	One-off (1/12) EUR,	Base before limits EUR,	Assessed base EUR,	Limit applied	Health: general part EUR,	Health: additional contribution EUR,	Health total EUR,	Care insurance EUR and	Total contribution EUR
+
+
+
+Work to do
+- Review the associated artefact
+- Review the suggestions and open issues above
+- Summarise the findings in a report and development plan
+- Make a suggestion regaring the consolidation and fixing of the Caddy implementation.
+- Derrive a new phased prompt for Claude-Code
+	- Do not overwrite the existing PHASES.md. This needs to be kept for documentation and auditing purposes.
+

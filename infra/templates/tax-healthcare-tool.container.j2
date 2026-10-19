@@ -19,9 +19,12 @@ Environment=DJANGO_SETTINGS_MODULE=config.settings_prod
 Environment=DJANGO_DB_PATH=/data/db.sqlite3
 Environment=DJANGO_UPLOAD_DIR=/uploads
 Environment=DJANGO_BACKUP_DIR=/backups
-Environment=DJANGO_ALLOWED_HOSTS={{ public_host }},localhost,127.0.0.1
-Environment=DJANGO_CSRF_TRUSTED_ORIGINS={{ public_scheme }}://{{ public_host }}:{{ app_port }}
+Environment=DJANGO_ALLOWED_HOSTS={{ allowed_hosts }}
+Environment=DJANGO_CSRF_TRUSTED_ORIGINS={{ csrf_trusted_origins }}
 Environment=DJANGO_HTTPS={{ '1' if use_https else '0' }}
+Environment=DJANGO_URL_PREFIX={{ url_prefix }}
+Environment=DJANGO_BEHIND_TLS_PROXY={{ '1' if behind_tls_proxy else '0' }}
+Environment=DJANGO_HSTS_SECONDS={{ hsts_seconds }}
 ReadOnly=true
 Tmpfs=/tmp
 NoNewPrivileges=true

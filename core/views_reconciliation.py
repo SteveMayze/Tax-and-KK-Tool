@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .models import Payment, ReportingYear
@@ -38,4 +39,5 @@ def convert_pending_view(request):
         messages.error(request, f'{p.payment_date} {p.organisation} {p.gross_amount} {p.currency}: {err}')
     if not results:
         messages.info(request, 'No unconverted payments.')
-    return redirect(f'/reconciliation/?year={year}' if year else '/reconciliation/')
+    url = reverse('reconciliation')
+    return redirect(f'{url}?year={year}' if year else url)

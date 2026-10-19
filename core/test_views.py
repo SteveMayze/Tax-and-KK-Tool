@@ -37,7 +37,7 @@ class LoginRequiredTests(TestCase):
             reverse('payment_detail', args=[p.pk]), reverse('payment_edit', args=[p.pk]),
             reverse('payment_delete', args=[p.pk]), reverse('payment_recalculate', args=[p.pk]),
             reverse('organisation_list'), reverse('organisation_add'), reverse('category_list'),
-            reverse('category_add'), reverse('set_display_currency'),
+            reverse('category_add'),
         ]
         for url in urls:
             for method in (self.client.get, self.client.post):
@@ -113,28 +113,6 @@ class MonthPageTests(AuthedTestCase):
         p = make_payment(currency='GBP'); p.save()
         r = self.client.get(reverse('month_detail', args=[2024, 3]))
         self.assertContains(r, 'not converted')
-
-
-class DisplayCurrencyTests(AuthedTestCase):
-    def test_default_and_persisted_in_session(self):
-        self.assertContains(self.client.get(reverse('home')), 'value="EUR" selected')
-        r = self.client.post(reverse('set_display_currency'), {'display_currency': 'GBP', 'next': '/organisations/'})
-        self.assertRedirects(r, '/organisations/')
-        r = self.client.get(reverse('home'))
-        self.assertContains(r, 'value="GBP" selected')
-        self.assertContains(r, 'all totals are shown in EUR')
-
-    def test_invalid_currency_and_open_redirect_rejected(self):
-        r = self.client.post(reverse('set_display_currency'), {'display_currency': 'JPY', 'next': 'https://evil.example/'})
-        self.assertRedirects(r, '/', fetch_redirect_response=False)
-        self.assertContains(self.client.get(reverse('home')), 'value="EUR" selected')
-
-    def test_does_not_change_stored_data(self):
-        from core.services.conversion import convert_payment
-        p = make_payment(gross='100'); p.save(); convert_payment(p)
-        self.client.post(reverse('set_display_currency'), {'display_currency': 'USD'})
-        p.refresh_from_db()
-        self.assertEqual((p.gross_amount, p.gross_eur, p.currency), (D('100'), D('100'), 'EUR'))
 
 
 class LookupManagementTests(AuthedTestCase):

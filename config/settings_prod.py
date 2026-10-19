@@ -60,8 +60,9 @@ if USE_HTTPS:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 else:
-    # Secure cookies would never be sent back over plain HTTP, which would make login impossible.
-    SECURE_PROXY_SSL_HEADER = None
+    # Secure cookies would never be sent back over plain HTTP, which would make login impossible. During the move
+    # behind a proxy the app is also reached directly over plain HTTP: DJANGO_BEHIND_TLS_PROXY=1 (read in
+    # config.settings) then still makes proxied HTTPS requests count as secure, without Secure cookies.
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
 SECURE_SSL_REDIRECT = False        # the health check talks plain HTTP on the loopback interface
@@ -70,8 +71,18 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
 X_FRAME_OPTIONS = 'DENY'
-# HSTS is off unless explicitly enabled (only meaningful when served over HTTPS).
+# HSTS is off unless explicitly enabled (only meaningful when served over HTTPS). Keep it 0 until the local CA is
+# installed on every device: a browser that has seen HSTS refuses the site outright if the certificate is not trusted.
 SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_HSTS_SECONDS', '0'))
+
+# Static files (the stylesheet) are served by WhiteNoise from STATIC_ROOT, which `collectstatic` fills when the image
+# is built. WhiteNoise sits right after SecurityMiddleware. The admin stays off (ENABLE_ADMIN).
+MIDDLEWARE.insert(MIDDLEWARE.index('django.middleware.security.SecurityMiddleware') + 1,  # noqa: F405
+                  'whitenoise.middleware.WhiteNoiseMiddleware')
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage'},
+}
 
 # Console logging only, warnings and above. Request paths are logged by gunicorn; payment details, form
 # contents and SQL are never logged.
