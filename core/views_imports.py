@@ -12,6 +12,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .forms import ImportRowForm, ImportUploadForm
 from .models import ImportBatch, ImportRow
 from .services import imports as svc
+from .services import pdf_imports, pdf_text
 from .services.conversion import ConversionError, eur_amount, for_storage
 from .services.rates import get_provider
 
@@ -41,8 +42,17 @@ def import_list(request):
 def import_upload(request):
     form = ImportUploadForm(request.POST, request.FILES)
     if form.is_valid():
+        uploads = [(f.name, f.read()) for f in form.cleaned_data['file']]
+        pdfs = [(n, raw) for n, raw in uploads if pdf_text.looks_like_pdf(raw)]
         try:
-            batch = svc.stage_batch(form.cleaned_data['file'].read(), form.cleaned_data['file'].name, get_provider())
+            if pdfs and len(pdfs) != len(uploads):
+                raise svc.ImportFileError(_('Upload either one CSV file or PDF statements, not both together.'))
+            if pdfs:
+                batch = pdf_imports.stage_pdf_batch(pdfs, get_provider())
+            elif len(uploads) == 1:
+                batch = svc.stage_batch(uploads[0][1], uploads[0][0], get_provider())
+            else:
+                raise svc.ImportFileError(_('Upload one CSV file at a time (PDF statements can be uploaded together).'))
         except svc.ImportFileError as e:
             form.add_error('file', str(e))
         else:
@@ -168,8 +178,9 @@ def import_file(request, pk):
     path = svc.upload_path(batch)
     if path is None:
         raise Http404('File is not available.')
-    response = FileResponse(open(path, 'rb'), as_attachment=True, filename=f'import-{batch.pk}.csv',
-                            content_type='text/csv; charset=utf-8')
+    kinds = {'.pdf': 'application/pdf', '.zip': 'application/zip', '.csv': 'text/csv; charset=utf-8'}
+    response = FileResponse(open(path, 'rb'), as_attachment=True, filename=f'import-{batch.pk}{path.suffix}',
+                            content_type=kinds.get(path.suffix, 'application/octet-stream'))
     response['X-Content-Type-Options'] = 'nosniff'
     return response
 

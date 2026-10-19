@@ -193,14 +193,38 @@ class ManualCorrectionForm(forms.Form):
         return reason
 
 
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """One or several uploaded files (Django's documented pattern); always returns a list."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('widget', MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        clean_one = super().clean
+        if not data:
+            return [clean_one(None, initial)]               # raises "This field is required"
+        if isinstance(data, (list, tuple)):
+            return [clean_one(item, initial) for item in data]
+        return [clean_one(data, initial)]
+
+
 class ImportUploadForm(forms.Form):
-    file = forms.FileField(label=_('CSV file'), help_text=_('UTF-8 CSV with a header row; see the format description below.'))
+    file = MultipleFileField(
+        label=_('CSV file or PDF statements'),
+        help_text=_('One UTF-8 CSV with a header row (see the format description below), or one or more PDF dividend statements.'))
 
     def clean_file(self):
-        f = self.cleaned_data['file']
-        if f.size > settings.IMPORT_MAX_BYTES:
-            raise forms.ValidationError(gettext('File is larger than %(mb)s MB.') % {'mb': settings.IMPORT_MAX_BYTES // 1024 // 1024})
-        return f
+        files = self.cleaned_data['file']
+        for f in files:
+            is_pdf = f.name.lower().endswith('.pdf')
+            if not is_pdf and f.size > settings.IMPORT_MAX_BYTES:
+                raise forms.ValidationError(gettext('File is larger than %(mb)s MB.') % {'mb': settings.IMPORT_MAX_BYTES // 1024 // 1024})
+        return files
 
 
 class ImportRowForm(forms.Form):

@@ -1,6 +1,6 @@
 # CSV import (Phase 5)
 
-One file format, modelled on the app's own payment fields. There are no per-institution profiles: prepare the CSV by hand (e.g. in a spreadsheet) in this format. PDF extraction is deferred to a later phase.
+One file format, modelled on the app's own payment fields. There are no per-institution profiles: prepare the CSV by hand (e.g. in a spreadsheet) in this format. PDF dividend statements are described in the section "PDF statements" below.
 
 Nothing is imported at upload. Every row is reviewed, problems are fixed or excluded, and an explicit confirmation creates all payments in one transaction.
 
@@ -46,8 +46,22 @@ A row is a possible duplicate when another payment, or an earlier non-excluded r
 - If a rate lookup fails, the row stays valid, shows "No rate: ...", and would import unconverted; you can retry with "Request exchange rates again", add `exchange_rate` in the row, or accept unconverted.
 - If data changes between review and commit so a row is no longer valid (e.g. an organisation was deactivated), the commit is refused and nothing is imported.
 
+## PDF statements (Phase 14, ADR 0014)
+Select one or more PDFs (not mixed with a CSV) on the Imports page. They are read into the same review as a CSV: one row per statement, per-row edit and exclude, the duplicate rule, a confirmation page, an atomic commit that cannot run twice, history, and a protected download of the original (a single PDF, or a zip of the staged originals).
+
+**What is read.** Text PDFs of Australian dividend and distribution advices whose amounts are in Australian dollars. Per statement: payment date, the payer's ASX code (used as the organisation name; change it in the review if you prefer another name), the dividend paid (the total payment: this is *gross*), the amount paid (*net*) and the tax withheld. Category `Dividends`, currency `AUD`, frequency `one_off` (dividends are irregular and never treated as recurring); the exchange rate is proposed exactly like for CSV rows. Franked/unfranked amounts and franking credits are Australian-tax information and are deliberately not read.
+
+**Withholding tax is never assumed.** It is `gross - net`, and a non-zero difference is accepted only if a withholding-tax line on the statement states that same amount; otherwise the statement is refused. (In all 54 supplied statements the difference is 0.)
+
+**Where each value came from.** Every row lists, per field, the page and the source line (long digit runs such as reference numbers are hidden). Values that several parts of a statement must agree on (the amount paid, the total payment) are refused when they disagree.
+
+**Refused with a reason, nothing staged:** not a PDF, damaged, password-protected, no text layer (a scan; OCR is out of scope), not a dividend advice, amounts not in AUD, payment date or amounts missing or ambiguous, gross and net not explained. Recognised but not importable as a dividend: *scheme consideration* payments (shares sold in a takeover: record as a sale) and *bonus share plan* statements (shares instead of cash). A dividend reinvestment plan statement (for example Woolworths) is staged with a comment "reinvested ... (no cash received)", because the dividend is still paid; exclude the row in the review if you do not want it. Statements that were uploaded together but not recognised are listed as warnings, the others are staged.
+
+**Layouts.** The registries (Computershare, MUFG, Automic and company-specific advices) print the same figures in different arrangements, and the PDF text order differs: labels first and values later, values one per line, column headings with a totals row. The reader looks for the same few anchors in all of them (a labelled net payment, the largest amount of the holding table, labelled withholding, labelled payment date, the ASX code) instead of one parser per company, and requires them to agree. Statements of other kinds (bank account statements such as Revolut, broker interest statements) are not income advices in this sense and are refused as "not recognised".
+
 ## Security and privacy
 - Login required on every import view; the stored file is served only through a login-protected download with a generated name, `Content-Disposition: attachment` and `nosniff`; stored paths are checked to stay inside `UPLOAD_DIR`.
 - Cell contents and amounts are never logged. Cell text is HTML-escaped when displayed.
 - Only the currency and payment date are sent to the exchange-rate service (see exchange-rates.md).
-- Tests and the template use synthetic data only.
+- Tests and the template use synthetic data only. PDF tests build their own PDFs (`core/test_pdf_support.py`); the owner's real statements stay in the git-ignored `local/samples/` and are only read by an optional local test that prints nothing.
+- PDFs are read inside the app (pypdf); no document or text is sent to any external service.

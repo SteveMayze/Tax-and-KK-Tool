@@ -5,6 +5,8 @@
 <p><a href="{% url 'import_preview' batch.pk %}">&larr; {% blocktrans with n=batch.pk %}Import #{{ n }}{% endblocktrans %}</a></p>
 <h1>{% blocktrans with n=row.line_number %}Edit line {{ n }}{% endblocktrans %}</h1>
 <p class="note">{% trans "Values are checked with the same rules as the payment form when you save. The original uploaded values stay on record." %}</p>
+{% if row.source_name %}<p class="note">{% trans "Source file" %}: {{ row.source_name }}</p>{% endif %}
+{% if row.provenance %}<details open><summary>{% trans "Where each value was read" %}</summary><ul>{% for field, ev in row.provenance.items %}<li><strong>{{ field }}</strong>: {% blocktrans with p=ev.page %}page {{ p }}{% endblocktrans %}: <code>{{ ev.text }}</code></li>{% endfor %}</ul></details>{% endif %}
 {% for e in row.errors %}<div role="alert" class="msg error">{{ e }}</div>{% endfor %}
 <form method="post" novalidate>{% csrf_token %}
   {% for field in form %}<div class="field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}

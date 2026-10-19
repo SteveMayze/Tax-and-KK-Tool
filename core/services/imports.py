@@ -323,9 +323,9 @@ def revalidate_batch(batch: ImportBatch, provider: RateProvider, force_rates=Fal
     return rows
 
 
-def store_upload(raw: bytes, batch: ImportBatch) -> str:
+def store_upload(raw: bytes, batch: ImportBatch, suffix: str = '.csv') -> str:
     """Save the original file under UPLOAD_DIR with a name that never comes from the user."""
-    rel = Path('imports') / f'{batch.pk}-{batch.sha256[:12]}.csv'
+    rel = Path('imports') / f'{batch.pk}-{batch.sha256[:12]}{suffix}'
     full = Path(settings.UPLOAD_DIR) / rel
     full.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(full, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
@@ -442,7 +442,8 @@ def commit_batch(batch: ImportBatch) -> ImportBatch:
         raise ImportStateError(gettext('Rows still invalid (fix or exclude them): lines %(lines)s.') % {'lines': ', '.join(map(str, problems[:10]))})
 
     doc = SourceDocument.objects.create(
-        description=f'CSV import #{batch.pk}', file_name=batch.file_name, sha256=batch.sha256)
+        description=f'{batch.kind.upper()} import #{batch.pk}',
+        file_name=batch.file_name, sha256=batch.sha256)
     imported = unconverted = 0
     for r in rows:
         if not r.will_import:

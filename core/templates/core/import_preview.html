@@ -42,6 +42,8 @@
       {% elif r.excluded or r.status == 'invalid' %}&mdash;{% else %}&mdash;{% endif %}
     </td>
     <td>
+      {% if r.source_name %}<div class="note">{% trans "Source file" %}: {{ r.source_name }}</div>{% endif %}
+      {% if r.provenance %}<details><summary>{% trans "Where each value was read" %}</summary><ul>{% for field, ev in r.provenance.items %}<li><strong>{{ field }}</strong>: {% blocktrans with p=ev.page %}page {{ p }}{% endblocktrans %}: <code>{{ ev.text }}</code></li>{% endfor %}</ul></details>{% endif %}
       {% for e in r.errors %}<div role="alert" class="msg error">{{ e }}</div>{% endfor %}
       {% for n in r.notes %}<div class="note">{{ n }}</div>{% endfor %}
       {% if r.status == 'duplicate' %}<div class="warn">{% trans "Same date, organisation, currency and gross amount as" %}

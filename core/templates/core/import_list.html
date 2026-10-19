@@ -12,6 +12,11 @@
 </form>
 
 <details>
+  <summary>{% trans "Expected PDF statements" %}</summary>
+  <p>{% blocktrans trimmed %}Text PDFs (not scans) of Australian dividend and distribution advices, in Australian dollars. Only the payment date, the payer (ASX code), the dividend paid (total payment) and the tax withheld are read; franking details are ignored. A statement whose layout is not recognised is refused with a reason and nothing is staged: enter that payment manually. You may select several PDFs at once; every value is shown with the page and text it was read from, and nothing is saved until you confirm.{% endblocktrans %}</p>
+</details>
+
+<details>
   <summary>{% trans "Expected CSV format" %}</summary>
   <p>{% blocktrans trimmed %}UTF-8, comma-separated, first row = column names (any order, case-insensitive). Dates as <code>YYYY-MM-DD</code>; amounts as plain numbers with a decimal point (<code>1234.56</code>, no thousands separators or currency symbols). Up to 5,000 rows and 2 MB.{% endblocktrans %} {% trans "This format is the same in every interface language." %}</p>
   <p>{% trans "Columns:" %} {% for c in columns %}<code>{{ c }}</code>{% if c in required %}*{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %} ({% trans "* required" %}).</p>

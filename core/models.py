@@ -147,10 +147,15 @@ class ImportBatch(models.Model):
         COMMITTED = 'committed', _('Imported')
         DISCARDED = 'discarded', _('Discarded')
 
+    class Kind(models.TextChoices):
+        CSV = 'csv', _('CSV file')
+        PDF = 'pdf', _('PDF statements')
+
     description = models.CharField(max_length=300, blank=True)
     file_name = models.CharField(max_length=255, blank=True, help_text='Name as uploaded; display only.')
     sha256 = models.CharField(max_length=64, blank=True)
     stored_path = models.CharField(max_length=500, blank=True, help_text='Relative to UPLOAD_DIR.')
+    kind = models.CharField(max_length=3, choices=Kind.choices, default=Kind.CSV)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PREVIEW)
     warnings = models.JSONField(default=list, blank=True)
     imported_count = models.PositiveIntegerField(default=0)
@@ -197,6 +202,10 @@ class ImportRow(models.Model):
     rate_raw_response = models.TextField(blank=True)
     rate_error = models.TextField(blank=True)
     created_payment = models.ForeignKey('Payment', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    # PDF imports (Phase 14): the file a row came from and, per field, where in the PDF the value was read
+    # ({field: {"page": 1, "text": "<sanitised source line>"}}), so the owner can check it in the review.
+    source_name = models.CharField(max_length=255, blank=True)
+    provenance = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ['line_number']
