@@ -110,6 +110,8 @@ class IncomeCategory(models.Model):
     active = models.BooleanField(default=True)
     sbk_treatment = models.CharField(max_length=15, choices=SbkTreatment.choices, blank=True)
     tax_income_type = models.CharField(max_length=15, choices=TaxIncomeType.choices, blank=True)
+    may_be_negative = models.BooleanField(
+        default=False, help_text='Tick if a normal payment in this category may be a loss (negative gross amount).')
 
     class Meta:
         ordering = ['name']
@@ -331,8 +333,13 @@ class Payment(models.Model):
         # Amount signs: normal payments are positive; reversals negative; corrections signed but non-zero.
         g, n = self.gross_amount, self.net_amount
         if g is not None:
-            if self.kind == self.Kind.NORMAL and g <= 0:
-                errors['gross_amount'] = 'Gross amount must be positive (use a reversal or correction to adjust).'
+            if self.kind == self.Kind.NORMAL and g == 0:
+                errors['gross_amount'] = 'Gross amount must be positive (it cannot be zero).'
+            elif self.kind == self.Kind.NORMAL and g < 0 and self.category_id and not self.category.may_be_negative:
+                errors['gross_amount'] = (f'Gross amount must be positive: category "{self.category}" is not marked '
+                                          f'"may be negative" (use a reversal or correction to adjust).')
+            elif self.kind == self.Kind.NORMAL and g < 0 and not self.category_id:
+                pass            # the caller (form, importer) checks the category it resolves; save() checks it again
             elif self.kind == self.Kind.REVERSAL and g >= 0:
                 errors['gross_amount'] = 'A reversal must have a negative gross amount.'
             elif self.kind == self.Kind.CORRECTION and g == 0:

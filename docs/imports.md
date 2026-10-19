@@ -15,7 +15,7 @@ Nothing is imported at upload. Every row is reviewed, problems are fixed or excl
 | `organisation` | yes | Matched ignoring case/extra spaces; unknown names are created on commit (flagged as *new* in the review) |
 | `category` | yes | Same matching as organisation |
 | `currency` | yes | EUR, GBP, AUD or USD |
-| `gross_amount` | yes | Must be positive. Corrections/reversals are entered in the app, not imported |
+| `gross_amount` | yes | Must be positive, or negative (a loss) only when the row's category exists and is marked *may be negative*; otherwise the row is invalid and names the category. Corrections/reversals are entered in the app, not imported |
 | `frequency` | yes | `monthly`, `quarterly`, `half_yearly`, `yearly`, `one_off` (case and `-`/space variants accepted) |
 | `net_amount` | no | Same sign rules as the payment form |
 | `withholding_tax`, `expenses` | no | Non-negative, in the row's currency; empty means 0. With these columns in the file, a row that has a `net_amount` must satisfy gross = net + withholding_tax + expenses exactly, otherwise the row is invalid and the message shows the three numbers. A file **without** either column (the format before Phase 10) still imports: a gross/net difference is then imported as *unallocated* and flagged with a note on the row; editing the row in the preview applies the strict rule |

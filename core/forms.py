@@ -47,10 +47,11 @@ class OrganisationForm(UniqueNameMixin, forms.ModelForm):
 class CategoryForm(UniqueNameMixin, forms.ModelForm):
     class Meta:
         model = IncomeCategory
-        fields = ['name', 'active', 'sbk_treatment', 'tax_income_type']
+        fields = ['name', 'active', 'sbk_treatment', 'tax_income_type', 'may_be_negative']
         help_texts = {
             'sbk_treatment': 'How SBK treats this income (docs/rules). Leave blank if unsure: it is then left out of the SBK estimate and flagged.',
             'tax_income_type': 'Einkunftsart for the tax information summary. Leave blank if unsure.',
+            'may_be_negative': 'Allows a loss (negative gross amount) as a normal payment. Reports show losses signed; no loss-offset rule is applied (unverified, see docs/rules/).',
         }
 
 
@@ -138,6 +139,10 @@ class PaymentForm(forms.ModelForm):
         self.instance.month = None
         if cleaned.get('currency') == BASE_CURRENCY and (cleaned.get('manual_rate') or '').strip():
             self.add_error('manual_rate', 'EUR payments always use rate 1; leave the manual rate empty.')
+        if cleaned.get('category_name') and 'gross_amount' not in self.errors and self.instance.kind == Payment.Kind.NORMAL:
+            message = lookups.loss_error(cleaned['category_name'], cleaned.get('gross_amount'))
+            if message:
+                self.add_error('gross_amount', message)
         # gross = net + withholding tax + expenses, exactly (only when a net amount is given). The message names the numbers.
         g, n = cleaned.get('gross_amount'), cleaned.get('net_amount')
         if g is not None and n is not None and not self.errors.keys() & {'gross_amount', 'net_amount', 'withholding_tax', 'expenses'}:

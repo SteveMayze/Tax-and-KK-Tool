@@ -28,6 +28,11 @@ class ActualTotals:
     withholding_eur: Decimal = ZERO     # withholding tax, converted with each payment's own rate
     expenses_eur: Decimal = ZERO
     unallocated_eur: Decimal = ZERO     # gross - net - withholding - expenses, over payments that have a net amount
+    # gross_eur = gains + losses + adjustments (Phase 11): normal payments above 0, normal payments below 0 (a loss,
+    # signed), and corrections/reversals (signed). Nothing is netted away: gross_eur is the signed sum.
+    gains_eur: Decimal = ZERO
+    losses_eur: Decimal = ZERO
+    adjustments_eur: Decimal = ZERO
 
 
 @dataclass
@@ -60,8 +65,13 @@ def actual_totals(payments) -> ActualTotals:
     withholding = sum((p.withholding_tax_eur or ZERO for p in converted), ZERO)
     expenses = sum((p.expenses_eur or ZERO for p in converted), ZERO)
     unallocated = sum((unallocated_eur(p) for p in with_net), ZERO)
+    normal = [p for p in converted if p.kind == Payment.Kind.NORMAL]
+    gains = sum((p.gross_eur for p in normal if p.gross_eur > 0), ZERO)
+    losses = sum((p.gross_eur for p in normal if p.gross_eur < 0), ZERO)
+    adjustments = sum((p.gross_eur for p in converted if p.kind != Payment.Kind.NORMAL), ZERO)
     return ActualTotals('actual payments received, EUR, stored rates', len(payments), gross, net,
-                        len(converted) - len(with_net), unconverted, withholding, expenses, unallocated)
+                        len(converted) - len(with_net), unconverted, withholding, expenses, unallocated,
+                        gains, losses, adjustments)
 
 
 def normalised_monthly_totals(payments) -> NormalisedTotals:

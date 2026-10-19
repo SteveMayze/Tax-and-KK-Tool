@@ -45,7 +45,8 @@ Research date: **2026-10-18**. Rules change yearly (rates, limits) and sometimes
 7. **Years**: the SBK estimate exists for **2026 only**. 2025 is waiting for SBK's answers to the open questions above before its parameters are verified and added.
 8. **Newer SBK rules**: check for a BVSz amendment after 2024-03-20 and for SBK rate changes during the year.
 9. **Withholding tax and expenses (Phase 10, OPEN QUESTION).** How recorded withholding tax and expenses should affect the SBK and the tax figures is NOT decided: the app shows them next to gross and net and changes no calculation. Open: whether SBK takes gross or net foreign income, whether source-state withholding tax is creditable (treaty rules UK, AU, US; section 32d(5) EStG), and whether recorded expenses may replace the manual annual costs. Ask SBK and your tax adviser. Status: unverified, not implemented.
-10. **Deferred by the owner:** PDF extraction (Phase 5 part 2) and the CLAUDE.md update for the new import design; SBK's answers will be supplied by the owner when available.
+10. **Loss-offset rules (Phase 11, UNVERIFIED).** Owner answer 2026-10-19: no SBK or tax-office statement on how losses count for health-insurance contributions is available; it stays unverified. Questions to ask SBK and your adviser are listed in income-tax-rules.md (TAX-11). The app implements no offset.
+11. **Deferred by the owner:** PDF extraction (Phase 5 part 2) and the CLAUDE.md update for the new import design; SBK's answers will be supplied by the owner when available.
 
 ## Implemented policies
 | Policy | Version | Rules | Tests |

@@ -5,13 +5,13 @@
 <p><a href="{% url kind|add:'_add' %}">Add {{ cfg.singular }}</a></p>
 <p class="note">Items used by payments cannot be deleted; deactivate them instead (inactive items are not offered when entering payments).</p>
 <table>
-  <thead><tr><th>Name</th>{% if kind == 'organisation' %}<th>Country</th>{% else %}<th>SBK treatment</th><th>Tax income type</th>{% endif %}<th>Active</th><th class="num">Payments</th><th></th></tr></thead>
+  <thead><tr><th>Name</th>{% if kind == 'organisation' %}<th>Country</th>{% else %}<th>SBK treatment</th><th>Tax income type</th><th>May be negative</th>{% endif %}<th>Active</th><th class="num">Payments</th><th></th></tr></thead>
   <tbody>
   {% for r in rows %}
-  <tr><td>{{ r.name }}</td>{% if kind == 'organisation' %}<td>{{ r.country }}</td>{% else %}<td>{{ r.get_sbk_treatment_display|default:'<em>not mapped</em>' }}</td><td>{{ r.get_tax_income_type_display|default:'<em>not mapped</em>' }}</td>{% endif %}
+  <tr><td>{{ r.name }}</td>{% if kind == 'organisation' %}<td>{{ r.country }}</td>{% else %}<td>{{ r.get_sbk_treatment_display|default:'<em>not mapped</em>' }}</td><td>{{ r.get_tax_income_type_display|default:'<em>not mapped</em>' }}</td><td>{{ r.may_be_negative|yesno:"yes,no" }}</td>{% endif %}
     <td>{{ r.active|yesno:"yes,no" }}</td><td class="num">{{ r.payment_count }}</td>
     <td><a href="{% url kind|add:'_edit' r.pk %}">Edit</a> <a href="{% url kind|add:'_delete' r.pk %}">Delete</a></td></tr>
-  {% empty %}<tr><td colspan="6">None yet.</td></tr>
+  {% empty %}<tr><td colspan="7">None yet.</td></tr>
   {% endfor %}
   </tbody>
 </table>

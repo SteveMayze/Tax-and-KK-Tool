@@ -108,6 +108,19 @@ def _breakdown_cols():
     return [Column(k, label, 'money') for k, label in BREAKDOWN_COLS]
 
 
+GAIN_LOSS_COLS = [('gains_eur', 'Gains EUR'), ('losses_eur', 'Losses EUR (signed)'), ('adjustments_eur', 'Corrections / reversals EUR (signed)')]
+GAIN_LOSS_NOTE = ('Gross EUR is the signed sum: gains (normal payments above 0) + losses (normal payments below 0, shown negative) + '
+                  'corrections/reversals. Losses are not offset against anything else; loss-offset rules are not implemented (unverified, docs/rules/).')
+
+
+def _gain_loss_cols():
+    return [Column(k, label, 'money') for k, label in GAIN_LOSS_COLS]
+
+
+def _gain_loss(t):
+    return {'gains_eur': t.gains_eur, 'losses_eur': t.losses_eur, 'adjustments_eur': t.adjustments_eur}
+
+
 def _breakdown(t):
     return {'withholding_eur': t.withholding_eur, 'expenses_eur': t.expenses_eur, 'unallocated_eur': t.unallocated_eur}
 
@@ -139,13 +152,14 @@ def annual_summary(year=None):
         rows.append({
             'year': str(key), 'payments': t.payment_count, 'months': len({p.month_id for p in group}),
             'gross_eur': t.gross_eur, 'net_eur': t.net_eur, 'gross_12': avg['gross_eur'], 'net_12': avg['net_eur'],
-            'net_missing': t.net_missing_count, 'unconverted': t.unconverted_count, **_breakdown(t)})
+            'net_missing': t.net_missing_count, 'unconverted': t.unconverted_count, **_breakdown(t), **_gain_loss(t)})
     cols = [Column('year', 'Year'), Column('payments', 'Payments', 'int'), Column('months', 'Months with payments', 'int'),
-            Column('gross_eur', 'Gross EUR', 'money'), Column('net_eur', 'Net EUR', 'money'), *_breakdown_cols(),
+            *_gain_loss_cols(), Column('gross_eur', 'Gross EUR (signed sum)', 'money'), Column('net_eur', 'Net EUR', 'money'), *_breakdown_cols(),
             Column('gross_12', 'Gross EUR / 12', 'money'), Column('net_12', 'Net EUR / 12', 'money'),
             Column('net_missing', 'Payments without net', 'int'), Column('unconverted', 'Unconverted payments', 'int')]
     return _make('annual', 'Annual summary', year, ACTUAL, cols, rows, payments,
-                 notes=['"/ 12" is the annual actual total divided by 12 (always 12, even for a partial year). '
+                 notes=[GAIN_LOSS_NOTE,
+                        '"/ 12" is the annual actual total divided by 12 (always 12, even for a partial year). '
                         'It is an average of actuals, not a recurring monthly figure, and not an official SBK or tax calculation.'])
 
 
@@ -178,16 +192,17 @@ def _group_report(key, title, year, label, keyfunc, name_label):
         share = (t.gross_eur / total.gross_eur) if total.gross_eur else None
         rows.append({'name': name, 'payments': t.payment_count, 'gross_eur': t.gross_eur, 'net_eur': t.net_eur,
                      'share': share, 'net_missing': t.net_missing_count, 'unconverted': t.unconverted_count,
-                     **_breakdown(t)})
+                     **_breakdown(t), **_gain_loss(t)})
     rows.sort(key=lambda r: (-r['gross_eur'], r['name'].lower()))
-    cols = [Column('name', name_label), Column('payments', 'Payments', 'int'), Column('gross_eur', 'Gross EUR', 'money'),
+    cols = [Column('name', name_label), Column('payments', 'Payments', 'int'), *_gain_loss_cols(),
+            Column('gross_eur', 'Gross EUR (signed sum)', 'money'),
             Column('net_eur', 'Net EUR', 'money'), *_breakdown_cols(), Column('share', 'Share of gross', 'pct'),
             Column('net_missing', 'Payments without net', 'int'), Column('unconverted', 'Unconverted payments', 'int')]
     totals = {'name': 'Total', 'payments': total.payment_count, 'gross_eur': total.gross_eur, 'net_eur': total.net_eur,
               'share': Decimal(1) if total.gross_eur else None, 'net_missing': total.net_missing_count,
-              'unconverted': total.unconverted_count, **_breakdown(total)}
+              'unconverted': total.unconverted_count, **_breakdown(total), **_gain_loss(total)}
     return _make(key, title, year, ACTUAL, cols, rows, payments, totals,
-                 notes=['Share of gross = group gross EUR / total gross EUR (converted payments only).'])
+                 notes=['Share of gross = group gross EUR / total gross EUR (converted payments only).', GAIN_LOSS_NOTE])
 
 
 def by_organisation(year=None):

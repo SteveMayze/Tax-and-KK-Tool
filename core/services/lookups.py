@@ -21,6 +21,20 @@ def check_usable(model, name):
         raise InactiveLookup(f'"{obj.name}" is inactive. Reactivate it first or choose another name.')
 
 
+def loss_error(category_name, gross):
+    """Message when a NEGATIVE normal payment is entered for a category not marked "may be negative" (a category
+    that does not exist yet is not marked either). None when the amount is fine. Creates nothing."""
+    if gross is None or gross >= 0:
+        return None
+    cat = find(IncomeCategory, category_name)
+    if cat is not None and cat.may_be_negative:
+        return None
+    name = cat.name if cat is not None else _clean(category_name)
+    return (f'Gross amount must be positive: a negative amount (loss) is only allowed in categories marked "may be negative"; category '
+            f'"{name}" is not{" (it does not exist yet)" if cat is None else ""}. Mark it on the Categories page first, '
+            f'or use a reversal/correction.')
+
+
 def resolve(model, name):
     """Return the existing row (case-insensitive) or create a new one."""
     check_usable(model, name)

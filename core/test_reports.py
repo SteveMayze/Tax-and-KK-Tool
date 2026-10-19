@@ -273,10 +273,12 @@ class CsvRenderTests(TestCase):
         for key in ('Period', 'Currency', 'Basis', 'Gross/net', 'Exchange-rate basis', 'Excluded / missing', 'Rounding'):
             self.assertIn(key, m)
         self.assertEqual(m['Report format version'], '2')
-        self.assertEqual(table[0], ['Organisation', 'Payments', 'Gross EUR', 'Net EUR', 'Withholding tax EUR', 'Expenses EUR',
+        self.assertEqual(table[0], ['Organisation', 'Payments', 'Gains EUR', 'Losses EUR (signed)', 'Corrections / reversals EUR (signed)',
+                                    'Gross EUR (signed sum)', 'Net EUR', 'Withholding tax EUR', 'Expenses EUR',
                                     'Unallocated EUR', 'Share of gross', 'Payments without net', 'Unconverted payments'])
-        self.assertEqual(table[1][:4] + table[1][7:], ['Alpha Corp', '4', '4200.00', '2900.00', '80.9%', '0', '0'])    # 4200/5190 = 80.92%
-        self.assertEqual(table[-1][:4] + table[-1][7:], ['Total', '8', '5190.00', '3737.00', '100.0%', '1', '1'])
+        pick = lambda row: [row[i] for i in (0, 1, 5, 6, 10, 11, 12)]
+        self.assertEqual(pick(table[1]), ['Alpha Corp', '4', '4200.00', '2900.00', '80.9%', '0', '0'])    # 4200/5190 = 80.92%
+        self.assertEqual(pick(table[-1]), ['Total', '8', '5190.00', '3737.00', '100.0%', '1', '1'])
 
     def test_money_has_two_decimals_no_thousands_and_negatives_intact(self):
         _, table = parse_csv_report(report_csv.render(reports.payment_level(2024)))

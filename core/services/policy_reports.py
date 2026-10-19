@@ -67,7 +67,9 @@ def sbk_estimate(year):
 def tax_info_summary(year=None):
     rows, qs = tax.tax_summary_rows(year)
     cols = [Column('income_type', 'Income type'), Column('country', 'Organisation country'), Column('payments', 'Payments', 'int'),
-            Column('gross_eur', 'Gross EUR (converted)', 'money'), Column('original', 'Original gross by currency'),
+            Column('gross_eur', 'Gross EUR (converted, signed sum)', 'money'),
+            Column('losses_eur', 'of which losses EUR (shown separately, not netted across categories)', 'money'),
+            Column('original', 'Original gross by currency'),
             Column('withholding_eur', 'Withholding tax EUR (information, not credited)', 'money'),
             Column('unconverted', 'Unconverted payments', 'int'), Column('manual_rates', 'Manual-rate payments', 'int'),
             Column('flags', 'Flags')]

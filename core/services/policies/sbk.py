@@ -64,7 +64,8 @@ ASSUMPTIONS = [
     'Employment and pension income is allocated to the month of the payment date (income-period dates are not used).',
     'Self-employed, rental and capital income: annual surplus divided by the months from "first month" to "last month" you '
     'entered (default January to December) and applied to those months. This reading of BVSz section 5(2) is not confirmed with SBK.',
-    'A negative annual surplus is treated as 0; loss netting (including section 20(6) EStG) is not applied.',
+    'A negative annual surplus is treated as 0; loss netting (including section 20(6) EStG) is not applied. Losses are recorded '
+    'as negative payments in categories marked "may be negative" and are listed in a run-specific note when present.',
     'One-off income is spread at 1/12 per month for 12 months starting with the month of receipt (BVSz section 5(3)), '
     'including one-offs received in the previous year.',
     'Gross EUR amounts at the rate stored on each payment; unconverted payments are excluded. Net amounts are not used.',
@@ -170,6 +171,7 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
     comps = {m: {t: ZERO for t in SbkTreatment.values} for m in range(1, 13)}
     gross_year = {t: ZERO for t in (SbkTreatment.SELF_EMPLOYED, SbkTreatment.RENTAL, SbkTreatment.CAPITAL)}
     unmapped, notes = {}, []
+    losses = {}                      # treatment -> [count, EUR sum] of normal payments below 0 received in the year
     excluded_by_mapping = unconverted = unconverted_mapped = 0
 
     for p in payments:
@@ -191,6 +193,10 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
             unconverted_mapped += in_year
             continue
         gross = p.gross_eur
+        if in_year and p.kind == Payment.Kind.NORMAL and gross < 0:
+            row = losses.setdefault(treatment, [0, ZERO])
+            row[0] += 1
+            row[1] += gross
         if treatment in (SbkTreatment.EMPLOYMENT, SbkTreatment.PENSION):
             if in_year:
                 comps[p.month.month][treatment] += gross
@@ -221,6 +227,11 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
             notes.append(f'{SbkTreatment(treatment).label.split(":")[0]}: no months/costs entered for {year}; '
                          f'assumed January to December and no costs' +
                          (f' (capital: flat {params.capital_costs_flat} EUR)' if treatment == SbkTreatment.CAPITAL else '') + '.')
+
+    for treatment, (count, total) in sorted(losses.items()):
+        notes.append(f'Loss recorded in {SbkTreatment(treatment).label.split(":")[0]} ({count} payment(s), {total:,.2f} EUR): it only '
+                     f'reduces that income type\'s own signed sum; a negative annual surplus counts as 0, and the loss is not netted '
+                     f'against other income types or carried over (loss-offset rules are unverified, docs/rules/).')
 
     months = []
     for m in range(1, 13):

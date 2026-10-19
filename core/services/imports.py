@@ -187,6 +187,10 @@ def validate_row(data: dict):
         candidate = Payment(
             payment_date=d, currency=currency, gross_amount=gross, net_amount=net, frequency=freq,
             withholding_tax=withholding, expenses=expenses, income_period_start=p_start, income_period_end=p_end, comment=data.get('comment', ''))
+        loss_message = lookups.loss_error(cat, gross)
+        if loss_message:
+            errors.append('gross_amount: ' + loss_message)
+    if not errors:
         try:
             candidate.full_clean(exclude=['month', 'organisation', 'category'], validate_unique=False)
         except ValidationError as e:

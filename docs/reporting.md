@@ -31,6 +31,9 @@ Period; currency; basis (actual vs normalised); gross/net treatment; exchange-ra
 - **Rounding:** all sums are exact `Decimal` over stored values. Amounts are rounded half-up to 2 decimals only when displayed or exported, and totals are rounded once from the unrounded sum, so a total can differ by a cent from the sum of its rounded rows. Percentages show 1 decimal.
 - **Reproducible:** a report is a pure function of the saved data (nothing cached or stored). The same data gives the same figures; only the "generated" time changes.
 
+## Gains and losses (Phase 11)
+The annual summary and the by-category and by-organisation reports show **Gains EUR** (normal payments above 0), **Losses EUR** (normal payments below 0, signed), **Corrections / reversals EUR** (signed) and **Gross EUR (signed sum)**, which is their sum. A reversal is never counted as a loss. The tax information summary shows losses in their own column and nets nothing across categories; the SBK estimate adds a run-specific note to its basis block when a loss was recorded. No loss-offset rule is applied (unverified, `docs/rules/`).
+
 ## CSV format
 **Report format version 2** (Phase 10; version 1 had gross and net only): the file starts with a `Report format version` row, and the gross/net reports add `Withholding tax EUR`, `Expenses EUR` and `Unallocated EUR` columns (the original-currency summary and payment-level reports also add the original-currency amounts). The basis block's `Gross/net` row states the identity gross = net + withholding tax + expenses + unallocated. Reconciliation lists payments whose gross differs from net + withholding tax + expenses. The tax information summary shows withholding tax EUR as information only, labelled as not credited.
 

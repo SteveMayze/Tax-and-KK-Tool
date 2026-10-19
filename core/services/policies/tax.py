@@ -22,6 +22,7 @@ NOT_APPLIED = [
     'Double-taxation treaties (UK, Australia, USA), foreign-tax credit and progression reservation are not applied.',
     'Currency conversion: the app uses the ECB rate of the payment date; whether the tax authorities require another rate is not verified.',
     'Withholding tax already deducted at source is shown for information only and is NOT credited: treaty and foreign-tax-credit rules are not implemented. Recorded expenses are not deducted either.',
+    'Losses (negative payments) are shown separately and are not netted across categories; loss-offset rules (loss pots, carry-forward, relation to SBK) are unverified and not implemented.',
     'No tax amount is calculated. Expenses, Anlage mapping and church tax/solidarity surcharge are not handled.',
 ]
 
@@ -50,7 +51,12 @@ def tax_checks(year: int, settings: AssessmentSettings | None = None):
     results = []
 
     capital = _typed_payments(year, {TaxIncomeType.CAPITAL})
-    income = sum((p.gross_eur for p in _converted(capital)), ZERO)
+    by_category = defaultdict(lambda: ZERO)
+    for p in _converted(capital):
+        by_category[p.category_id] += p.gross_eur
+    # A category whose total is a loss counts as 0: losses are NOT netted against other categories (offset rules unverified).
+    income = sum((max(total, ZERO) for total in by_category.values()), ZERO)
+    capital_losses = sum((total for total in by_category.values() if total < 0), ZERO)
     allowance = SPARER_PAUSCHBETRAG * (2 if settings.joint_assessment else 1)
     used = min(allowance, max(income, ZERO))
     results.append(CheckResult(
@@ -58,7 +64,9 @@ def tax_checks(year: int, settings: AssessmentSettings | None = None):
         f'Allowance {allowance:,.0f} EUR ({"joint" if settings.joint_assessment else "single"} assessment)',
         f'Allowance used {used:,.2f} EUR, remaining {allowance - used:,.2f} EUR; capital income above the allowance {max(income - allowance, ZERO):,.2f} EUR',
         'Gross EUR capital income of all mapped capital categories, including foreign. Tax already withheld and foreign tax are not modelled. '
-        'Actual costs cannot be deducted for capital income.'))
+        'Actual costs cannot be deducted for capital income.' +
+        (f' A loss of {-capital_losses:,.2f} EUR in a capital category is NOT offset against other categories (loss-offset rules unverified).'
+         if capital_losses else '')))
 
     sales = _typed_payments(year, {TaxIncomeType.PRIVATE_SALE})
     total = sum((p.gross_eur for p in _converted(sales)), ZERO)
@@ -120,6 +128,7 @@ def tax_summary_rows(year=None):
             'income_type': labels.get(itype, 'Not mapped'), 'country': country or '(not set)', 'payments': len(group),
             'gross_eur': sum((p.gross_eur for p in converted), ZERO),
             'withholding_eur': sum((p.withholding_tax_eur or ZERO for p in converted), ZERO),
+            'losses_eur': sum((p.gross_eur for p in converted if p.kind == Payment.Kind.NORMAL and p.gross_eur < 0), ZERO),
             'original': '; '.join(f'{c} {a:,.2f}' for c, a in sorted(by_ccy.items())),
             'unconverted': len(group) - len(converted),
             'manual_rates': sum(1 for p in converted if p.rate_source == 'manual'),
