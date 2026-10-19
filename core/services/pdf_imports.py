@@ -44,10 +44,12 @@ def _amount(value: Decimal):
 
 def _row_data(name, dividend: Dividend):
     data = {c: '' for c in COLUMNS}
-    comment = gettext('Dividend statement %(code)s, PDF "%(file)s".') % {'code': dividend.code, 'file': name}
+    comment = gettext('Dividend (PDF import).')
     if dividend.reinvested:
         comment += ' ' + gettext('Reinvested under a dividend reinvestment plan (no cash received).')
-    data.update(payment_date=dividend.payment_date.isoformat(), organisation=dividend.code, category=CATEGORY,
+    # "<company name> (<ASX code>)" when the statement prints the company's name, else just the ASX code (nothing is looked up)
+    organisation = f'{dividend.issuer} ({dividend.code})' if dividend.issuer else dividend.code
+    data.update(payment_date=dividend.payment_date.isoformat(), organisation=organisation, category=CATEGORY,
                 currency='AUD', gross_amount=_amount(dividend.gross), net_amount=_amount(dividend.net),
                 withholding_tax=_amount(dividend.withholding), expenses='0', frequency=FREQUENCY, comment=comment)
     return data

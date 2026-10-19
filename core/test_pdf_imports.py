@@ -73,6 +73,14 @@ class ExtractionTests(SimpleTestCase):
         with self.assertRaisesRegex(ds.UnsupportedStatement, 'payment date'):
             parsed(NO_PAYMENT_DATE)
 
+    def test_company_name_is_used_when_the_statement_prints_it_otherwise_only_the_code(self):
+        names = {name: parsed(lines).issuer for name, (lines, _e) in ACCEPTED.items()}
+        self.assertEqual(names['mufg'], 'Acme Mining Limited')              # printed in capitals above the ABN line
+        self.assertEqual(names['computershare'], 'Zed Resources Limited')
+        self.assertEqual(names['label_first_net'], 'Quick Pharma Limited')   # on the same line as the ABN
+        self.assertEqual(names['payment_then_record'], 'Hubb Limited')
+        self.assertEqual(names['value_per_line'], '')                       # no name next to the ABN: the code alone is used
+
     def test_franking_details_are_not_read(self):
         self.assertFalse(hasattr(parsed(MUFG_STYLE), 'franking_credit'))
 
@@ -107,10 +115,17 @@ class StagingTests(UploadDirMixin, TestCase):
         self.assertEqual((batch.kind, batch.status), ('pdf', 'preview'))
         self.assertEqual((row.data['payment_date'], row.data['organisation'], row.data['category'], row.data['currency'],
                           row.data['gross_amount'], row.data['net_amount'], row.data['withholding_tax'], row.data['frequency']),
-                         ('2025-05-12', 'ACM', 'Dividends', 'AUD', '50.00', '50.00', '0.00', 'one_off'))
+                         ('2025-05-12', 'Acme Mining Limited (ACM)', 'Dividends', 'AUD', '50.00', '50.00', '0.00', 'one_off'))
         self.assertEqual(row.status, 'valid')
         self.assertEqual((Payment.objects.count(), Organisation.objects.count()), (0, 0))
         self.assertEqual((row.rate, row.rate_provider), (D('0.6'), 'fake'))                 # proposed conversion, not applied
+
+    def test_organisation_is_name_and_code_when_available_else_the_code(self):
+        named = self.stage(('n.pdf', MUFG_STYLE)).rows.get()
+        self.assertEqual(named.data['organisation'], 'Acme Mining Limited (ACM)')
+        unnamed = self.stage(('u.pdf', ACCEPTED['value_per_line'][0])).rows.get()
+        self.assertEqual(unnamed.data['organisation'], 'RTO')
+        self.assertEqual(named.data['comment'], 'Dividend (PDF import).')
 
     def test_each_value_shows_where_it_was_read(self):
         row = self.stage(('acme.pdf', MUFG_STYLE)).rows.get()
@@ -169,7 +184,7 @@ class StagingTests(UploadDirMixin, TestCase):
         svc.commit_batch(batch)
         p = Payment.objects.get()
         self.assertEqual((p.organisation.name, p.category.name, p.currency, p.gross_amount, p.net_amount, p.withholding_tax,
-                          p.expenses, p.gross_eur, p.rate), ('ACM', 'Dividends', 'AUD', D('50'), D('50'), D('0'), D('0'), D('30'), D('0.6')))
+                          p.expenses, p.gross_eur, p.rate), ('Acme Mining Limited (ACM)', 'Dividends', 'AUD', D('50'), D('50'), D('0'), D('0'), D('30'), D('0.6')))
         self.assertEqual(p.source_document.description, 'PDF import #%d' % batch.pk)
         with self.assertRaises(svc.ImportStateError):
             svc.commit_batch(batch)                                                           # a double submit is harmless

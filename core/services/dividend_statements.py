@@ -40,6 +40,7 @@ class Dividend:
     net: Decimal
     withholding: Decimal
     record_date: datetime.date | None = None
+    issuer: str = ''                 # the company's name when the statement prints it next to its ABN, else ''
     reinvested: bool = False
     evidence: dict = field(default_factory=dict)      # field -> (page number, source line)
 
@@ -234,6 +235,34 @@ def _withholding(lines):
     return found
 
 
+COMPANY_WORDS = re.compile(r'(?i)\b(?:limited|ltd|group|corporation|corp|trust|holdings|bank|company|pty|plc|fund|inc)\b')
+ABN_NUMBER = r'ABN[: ]\s*\d{2} \d{3} \d{3} \d{3}'
+SMALL_WORDS = {'LTD': 'Ltd', 'PTY': 'Pty', 'AND': 'and', 'OF': 'of', 'THE': 'the', 'CO': 'Co', 'INC': 'Inc', 'PLC': 'Plc',
+               'CORP': 'Corp'}
+
+
+def _tidy_name(name):
+    name = re.sub(r'^\S*_V\d+', '', name)                       # a reference printed in front of the name
+    name = re.sub(r'[|,;:]+$', '', name.strip('| ')).strip()
+    if name.isupper():                                          # "ENDEAVOUR GROUP LIMITED" -> "Endeavour Group Limited"
+        name = ' '.join(SMALL_WORDS.get(w, w if len(w) <= 3 or re.search(r'\d', w) else w.capitalize()) for w in name.split())
+    return name
+
+
+def _issuer(lines):
+    """The issuing company's name as printed next to its ABN; '' when the statement does not print one (no guess)."""
+    for index, (page, line) in enumerate(lines):
+        m = re.search(r'^(.*?)\s*\|?\s*' + ABN_NUMBER, line)
+        if not m:
+            continue
+        name = _tidy_name(m.group(1))
+        if not name and index:                                  # the name is on the line above the ABN
+            name = _tidy_name(lines[index - 1][1])
+        if name and COMPANY_WORDS.search(name) and len(name) <= 70 and not re.search(r'(?i)registry|computershare|mufg|investor', name):
+            return name
+    return ''
+
+
 def _reinvested(lines):
     return any(re.search(r'(?i)dividend reinvestment plan amount|shares allotted|cost of shares allotted', line)
                for _p, line in lines)
@@ -288,4 +317,4 @@ def parse(pages: list[str]) -> Dividend:
     if withheld:
         evidence['withholding_tax'] = withheld[0][1]
     return Dividend(code=code, payment_date=payment_date, gross=gross, net=net, withholding=withholding,
-                    record_date=record_date, reinvested=_reinvested(lines), evidence=evidence)
+                    record_date=record_date, issuer=_issuer(lines), reinvested=_reinvested(lines), evidence=evidence)

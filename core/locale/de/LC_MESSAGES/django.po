@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: tax-healthcare-tool\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-19 17:59+0000\n"
+"POT-Creation-Date: 2026-10-19 18:11+0000\n"
 "PO-Revision-Date: 2026-10-19 17:00+0000\n"
 "Last-Translator: Owner-reviewed glossary terms; remaining wording proposed\n"
 "Language-Team: German\n"
@@ -612,9 +612,8 @@ msgstr " (sie existiert noch nicht)"
 msgid ". Mark it on the Categories page first, or use a reversal/correction."
 msgstr ". Markieren Sie sie zuerst auf der Seite „Kategorien“ oder verwenden Sie eine Stornierung/Korrektur."
 
-#, python-format
-msgid "Dividend statement %(code)s, PDF \"%(file)s\"."
-msgstr "Dividendenabrechnung %(code)s, PDF „%(file)s“."
+msgid "Dividend (PDF import)."
+msgstr "Dividende (PDF-Import)."
 
 msgid "Reinvested under a dividend reinvestment plan (no cash received)."
 msgstr "Im Rahmen eines Dividendenwiederanlageplans wiederangelegt (keine Barzahlung erhalten)."
@@ -625,6 +624,7 @@ msgstr "Wortlaut zum Dividendenwiederanlageplan in der Abrechnung gefunden."
 msgid "No file was uploaded."
 msgstr "Es wurde keine Datei hochgeladen."
 
+#, python-format
 msgid "More than %(n)s files at once."
 msgstr "Mehr als %(n)s Dateien auf einmal."
 
@@ -639,6 +639,7 @@ msgstr "Dieses PDF wurde nicht erkannt, daher wurde nichts vorbereitet. %(reason
 msgid "None of the %(n)s PDFs was recognised, so nothing was staged. %(reasons)s Enter the payments manually."
 msgstr "Keines der %(n)s PDFs wurde erkannt, daher wurde nichts vorbereitet. %(reasons)s Erfassen Sie die Zahlungen manuell."
 
+#, python-format
 msgid "Not staged: %(file)s (%(reason)s)."
 msgstr "Nicht vorbereitet: %(file)s (%(reason)s)."
 
@@ -654,6 +655,7 @@ msgstr "Genau diese Dateien wurden bereits als Import Nr. %(n)s importiert. Ein 
 msgid "%(n)s PDF statements"
 msgstr "%(n)s PDF-Abrechnungen"
 
+#, python-format
 msgid "The PDF is larger than %(mb)s MB."
 msgstr "Das PDF ist größer als %(mb)s MB."
 
@@ -663,6 +665,7 @@ msgstr "Dies ist keine PDF-Datei."
 msgid "The PDF is password-protected; remove the password and upload it again."
 msgstr "Das PDF ist passwortgeschützt; entfernen Sie das Passwort und laden Sie es erneut hoch."
 
+#, python-format
 msgid "The PDF has more than %(n)s pages."
 msgstr "Das PDF hat mehr als %(n)s Seiten."
 
