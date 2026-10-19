@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load money lookups %}
+{% load money lookups static %}
 {% block title %}{% if editing %}Edit payment{% else %}Add payment{% endif %}{% endblock %}
 {% block content %}
 <p><a href="{% url 'month_detail' month.year.year month.month %}">&larr; {{ month_name }} {{ month.year.year }}</a></p>
@@ -42,6 +42,8 @@
       {% endif %}
     {% endfor %}
   </details>
+  <p id="unallocated" class="note" aria-live="polite">Unallocated: enter gross and net to see it.</p>
   <p><button type="submit">Save payment</button></p>
 </form>
+<script src="{% static 'core/unallocated.js' %}"></script>
 {% endblock %}

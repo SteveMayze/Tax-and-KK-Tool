@@ -9,6 +9,8 @@ from decimal import Decimal
 
 from .money import round_for_display
 
+# 1: gross/net columns only (before Phase 10). 2: adds withholding tax, expenses and unallocated columns.
+CSV_FORMAT_VERSION = '2'
 FORMULA_CHARS = ('=', '+', '-', '@', '\t', '\r')
 
 
@@ -38,6 +40,7 @@ def render(report) -> str:
     out = io.StringIO()
     w = csv.writer(out, lineterminator='\r\n')
     w.writerow(['Report', report.title])
+    w.writerow(['Report format version', CSV_FORMAT_VERSION])
     w.writerow(['Generated (UTC)', report.generated_at.strftime('%Y-%m-%d %H:%M:%S')])
     for label, text in report.basis:
         w.writerow([label, safe_text(text)])

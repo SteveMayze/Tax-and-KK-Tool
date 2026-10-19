@@ -23,6 +23,8 @@ Two modes, always labelled in the result's `basis`:
 - **Normalised**: sum of monthly equivalents of recurring payments, one-offs excluded and counted. Designed for one month's payments; applying it to a whole year would over-count repeated monthly payments.
 - `year_average_of_actuals` = annual actual / 12, labelled as an average of actuals, not a recurring figure.
 
+**Breakdown (Phase 10).** `gross = net + withholding tax + expenses` in the original currency, exactly (Decimal, 4 dp). It is enforced when a payment is created or edited in the form or the importer (not on every save, so older payments can still have their rate corrected or be recalculated). A payment with gross only (no net) cannot be checked: its `unallocated` is "not known" and it is excluded from unallocated totals. Withholding tax and expenses are converted with the payment's own stored rate, in the same step and the same audit event as gross and net, at full precision (no second rate lookup, no rounding before the report totals). In reports `unallocated EUR` is `gross_eur - net_eur - withholding_tax_eur - expenses_eur`, summed over payments that have a net amount; it is 0 except for payments saved before Phase 10 (their withholding and expenses are 0 and nothing is guessed). Rounding happens once, at report totals, as before. Recorded expenses are information only and do not feed the SBK annual-costs input; withholding tax is not credited in any tax figure.
+
 Gross and net are summed separately. Net totals include only payments that have a net amount; `net_missing_count` reports the rest. Payments without a stored conversion are excluded from all sums and reported as `unconverted_count`. Nothing is treated as zero silently.
 
 ## Opening-page monthly figure (decided)

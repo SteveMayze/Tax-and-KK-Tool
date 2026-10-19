@@ -181,7 +181,8 @@ class ReportNumbersTests(TestCase):
         rep = reports.reconciliation(2024)
         found = [(r['issue'], r['id']) for r in rep.rows]
         expected = [('Not converted', self.p[7].pk)] + [('Manually entered rate', self.p[i].pk) for i in (3, 4, 6)] + \
-                   [('No net amount', self.p[i].pk) for i in (4, 7)]
+                   [('No net amount', self.p[i].pk) for i in (4, 7)] + \
+                   [('Gross differs from net + withholding tax + expenses (unallocated)', self.p[i].pk) for i in (1, 2, 3, 5, 6, 8)]
         self.assertCountEqual(found, expected)
 
     def test_basis_block_states_everything(self):
@@ -271,10 +272,11 @@ class CsvRenderTests(TestCase):
         self.assertTrue(m['Generated (UTC)'].startswith('20'))
         for key in ('Period', 'Currency', 'Basis', 'Gross/net', 'Exchange-rate basis', 'Excluded / missing', 'Rounding'):
             self.assertIn(key, m)
-        self.assertEqual(table[0], ['Organisation', 'Payments', 'Gross EUR', 'Net EUR', 'Share of gross',
-                                    'Payments without net', 'Unconverted payments'])
-        self.assertEqual(table[1], ['Alpha Corp', '4', '4200.00', '2900.00', '80.9%', '0', '0'])    # 4200/5190 = 80.92%
-        self.assertEqual(table[-1], ['Total', '9' if False else '8', '5190.00', '3737.00', '100.0%', '1', '1'])
+        self.assertEqual(m['Report format version'], '2')
+        self.assertEqual(table[0], ['Organisation', 'Payments', 'Gross EUR', 'Net EUR', 'Withholding tax EUR', 'Expenses EUR',
+                                    'Unallocated EUR', 'Share of gross', 'Payments without net', 'Unconverted payments'])
+        self.assertEqual(table[1][:4] + table[1][7:], ['Alpha Corp', '4', '4200.00', '2900.00', '80.9%', '0', '0'])    # 4200/5190 = 80.92%
+        self.assertEqual(table[-1][:4] + table[-1][7:], ['Total', '8', '5190.00', '3737.00', '100.0%', '1', '1'])
 
     def test_money_has_two_decimals_no_thousands_and_negatives_intact(self):
         _, table = parse_csv_report(report_csv.render(reports.payment_level(2024)))

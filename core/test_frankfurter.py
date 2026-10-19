@@ -289,7 +289,8 @@ class ReconciliationTests(TestCase):
         self.assertEqual([p.pk for p in r.manual_rates], [manual.pk])
         self.assertEqual([p.pk for p in r.missing_net], [eur_no_net.pk])
         self.assertEqual((r.date_differs, r.inconsistent), ([], []))
-        self.assertEqual(r.issue_count, 3)
+        self.assertEqual([p.pk for p in r.unallocated], [pending.pk, manual.pk, ok.pk])   # gross 1000 vs net 1/5, no breakdown
+        self.assertEqual(r.issue_count, 6)
 
     def test_inconsistency_detected(self):
         p = make_payment(currency='USD'); p.save(); convert_payment(p, manual_rate='0.9')

@@ -26,9 +26,11 @@
   <tr><th>Frequency</th><td>{{ p.get_frequency_display }}</td></tr>
   {% if p.income_period_start or p.income_period_end %}<tr><th>Income period</th><td>{{ p.income_period_start|date:"Y-m-d" }} &ndash; {{ p.income_period_end|date:"Y-m-d" }}</td></tr>{% endif %}
   <tr><th>Original amount</th><td>Gross {{ p.gross_amount|money }} {{ p.currency }}{% if p.net_amount is not None %}; net {{ p.net_amount|money }} {{ p.currency }}{% else %}; net not provided{% endif %}</td></tr>
+  <tr><th>Breakdown</th><td>Withholding tax {{ p.withholding_tax|money }} {{ p.currency }}; expenses {{ p.expenses|money }} {{ p.currency }};
+    {% if p.unallocated is None %}unallocated: not known (no net amount){% elif p.unallocated == 0 %}unallocated 0.00 (gross = net + withholding tax + expenses){% else %}<strong>unallocated {{ p.unallocated|money }} {{ p.currency }}</strong> &mdash; edit the payment to allocate it; it cannot be saved with a gap{% endif %}</td></tr>
   {% if p.conversion_status == 'converted' %}
   <tr><th>Rate used</th><td>{{ p.rate|rate }} EUR per 1 {{ p.currency }} (rate date {{ p.rate_date|date:"Y-m-d" }}, source: {{ p.rate_source }})</td></tr>
-  <tr><th>EUR amount</th><td>Gross {{ p.gross_eur|money }} EUR{% if p.net_eur is not None %}; net {{ p.net_eur|money }} EUR{% endif %}</td></tr>
+  <tr><th>EUR amount</th><td>Gross {{ p.gross_eur|money }} EUR{% if p.net_eur is not None %}; net {{ p.net_eur|money }} EUR{% endif %}; withholding tax {{ p.withholding_tax_eur|money }} EUR; expenses {{ p.expenses_eur|money }} EUR (same rate)</td></tr>
   {% if p.rate_record.source_url %}<tr><th>Rate provenance</th><td class="note">Retrieved {{ p.rate_record.created_at|date:"Y-m-d H:i" }} UTC from <code>{{ p.rate_record.source_url }}</code></td></tr>{% endif %}
   {% if p.conversion_notes %}<tr><th>Rate notes</th><td>{{ p.conversion_notes }}</td></tr>{% endif %}
   {% else %}

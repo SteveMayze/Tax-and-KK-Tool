@@ -31,5 +31,6 @@ Implemented as checks, with no tax amount: TAX-02 (Sparer-Pauschbetrag usage, si
 ## Open items for you
 1. **Mapping:** map each category to a tax income type (Categories page). The country comes from the organisation; if it is blank it is taken from the payment currency (AUD = AU, GBP = GB, USD = US; flagged in the output). EUR is never inferred, so set the country on organisations paid in EUR. YOUR INPUT.
 2. **Currency conversion for tax:** confirm with your adviser which rate to use; the app stores the ECB rate of the payment date.
-3. **Expenses** and **joint-assessment** status (setting exists; default single).
+3. **Withholding tax and expenses** (recorded per payment since Phase 10) are shown as information and are NOT credited or deducted: treaty and foreign-tax-credit rules are not implemented (status: unverified; see docs/rules/README.md, open item 9).
+3b. **Expenses** and **joint-assessment** status (setting exists; default single).
 4. **Foreign treaty questions** (UK, AU, US) are for a tax adviser; the app lists them as "not applied".

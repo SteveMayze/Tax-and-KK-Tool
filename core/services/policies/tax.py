@@ -21,6 +21,7 @@ FLAT_TAX_PCT = Decimal('25')                   # section 32d(1) EStG, reference 
 NOT_APPLIED = [
     'Double-taxation treaties (UK, Australia, USA), foreign-tax credit and progression reservation are not applied.',
     'Currency conversion: the app uses the ECB rate of the payment date; whether the tax authorities require another rate is not verified.',
+    'Withholding tax already deducted at source is shown for information only and is NOT credited: treaty and foreign-tax-credit rules are not implemented. Recorded expenses are not deducted either.',
     'No tax amount is calculated. Expenses, Anlage mapping and church tax/solidarity surcharge are not handled.',
 ]
 
@@ -118,6 +119,7 @@ def tax_summary_rows(year=None):
         rows.append({
             'income_type': labels.get(itype, 'Not mapped'), 'country': country or '(not set)', 'payments': len(group),
             'gross_eur': sum((p.gross_eur for p in converted), ZERO),
+            'withholding_eur': sum((p.withholding_tax_eur or ZERO for p in converted), ZERO),
             'original': '; '.join(f'{c} {a:,.2f}' for c, a in sorted(by_ccy.items())),
             'unconverted': len(group) - len(converted),
             'manual_rates': sum(1 for p in converted if p.rate_source == 'manual'),

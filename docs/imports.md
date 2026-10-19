@@ -18,6 +18,7 @@ Nothing is imported at upload. Every row is reviewed, problems are fixed or excl
 | `gross_amount` | yes | Must be positive. Corrections/reversals are entered in the app, not imported |
 | `frequency` | yes | `monthly`, `quarterly`, `half_yearly`, `yearly`, `one_off` (case and `-`/space variants accepted) |
 | `net_amount` | no | Same sign rules as the payment form |
+| `withholding_tax`, `expenses` | no | Non-negative, in the row's currency; empty means 0. With these columns in the file, a row that has a `net_amount` must satisfy gross = net + withholding_tax + expenses exactly, otherwise the row is invalid and the message shows the three numbers. A file **without** either column (the format before Phase 10) still imports: a gross/net difference is then imported as *unallocated* and flagged with a note on the row; editing the row in the preview applies the strict rule |
 | `income_period_start`, `income_period_end` | no | End must not precede start |
 | `comment` | no | Free text |
 | `exchange_rate` | no | EUR per 1 unit of `currency`. Stored as a **manual** rate. Not allowed for EUR rows. Leave empty to have the ECB rate looked up |

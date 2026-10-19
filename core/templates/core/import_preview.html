@@ -32,7 +32,7 @@
     <td>{{ r.data.payment_date }}</td>
     <td>{{ r.data.organisation }}<br><span class="note">{{ r.data.category }}</span></td>
     <td class="num">{{ r.data.gross_amount }} {{ r.data.currency }}</td>
-    <td class="num">{{ r.data.net_amount }}</td>
+    <td class="num">{{ r.data.net_amount }}{% if r.data.withholding_tax %}<br><span class="note">withholding {{ r.data.withholding_tax }}</span>{% endif %}{% if r.data.expenses %}<br><span class="note">expenses {{ r.data.expenses }}</span>{% endif %}</td>
     <td>{{ r.data.frequency }}</td>
     <td>
       {% if r.rate %}{{ r.rate|rate }} ({{ r.rate_provider }}{% if r.rate_date %}, {{ r.rate_date|date:"Y-m-d" }}{% endif %})<br>

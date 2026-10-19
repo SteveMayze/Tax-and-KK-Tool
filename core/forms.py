@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django import forms
 from django.conf import settings
 
@@ -67,20 +69,27 @@ class PaymentForm(forms.ModelForm):
     manual_note = forms.CharField(label='Rate source / note', required=False, max_length=300)
 
     field_order = ['payment_date', 'organisation_name', 'category_name', 'currency', 'gross_amount',
-                   'net_amount', 'frequency', 'income_period_start', 'income_period_end', 'comment',
+                   'net_amount', 'withholding_tax', 'expenses', 'frequency', 'income_period_start', 'income_period_end', 'comment',
                    'manual_rate', 'manual_rate_date', 'manual_note']
 
     class Meta:
         model = Payment
-        fields = ['payment_date', 'currency', 'gross_amount', 'net_amount', 'frequency',
+        fields = ['payment_date', 'currency', 'gross_amount', 'net_amount', 'withholding_tax', 'expenses', 'frequency',
                   'income_period_start', 'income_period_end', 'comment']
         widgets = {
             'payment_date': DATE, 'income_period_start': DATE, 'income_period_end': DATE,
             'comment': forms.Textarea(attrs={'rows': 2}),
         }
+        help_texts = {
+            'net_amount': 'Optional. When given, gross must equal net + withholding tax + expenses.',
+            'withholding_tax': 'Tax withheld at source, in the payment currency. Leave empty for 0.',
+            'expenses': 'Costs deducted before payment, in the payment currency. Leave empty for 0.',
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        for name in ('withholding_tax', 'expenses'):
+            self.fields[name].required = False
         self.fields['organisation_name'].widget.attrs['list'] = 'organisation-options'
         self.fields['category_name'].widget.attrs['list'] = 'category-options'
         if self.instance.pk:
@@ -95,6 +104,16 @@ class PaymentForm(forms.ModelForm):
             super()._post_clean()
         finally:
             self.instance._skip_conversion_checks = False
+
+    def _clean_breakdown_amount(self, name):
+        value = self.cleaned_data.get(name)
+        return Decimal(0) if value is None else value
+
+    def clean_withholding_tax(self):
+        return self._clean_breakdown_amount('withholding_tax')
+
+    def clean_expenses(self):
+        return self._clean_breakdown_amount('expenses')
 
     def _check_name(self, model, field):
         name = self.cleaned_data[field]
@@ -119,6 +138,14 @@ class PaymentForm(forms.ModelForm):
         self.instance.month = None
         if cleaned.get('currency') == BASE_CURRENCY and (cleaned.get('manual_rate') or '').strip():
             self.add_error('manual_rate', 'EUR payments always use rate 1; leave the manual rate empty.')
+        # gross = net + withholding tax + expenses, exactly (only when a net amount is given). The message names the numbers.
+        g, n = cleaned.get('gross_amount'), cleaned.get('net_amount')
+        if g is not None and n is not None and not self.errors.keys() & {'gross_amount', 'net_amount', 'withholding_tax', 'expenses'}:
+            probe = Payment(gross_amount=g, net_amount=n, withholding_tax=cleaned.get('withholding_tax'),
+                            expenses=cleaned.get('expenses'), currency=cleaned.get('currency') or '')
+            message = probe.breakdown_error()
+            if message:
+                self.add_error(None, message)
         return cleaned
 
     @property

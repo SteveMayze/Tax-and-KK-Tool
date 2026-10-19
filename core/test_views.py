@@ -159,7 +159,7 @@ class PaymentFlowTests(AuthedTestCase):
         self.add_url = reverse('payment_add', args=[2024, 3])
 
     def test_add_eur_payment_shows_confirmation(self):
-        r = self.client.post(self.add_url, payment_post(net_amount='700'), follow=True)
+        r = self.client.post(self.add_url, payment_post(net_amount='700', withholding_tax='300'), follow=True)
         p = Payment.objects.get()
         self.assertRedirects(r, reverse('payment_detail', args=[p.pk]))
         self.assertContains(r, 'Original amount')
@@ -257,7 +257,7 @@ class PaymentEditDeleteTests(AuthedTestCase):
         super().setUp()
         with mock.patch(PROVIDER, return_value=fake()):
             self.client.post(reverse('payment_add', args=[2024, 3]) if ReportingMonth.for_date(DAY) else '', payment_post(
-                currency='GBP', gross_amount='1000', net_amount='800'))
+                currency='GBP', gross_amount='1000', net_amount='800', withholding_tax='200'))
         self.p = Payment.objects.get()
         self.edit_url = reverse('payment_edit', args=[self.p.pk])
 
@@ -269,7 +269,7 @@ class PaymentEditDeleteTests(AuthedTestCase):
     def test_amount_edit_keeps_stored_rate_without_provider_call(self):
         prov = fake()
         with mock.patch(PROVIDER, return_value=prov):
-            self.client.post(self.edit_url, payment_post(currency='GBP', gross_amount='2000', net_amount='1500'))
+            self.client.post(self.edit_url, payment_post(currency='GBP', gross_amount='2000', net_amount='1500', withholding_tax='500'))
         self.p.refresh_from_db()
         self.assertEqual((self.p.gross_amount, self.p.gross_eur, self.p.net_eur, self.p.rate), (D('2000'), D('2400'), D('1800'), D('1.2')))
         self.assertEqual(prov.calls, [])
@@ -283,7 +283,7 @@ class PaymentEditDeleteTests(AuthedTestCase):
         self.assertEqual(self.p.rate, D('1.2'))
 
     def test_manual_rate_on_unchanged_basis_is_refused(self):
-        r = self.client.post(self.edit_url, payment_post(currency='GBP', gross_amount='1000', net_amount='800', manual_rate='2'))
+        r = self.client.post(self.edit_url, payment_post(currency='GBP', gross_amount='1000', net_amount='800', withholding_tax='200', manual_rate='2'))
         self.assertContains(r, 'Use &quot;Recalculate&quot;')
         self.p.refresh_from_db()
         self.assertEqual(self.p.rate, D('1.2'))
@@ -293,7 +293,7 @@ class PaymentEditDeleteTests(AuthedTestCase):
         self.assertContains(r, 'nothing was saved')
         self.p.refresh_from_db()
         self.assertEqual((self.p.currency, self.p.rate), ('GBP', D('1.2')))
-        self.client.post(self.edit_url, payment_post(currency='USD', gross_amount='1000', net_amount='800', manual_rate='0.9'))
+        self.client.post(self.edit_url, payment_post(currency='USD', gross_amount='1000', net_amount='800', withholding_tax='200', manual_rate='0.9'))
         self.p.refresh_from_db()
         self.assertEqual((self.p.currency, self.p.rate, self.p.gross_eur), ('USD', D('0.9'), D('900')))
         self.assertEqual(ExchangeRateRecord.objects.count(), 2)
@@ -302,7 +302,7 @@ class PaymentEditDeleteTests(AuthedTestCase):
         newday = datetime.date(2024, 5, 3)
         prov = FakeRateProvider({('GBP', newday): D('1.3')})
         with mock.patch(PROVIDER, return_value=prov):
-            self.client.post(self.edit_url, payment_post(currency='GBP', payment_date='2024-05-03', net_amount='800'))
+            self.client.post(self.edit_url, payment_post(currency='GBP', payment_date='2024-05-03', net_amount='800', withholding_tax='200'))
         self.p.refresh_from_db()
         self.assertEqual((str(self.p.month), self.p.rate), ('2024-05', D('1.3')))
 
@@ -382,7 +382,7 @@ class EditConvertedPaymentRegressionTests(AuthedTestCase):
     def test_adding_net_amount_uses_stored_rate(self):
         prov = fake()
         with mock.patch(PROVIDER, return_value=prov):
-            r = self.client.post(self.url, payment_post(currency='GBP', gross_amount='1000', net_amount='800'))
+            r = self.client.post(self.url, payment_post(currency='GBP', gross_amount='1000', net_amount='800', withholding_tax='200'))
         self.assertEqual(r.status_code, 302)
         self.p.refresh_from_db()
         self.assertEqual((self.p.net_amount, self.p.net_eur, self.p.rate), (D('800'), D('960'), D('1.2')))
@@ -390,7 +390,7 @@ class EditConvertedPaymentRegressionTests(AuthedTestCase):
         self.assertEqual(self.p.conversion_events.last().kind, 'amounts_edited')
 
     def test_removing_net_amount(self):
-        self.client.post(self.url, payment_post(currency='GBP', gross_amount='1000', net_amount='800'))
+        self.client.post(self.url, payment_post(currency='GBP', gross_amount='1000', net_amount='800', withholding_tax='200'))
         self.client.post(self.url, payment_post(currency='GBP', gross_amount='1000', net_amount=''))
         self.p.refresh_from_db()
         self.assertEqual((self.p.net_amount, self.p.net_eur), (None, None))

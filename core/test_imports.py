@@ -110,7 +110,7 @@ class ValidateRowTests(TestCase):
         return row
 
     def test_valid_row_cleaned_and_new_names_flagged(self):
-        errors, notes, c = svc.validate_row(self.base(organisation='  New   Co ', net_amount='80.5', currency='eur'))
+        errors, notes, c = svc.validate_row(self.base(organisation='  New   Co ', net_amount='80.5', withholding_tax='19.5', currency='eur'))
         self.assertEqual(errors, [])
         self.assertEqual((c['organisation'], c['currency'], c['gross_amount'], c['net_amount']), ('New Co', 'EUR', D('100'), D('80.5')))
         self.assertEqual(notes, ['New organisation "New Co" will be created.'])  # Salary is seeded, so not new
@@ -275,7 +275,7 @@ class StagingTests(UploadDirMixin, TestCase):
         b = self.stage(GOOD + ',a,b')
         row = b.rows.get()
         self.assertEqual(row.status, 'invalid')
-        svc.update_row(row, {k: v for k, v in row.data.items() if k != '_structural'}, prov())
+        svc.update_row(row, {**{k: v for k, v in row.data.items() if k != '_structural'}, 'withholding_tax': '300'}, prov())
         row.refresh_from_db()
         self.assertEqual(row.status, 'valid')
 

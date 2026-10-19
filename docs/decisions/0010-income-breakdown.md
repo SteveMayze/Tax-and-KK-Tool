@@ -1,0 +1,14 @@
+# ADR 0010: Income breakdown, gross = net + withholding tax + expenses
+
+Status: accepted (Phase 10, 2026-10-19; owner answers: enforce exactly; recorded expenses do not feed the SBK costs input; fields shown for every category).
+
+## Decisions
+1. **Two amounts on the payment**, `withholding_tax` and `expenses`, in the original currency, same precision as the other amounts (4 dp), default 0. Normal payments: non-negative. Reversals/corrections: same sign as gross (or 0). `unallocated` is computed (gross - net - withholding - expenses), never stored.
+2. **Strictness.** For a payment with a net amount the identity must hold exactly when it is created or edited (form and importer). The error message shows the three numbers. It is *not* checked on every `save()`: a payment saved before Phase 10 keeps its gap (shown as "unallocated"), can still be recalculated or have its rate corrected, but cannot be saved through the form until the gap is allocated. Rejected: enforcing in `Payment.clean()`, which would block recalculation and rate corrections of old payments.
+3. **Gross only (no net).** The breakdown cannot be checked; `unallocated` is "not known" and excluded from totals. Withholding and expenses may still be recorded.
+4. **EUR.** Two nullable stored columns, `withholding_tax_eur` and `expenses_eur`, are converted in the same step, with the same rate record and in the same audit event as gross and net; editing amounts re-applies the stored rate. Reports use stored values; rounding once at totals.
+5. **Migration 0006.** Existing rows get 0/0; converted rows get 0 EUR (0 x rate is exactly 0), unconverted rows NULL. No breakdown is guessed. Reversible (the reverse drops the columns). Verified on a copy of the real local database and by a test (apply and reverse with data).
+6. **Import.** Optional `withholding_tax`, `expenses` columns. A file that has neither column (old format) still imports; its gross/net gaps become unallocated, with a note on each row. With either column present the identity is strict. (Also fixed: the downloadable template's header order did not match its rows.)
+7. **Reports and CSV.** Withholding tax, expenses and unallocated columns on all gross/net reports; the basis block states the identity; CSV `Report format version` row added, value 2 (1 = before this phase). Reconciliation gets a "gross differs" section.
+8. **No calculation changes.** SBK estimate and tax checks are untouched. The tax summary shows withholding EUR as information, labelled "not credited: treaty and foreign-tax-credit rules are not implemented". Open question recorded in `docs/rules/README.md` item 9.
+9. **Form.** The live "unallocated" display is a small script (`core/static/core/unallocated.js`) using integer arithmetic; it is only a display, the server decides.

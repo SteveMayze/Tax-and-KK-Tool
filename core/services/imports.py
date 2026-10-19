@@ -28,17 +28,18 @@ from .money import MoneyError, normalise_currency, to_decimal
 from .rates import RateError, RateProvider, RateQuote
 
 REQUIRED = ['payment_date', 'organisation', 'category', 'currency', 'gross_amount', 'frequency']
-OPTIONAL = ['net_amount', 'income_period_start', 'income_period_end', 'comment', 'exchange_rate', 'rate_date']
+OPTIONAL = ['net_amount', 'withholding_tax', 'expenses', 'income_period_start', 'income_period_end', 'comment', 'exchange_rate', 'rate_date']
 COLUMNS = REQUIRED + OPTIONAL
 FREQUENCIES = {'monthly', 'quarterly', 'half_yearly', 'yearly', 'one_off'}
 DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 NUMBER_RE = re.compile(r'^-?\d+(\.\d+)?$')
 
 TEMPLATE_CSV = (
-    ','.join(COLUMNS) + '\n'
-    '2024-03-15,Example Employer GmbH,Salary,EUR,3000.00,2100.00,monthly,2024-03-01,2024-03-31,Synthetic example row,,\n'
-    '2024-03-28,Example Pension Ltd,Pension,GBP,450.00,,monthly,,,Rate looked up automatically,,\n'
-    '2024-06-30,Example Bank AU,Interest,AUD,120.50,,one_off,,,Rate typed in the file,0.6100,2024-06-28\n')
+    'payment_date,organisation,category,currency,gross_amount,net_amount,withholding_tax,expenses,frequency,'
+    'income_period_start,income_period_end,comment,exchange_rate,rate_date\n'
+    '2024-03-15,Example Employer GmbH,Salary,EUR,3000.00,2100.00,800.00,100.00,monthly,2024-03-01,2024-03-31,Synthetic example row,,\n'
+    '2024-03-28,Example Pension Ltd,Pension,GBP,450.00,,,,monthly,,,Rate looked up automatically,,\n'
+    '2024-06-30,Example Bank AU,Interest,AUD,120.50,102.43,18.07,0,one_off,,,Net after 18.07 withholding tax; rate typed in the file,0.6100,2024-06-28\n')
 
 
 class ImportFileError(Exception):
@@ -78,6 +79,7 @@ def parse_csv(raw: bytes):
         if unknown:
             warnings.append(f'Ignored unknown column(s): {", ".join(unknown)}.')
         rows = []
+        legacy_format = not ({'withholding_tax', 'expenses'} & set(names))   # file written before Phase 10
         for cells in reader:
             if not any(c.strip() for c in cells):
                 continue
@@ -90,6 +92,8 @@ def parse_csv(raw: bytes):
             for name, value in zip(names, cells):
                 if name in COLUMNS:
                     data[name] = value.strip()
+            if legacy_format:
+                data['_legacy_no_breakdown'] = True   # dropped when the row is edited
             if errors:
                 data['_structural'] = errors  # dropped when the row is edited
             rows.append((reader.line_num, data))
@@ -128,6 +132,10 @@ def _amount(value, label, errors, required=False):
     return to_decimal(value)
 
 
+def errors_for(errors, label):
+    return any(e.startswith(label + ':') for e in errors)
+
+
 def validate_row(data: dict):
     """Return (errors, notes, cleaned|None). Applies the same model rules as the payment form."""
     errors, notes = list(data.get('_structural', [])), []
@@ -156,6 +164,10 @@ def validate_row(data: dict):
         currency = None
     gross = _amount(data.get('gross_amount', ''), 'gross_amount', errors, required=True)
     net = _amount(data.get('net_amount', ''), 'net_amount', errors)
+    withholding = _amount(data.get('withholding_tax', ''), 'withholding_tax', errors)
+    expenses = _amount(data.get('expenses', ''), 'expenses', errors)
+    withholding = Decimal(0) if withholding is None and not errors_for(errors, 'withholding_tax') else withholding
+    expenses = Decimal(0) if expenses is None and not errors_for(errors, 'expenses') else expenses
     freq = data.get('frequency', '').strip().lower().replace('-', '_').replace(' ', '_')
     if freq not in FREQUENCIES:
         errors.append(f'frequency: must be one of {", ".join(sorted(FREQUENCIES))}.')
@@ -174,17 +186,23 @@ def validate_row(data: dict):
     if not errors:
         candidate = Payment(
             payment_date=d, currency=currency, gross_amount=gross, net_amount=net, frequency=freq,
-            income_period_start=p_start, income_period_end=p_end, comment=data.get('comment', ''))
+            withholding_tax=withholding, expenses=expenses, income_period_start=p_start, income_period_end=p_end, comment=data.get('comment', ''))
         try:
             candidate.full_clean(exclude=['month', 'organisation', 'category'], validate_unique=False)
         except ValidationError as e:
             for field, messages in e.message_dict.items():
                 errors.extend(f'{field}: {m}' for m in messages)
+        if not errors and candidate.breakdown_error():
+            if data.get('_legacy_no_breakdown'):
+                notes.append('This file has no withholding_tax / expenses columns: the difference between gross and net '
+                             f'({candidate.unallocated:,.2f} {currency}) is imported as unallocated. Edit the row to allocate it.')
+            else:
+                errors.append('breakdown: ' + candidate.breakdown_error())
     if errors:
         return errors, notes, None
     return errors, notes, {
         'payment_date': d, 'organisation': org, 'category': cat, 'currency': currency, 'gross_amount': gross,
-        'net_amount': net, 'frequency': freq, 'income_period_start': p_start, 'income_period_end': p_end,
+        'net_amount': net, 'withholding_tax': withholding, 'expenses': expenses, 'frequency': freq, 'income_period_start': p_start, 'income_period_end': p_end,
         'comment': data.get('comment', ''), 'exchange_rate': rate, 'rate_date': rate_date}
 
 
@@ -430,7 +448,8 @@ def commit_batch(batch: ImportBatch) -> ImportBatch:
             organisation=lookups.resolve_organisation(c['organisation']),
             category=lookups.resolve_category(c['category']),
             payment_date=c['payment_date'], currency=c['currency'], gross_amount=c['gross_amount'],
-            net_amount=c['net_amount'], frequency=c['frequency'], income_period_start=c['income_period_start'],
+            net_amount=c['net_amount'], withholding_tax=c['withholding_tax'], expenses=c['expenses'],
+            frequency=c['frequency'], income_period_start=c['income_period_start'],
             income_period_end=c['income_period_end'], comment=c['comment'],
             source_document=doc, import_batch=batch)
         reason = f'Import batch #{batch.pk}, line {r.line_number}'

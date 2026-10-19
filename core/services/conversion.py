@@ -34,6 +34,8 @@ class Conversion:
     net_eur: Decimal | None
     source_url: str = ''
     raw_response: str = ''
+    withholding_tax_eur: Decimal = Decimal(0)
+    expenses_eur: Decimal = Decimal(0)
 
 
 def for_storage(amount: Decimal | None) -> Decimal | None:
@@ -45,6 +47,12 @@ def for_storage(amount: Decimal | None) -> Decimal | None:
 def eur_amount(amount: Decimal | None, rate: Decimal) -> Decimal | None:
     """EUR amount = original amount x rate, at full Decimal precision (no rounding)."""
     return None if amount is None else amount * rate
+
+
+def breakdown_eur(payment: Payment, rate: Decimal) -> tuple[Decimal, Decimal]:
+    """Withholding tax and expenses in EUR with the payment's own rate (the same one as gross and net)."""
+    return (for_storage(eur_amount(payment.withholding_tax or Decimal(0), rate)),
+            for_storage(eur_amount(payment.expenses or Decimal(0), rate)))
 
 
 def stored_quote(provider: RateProvider, currency, on_date) -> RateQuote | None:
@@ -69,8 +77,10 @@ def compute_conversion(payment: Payment, provider: RateProvider | None = None, m
                        refresh: bool = False) -> Conversion:
     """Work out the conversion without saving. `refresh` bypasses previously retrieved rates."""
     if payment.currency == BASE_CURRENCY:
+        wh, ex = breakdown_eur(payment, Decimal(1))
         return Conversion(Decimal(1), payment.payment_date, 'identity', False, '',
-                          for_storage(payment.gross_amount), for_storage(payment.net_amount))
+                          for_storage(payment.gross_amount), for_storage(payment.net_amount),
+                          withholding_tax_eur=wh, expenses_eur=ex)
     if manual_rate is not None:
         try:
             rate = to_decimal(manual_rate)
@@ -78,10 +88,12 @@ def compute_conversion(payment: Payment, provider: RateProvider | None = None, m
             raise ConversionError(f'Invalid manual rate: {e}') from e
         if rate <= 0:
             raise ConversionError('Manual rate must be positive.')
+        wh, ex = breakdown_eur(payment, rate)
         return Conversion(
             rate, manual_rate_date or payment.payment_date, 'manual', True,
             manual_note or 'Manually entered rate.',
-            for_storage(eur_amount(payment.gross_amount, rate)), for_storage(eur_amount(payment.net_amount, rate)))
+            for_storage(eur_amount(payment.gross_amount, rate)), for_storage(eur_amount(payment.net_amount, rate)),
+            withholding_tax_eur=wh, expenses_eur=ex)
 
     if provider is None:
         raise ConversionError('No rate provider configured.')
@@ -93,10 +105,12 @@ def compute_conversion(payment: Payment, provider: RateProvider | None = None, m
             raise ConversionError(f'Could not obtain {payment.currency} rate for {payment.payment_date}: {e}') from e
     if quote.rate <= 0:
         raise ConversionError(f'Provider returned an invalid rate ({quote.rate}).')
+    wh, ex = breakdown_eur(payment, quote.rate)
     return Conversion(
         quote.rate, quote.rate_date, quote.provider, False, quote_notes(quote),
         for_storage(eur_amount(payment.gross_amount, quote.rate)),
-        for_storage(eur_amount(payment.net_amount, quote.rate)), quote.source_url, quote.raw_response)
+        for_storage(eur_amount(payment.net_amount, quote.rate)), quote.source_url, quote.raw_response,
+        withholding_tax_eur=wh, expenses_eur=ex)
 
 
 def _record_for(payment: Payment, c: Conversion) -> ExchangeRateRecord:
@@ -153,6 +167,7 @@ def convert_payment(payment: Payment, provider: RateProvider | None = None, manu
     record = _record_for(payment, c)
     payment.rate, payment.rate_date, payment.rate_source, payment.rate_record = c.rate, c.rate_date, c.provider, record
     payment.gross_eur, payment.net_eur, payment.conversion_notes = c.gross_eur, c.net_eur, c.notes
+    payment.withholding_tax_eur, payment.expenses_eur = c.withholding_tax_eur, c.expenses_eur
     payment.conversion_status = Payment.ConversionStatus.CONVERTED
     payment.save()
     _log(payment, kind, record, previous if converted else (None, None, None), reason or c.notes)
@@ -174,8 +189,11 @@ def reapply_stored_rate(payment: Payment) -> Payment:
     previous = _snapshot(payment)
     payment.gross_eur = for_storage(eur_amount(payment.gross_amount, payment.rate))
     payment.net_eur = for_storage(eur_amount(payment.net_amount, payment.rate))
+    before_breakdown = (payment.withholding_tax_eur, payment.expenses_eur)
+    payment.withholding_tax_eur, payment.expenses_eur = breakdown_eur(payment, payment.rate)
     payment.save()
-    if (payment.gross_eur, payment.net_eur) != previous[1:]:
+    if (payment.gross_eur, payment.net_eur) != previous[1:] or before_breakdown != (
+            payment.withholding_tax_eur, payment.expenses_eur):
         _log(payment, ConversionEvent.Kind.AMOUNTS_EDITED, payment.rate_record, previous, 'Amounts edited; stored rate kept.')
     return payment
 

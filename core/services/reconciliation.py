@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 from core.models import ExchangeRateRecord, Payment
 
-from .conversion import eur_amount, for_storage
+from .conversion import breakdown_eur, eur_amount, for_storage
 
 
 @dataclass
@@ -13,11 +13,12 @@ class Report:
     date_differs: list = field(default_factory=list)    # rate date != payment date
     missing_net: list = field(default_factory=list)     # no net amount: excluded from net totals
     inconsistent: list = field(default_factory=list)    # stored EUR/rate disagree with their inputs
+    unallocated: list = field(default_factory=list)     # gross != net + withholding tax + expenses (older payments)
 
     @property
     def issue_count(self):
         return sum(len(x) for x in (self.pending, self.manual_rates, self.date_differs,
-                                    self.missing_net, self.inconsistent))
+                                    self.missing_net, self.inconsistent, self.unallocated))
 
 
 def build_report(year=None) -> Report:
@@ -28,6 +29,8 @@ def build_report(year=None) -> Report:
     for p in qs:
         if p.net_amount is None:
             r.missing_net.append(p)
+        elif p.unallocated:
+            r.unallocated.append(p)
         if p.conversion_status != Payment.ConversionStatus.CONVERTED:
             r.pending.append(p)
             continue
@@ -45,4 +48,5 @@ def _inconsistent(p: Payment) -> bool:
     if rec is None or rec.rate != p.rate or rec.currency != p.currency:
         return True
     return (p.gross_eur != for_storage(eur_amount(p.gross_amount, p.rate))
-            or p.net_eur != for_storage(eur_amount(p.net_amount, p.rate)))
+            or p.net_eur != for_storage(eur_amount(p.net_amount, p.rate))
+            or (p.withholding_tax_eur, p.expenses_eur) != breakdown_eur(p, p.rate))

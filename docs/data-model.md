@@ -18,9 +18,9 @@ All models live in `core/models.py`. Money uses `Decimal` (see decisions/0001-de
 | `Payment` | See below. |
 
 ## Payment
-- Original transaction: `currency`, `gross_amount`, optional `net_amount`, `frequency` (monthly, quarterly, half_yearly, yearly, one_off). Never modified by conversion.
+- Original transaction: `currency`, `gross_amount`, optional `net_amount`, `withholding_tax` and `expenses` (Phase 10, default 0, original currency; gross = net + withholding tax + expenses, see ADR 0010), `frequency` (monthly, quarterly, half_yearly, yearly, one_off). Never modified by conversion.
 - Dates: `payment_date` (determines the reporting month) and optional `income_period_start/end` (end must not precede start).
-- Conversion (stored per payment): `conversion_status` (pending/converted), `rate`, `rate_date`, `rate_source`, `rate_record`, `gross_eur`, `net_eur`, `conversion_notes`.
+- Conversion (stored per payment): `conversion_status` (pending/converted), `rate`, `rate_date`, `rate_source`, `rate_record`, `gross_eur`, `net_eur`, `withholding_tax_eur`, `expenses_eur` (all four converted with the same stored rate; the last two are NULL until converted), `conversion_notes`. Computed (not stored): `unallocated = gross - net - withholding_tax - expenses` (None when there is no net amount).
 - Corrections/reversals: `kind` (normal/correction/reversal) and `corrects` (FK to the original). Normal gross must be > 0; reversal < 0; correction non-zero; net must share gross's sign; corrections/reversals must reference an original in the same currency. A payment that has corrections cannot be deleted (PROTECT).
 - Every `save()` runs `full_clean()`, including the month/date consistency check, so invariants hold outside forms too. Editing `payment_date` into another month requires re-assigning `month` (`ReportingMonth.for_date`); otherwise validation fails.
 

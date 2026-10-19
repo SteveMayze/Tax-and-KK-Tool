@@ -250,6 +250,10 @@ class Payment(models.Model):
     currency = models.CharField(max_length=3, validators=[currency_code_validator, validate_supported_currency])
     gross_amount = models.DecimalField(**AMOUNT)
     net_amount = models.DecimalField(**AMOUNT, null=True, blank=True)
+    # Breakdown of the difference between gross and net (Phase 10, ADR 0010), in the original currency:
+    # gross = net + withholding_tax + expenses. Non-negative for normal payments; signed like gross otherwise.
+    withholding_tax = models.DecimalField(**AMOUNT, default=0)
+    expenses = models.DecimalField(**AMOUNT, default=0)
     frequency = models.CharField(max_length=12, choices=Frequency.choices)
     comment = models.TextField(blank=True)
 
@@ -270,6 +274,9 @@ class Payment(models.Model):
     rate_record = models.ForeignKey(ExchangeRateRecord, null=True, blank=True, on_delete=models.PROTECT)
     gross_eur = models.DecimalField(**EUR_AMOUNT, null=True, blank=True)
     net_eur = models.DecimalField(**EUR_AMOUNT, null=True, blank=True)
+    # Converted with the SAME stored rate as gross and net (null until the payment is converted).
+    withholding_tax_eur = models.DecimalField(**EUR_AMOUNT, null=True, blank=True)
+    expenses_eur = models.DecimalField(**EUR_AMOUNT, null=True, blank=True)
     conversion_notes = models.TextField(blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -290,6 +297,26 @@ class Payment(models.Model):
 
     def __str__(self):
         return f'{self.payment_date} {self.organisation} {self.gross_amount} {self.currency}'
+
+    @property
+    def unallocated(self):
+        """gross - net - withholding tax - expenses, in the original currency. None when no net amount is
+        recorded (the gross cannot be broken down without it)."""
+        if self.net_amount is None or self.gross_amount is None:
+            return None
+        return self.gross_amount - self.net_amount - (self.withholding_tax or 0) - (self.expenses or 0)
+
+    def breakdown_error(self):
+        """A message naming the three numbers when gross != net + withholding tax + expenses, else None.
+        Enforced when a payment is created or edited by the form and the importer, not on every save, so
+        older payments with a gap can still be recalculated or have their rate corrected."""
+        gap = self.unallocated
+        if gap is None or gap == 0:
+            return None
+        return (f'Gross {self.gross_amount:,.2f} must equal net {self.net_amount:,.2f} + withholding tax '
+                f'{(self.withholding_tax or 0):,.2f} + expenses {(self.expenses or 0):,.2f} '
+                f'(= {self.net_amount + (self.withholding_tax or 0) + (self.expenses or 0):,.2f}); '
+                f'{gap:,.2f} {self.currency} is unallocated.')
 
     def clean(self):
         errors = {}
@@ -312,6 +339,10 @@ class Payment(models.Model):
                 errors['gross_amount'] = 'A correction must be non-zero.'
             if n is not None and n != 0 and (n > 0) != (g > 0):
                 errors['net_amount'] = 'Net amount must have the same sign as gross.'
+            for name, label in (('withholding_tax', 'Withholding tax'), ('expenses', 'Expenses')):
+                v = getattr(self, name)
+                if v is not None and v != 0 and (v > 0) != (g > 0):
+                    errors[name] = (f'{label} cannot be negative.' if g > 0 else f'{label} must have the same sign as gross.')
 
         if self.kind == self.Kind.NORMAL:
             if self.corrects_id:
@@ -330,6 +361,9 @@ class Payment(models.Model):
                 errors['rate'] = 'EUR payments always use rate 1.'
             elif self.net_amount is not None and self.net_eur is None:
                 errors['net_eur'] = 'Net EUR is required when a net amount is present.'
+            elif ((self.withholding_tax and self.withholding_tax_eur is None)
+                  or (self.expenses and self.expenses_eur is None)):
+                errors['withholding_tax_eur'] = 'Withholding tax / expenses EUR are required when those amounts are present.'
         if errors:
             raise ValidationError(errors)
 

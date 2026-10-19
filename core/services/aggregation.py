@@ -25,6 +25,9 @@ class ActualTotals:
     net_eur: Decimal
     net_missing_count: int      # converted payments with no net amount (not in net_eur)
     unconverted_count: int      # payments without a stored EUR conversion (excluded from all sums)
+    withholding_eur: Decimal = ZERO     # withholding tax, converted with each payment's own rate
+    expenses_eur: Decimal = ZERO
+    unallocated_eur: Decimal = ZERO     # gross - net - withholding - expenses, over payments that have a net amount
 
 
 @dataclass
@@ -43,14 +46,22 @@ def _split(payments):
     return converted, len(payments) - len(converted)
 
 
+def unallocated_eur(p):
+    """gross - net - withholding - expenses from the stored EUR amounts of one converted payment with a net amount."""
+    return p.gross_eur - p.net_eur - (p.withholding_tax_eur or ZERO) - (p.expenses_eur or ZERO)
+
+
 def actual_totals(payments) -> ActualTotals:
     payments = list(payments)
     converted, unconverted = _split(payments)
     gross = sum((p.gross_eur for p in converted), ZERO)
     with_net = [p for p in converted if p.net_eur is not None]
     net = sum((p.net_eur for p in with_net), ZERO)
+    withholding = sum((p.withholding_tax_eur or ZERO for p in converted), ZERO)
+    expenses = sum((p.expenses_eur or ZERO for p in converted), ZERO)
+    unallocated = sum((unallocated_eur(p) for p in with_net), ZERO)
     return ActualTotals('actual payments received, EUR, stored rates', len(payments), gross, net,
-                        len(converted) - len(with_net), unconverted)
+                        len(converted) - len(with_net), unconverted, withholding, expenses, unallocated)
 
 
 def normalised_monthly_totals(payments) -> NormalisedTotals:

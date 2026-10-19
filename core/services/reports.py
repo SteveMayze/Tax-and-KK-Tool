@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from core.models import Payment, ReportingYear
 
-from .aggregation import actual_totals, average_of_actuals, normalised_monthly_totals
+from .aggregation import actual_totals, average_of_actuals, normalised_monthly_totals, unallocated_eur
 from .normalisation import is_recurring, monthly_equivalent
 from .reconciliation import build_report
 
@@ -96,7 +96,20 @@ def _basis(payments, year, mode, gross_net, extra=()):
 
 
 GROSS_NET_SEPARATE = ('Gross and net are separate columns and are never mixed. Net totals include only '
-                      'payments that have a net amount.')
+                      'payments that have a net amount. Identity: gross = net + withholding tax + expenses + unallocated; '
+                      'it is enforced when a payment is saved, so "unallocated" is 0 except for older payments (shown, not guessed). '
+                      'Unallocated is computed only for payments that have a net amount.')
+
+BREAKDOWN_COLS = [('withholding_eur', 'Withholding tax EUR'), ('expenses_eur', 'Expenses EUR'),
+                  ('unallocated_eur', 'Unallocated EUR')]
+
+
+def _breakdown_cols():
+    return [Column(k, label, 'money') for k, label in BREAKDOWN_COLS]
+
+
+def _breakdown(t):
+    return {'withholding_eur': t.withholding_eur, 'expenses_eur': t.expenses_eur, 'unallocated_eur': t.unallocated_eur}
 
 
 def _make(key, title, year, mode, columns, rows, payments, totals=None, notes=(), extra=(), gross_net=GROSS_NET_SEPARATE):
@@ -126,9 +139,9 @@ def annual_summary(year=None):
         rows.append({
             'year': str(key), 'payments': t.payment_count, 'months': len({p.month_id for p in group}),
             'gross_eur': t.gross_eur, 'net_eur': t.net_eur, 'gross_12': avg['gross_eur'], 'net_12': avg['net_eur'],
-            'net_missing': t.net_missing_count, 'unconverted': t.unconverted_count})
+            'net_missing': t.net_missing_count, 'unconverted': t.unconverted_count, **_breakdown(t)})
     cols = [Column('year', 'Year'), Column('payments', 'Payments', 'int'), Column('months', 'Months with payments', 'int'),
-            Column('gross_eur', 'Gross EUR', 'money'), Column('net_eur', 'Net EUR', 'money'),
+            Column('gross_eur', 'Gross EUR', 'money'), Column('net_eur', 'Net EUR', 'money'), *_breakdown_cols(),
             Column('gross_12', 'Gross EUR / 12', 'money'), Column('net_12', 'Net EUR / 12', 'money'),
             Column('net_missing', 'Payments without net', 'int'), Column('unconverted', 'Unconverted payments', 'int')]
     return _make('annual', 'Annual summary', year, ACTUAL, cols, rows, payments,
@@ -145,13 +158,13 @@ def monthly_breakdown(year):
         t = actual_totals(by_month[m])
         rows.append({'month': f'{year}-{m:02d} {calendar.month_name[m]}', 'payments': t.payment_count,
                      'gross_eur': t.gross_eur, 'net_eur': t.net_eur, 'net_missing': t.net_missing_count,
-                     'unconverted': t.unconverted_count})
+                     'unconverted': t.unconverted_count, **_breakdown(t)})
     cols = [Column('month', 'Month'), Column('payments', 'Payments', 'int'), Column('gross_eur', 'Gross EUR', 'money'),
-            Column('net_eur', 'Net EUR', 'money'), Column('net_missing', 'Payments without net', 'int'),
+            Column('net_eur', 'Net EUR', 'money'), *_breakdown_cols(), Column('net_missing', 'Payments without net', 'int'),
             Column('unconverted', 'Unconverted payments', 'int')]
     totals = {'month': 'Year total', 'payments': all_totals.payment_count, 'gross_eur': all_totals.gross_eur,
               'net_eur': all_totals.net_eur, 'net_missing': all_totals.net_missing_count,
-              'unconverted': all_totals.unconverted_count}
+              'unconverted': all_totals.unconverted_count, **_breakdown(all_totals)}
     return _make('monthly', 'Monthly breakdown', year, ACTUAL, cols, rows, payments, totals)
 
 
@@ -164,14 +177,15 @@ def _group_report(key, title, year, label, keyfunc, name_label):
         t = actual_totals(group)
         share = (t.gross_eur / total.gross_eur) if total.gross_eur else None
         rows.append({'name': name, 'payments': t.payment_count, 'gross_eur': t.gross_eur, 'net_eur': t.net_eur,
-                     'share': share, 'net_missing': t.net_missing_count, 'unconverted': t.unconverted_count})
+                     'share': share, 'net_missing': t.net_missing_count, 'unconverted': t.unconverted_count,
+                     **_breakdown(t)})
     rows.sort(key=lambda r: (-r['gross_eur'], r['name'].lower()))
     cols = [Column('name', name_label), Column('payments', 'Payments', 'int'), Column('gross_eur', 'Gross EUR', 'money'),
-            Column('net_eur', 'Net EUR', 'money'), Column('share', 'Share of gross', 'pct'),
+            Column('net_eur', 'Net EUR', 'money'), *_breakdown_cols(), Column('share', 'Share of gross', 'pct'),
             Column('net_missing', 'Payments without net', 'int'), Column('unconverted', 'Unconverted payments', 'int')]
     totals = {'name': 'Total', 'payments': total.payment_count, 'gross_eur': total.gross_eur, 'net_eur': total.net_eur,
               'share': Decimal(1) if total.gross_eur else None, 'net_missing': total.net_missing_count,
-              'unconverted': total.unconverted_count}
+              'unconverted': total.unconverted_count, **_breakdown(total)}
     return _make(key, title, year, ACTUAL, cols, rows, payments, totals,
                  notes=['Share of gross = group gross EUR / total gross EUR (converted payments only).'])
 
@@ -196,13 +210,21 @@ def original_currency_summary(year=None):
             'net_original': sum((p.net_amount for p in group if p.net_amount is not None), ZERO),
             'net_original_missing': sum(1 for p in group if p.net_amount is None),
             'converted': len(group) - t.unconverted_count, 'gross_eur': t.gross_eur, 'net_eur': t.net_eur,
-            'unconverted': t.unconverted_count})
+            'unconverted': t.unconverted_count,
+            'withholding_original': sum((p.withholding_tax for p in group), ZERO),
+            'expenses_original': sum((p.expenses for p in group), ZERO),
+            'unallocated_original': sum((p.unallocated for p in group if p.unallocated is not None), ZERO),
+            **_breakdown(t)})
     cols = [Column('currency', 'Original currency'), Column('payments', 'Payments', 'int'),
             Column('gross_original', 'Gross (original currency)', 'money'),
             Column('net_original', 'Net (original currency)', 'money'),
             Column('net_original_missing', 'Payments without net', 'int'),
+            Column('withholding_original', 'Withholding tax (original currency)', 'money'),
+            Column('expenses_original', 'Expenses (original currency)', 'money'),
+            Column('unallocated_original', 'Unallocated (original currency)', 'money'),
             Column('converted', 'Converted payments', 'int'), Column('gross_eur', 'Gross EUR (converted only)', 'money'),
-            Column('net_eur', 'Net EUR (converted only)', 'money'), Column('unconverted', 'Unconverted payments', 'int')]
+            Column('net_eur', 'Net EUR (converted only)', 'money'), *_breakdown_cols(),
+            Column('unconverted', 'Unconverted payments', 'int')]
     return _make('currency', 'Original-currency summary', year,
                  'Actual payments received; original-currency columns include every payment', cols, rows, payments,
                  notes=['Original-currency columns are as reported and include unconverted payments; '
@@ -244,6 +266,10 @@ def payment_level(year=None):
             'net_original': p.net_amount, 'status': 'converted' if conv else 'NOT CONVERTED',
             'rate': p.rate, 'rate_date': p.rate_date, 'rate_source': p.rate_source,
             'gross_eur': p.gross_eur, 'net_eur': p.net_eur,
+            'withholding_original': p.withholding_tax, 'expenses_original': p.expenses,
+            'unallocated_original': p.unallocated,
+            'withholding_eur': p.withholding_tax_eur, 'expenses_eur': p.expenses_eur,
+            'unallocated_eur': unallocated_eur(p) if conv and p.net_eur is not None else None,
             'monthly_equiv': monthly_equivalent(p.gross_eur, p.frequency) if conv and is_recurring(p.frequency) else None,
             'period_start': p.income_period_start, 'period_end': p.income_period_end,
             'import_batch': p.import_batch_id, 'comment': p.comment})
@@ -253,12 +279,16 @@ def payment_level(year=None):
             Column('gross_original', 'Gross (original)', 'money'), Column('net_original', 'Net (original)', 'money'),
             Column('status', 'Conversion'), Column('rate', 'Rate (EUR per 1 unit)', 'rate'),
             Column('rate_date', 'Rate date', 'date'), Column('rate_source', 'Rate source'),
-            Column('gross_eur', 'Gross EUR', 'money'), Column('net_eur', 'Net EUR', 'money'),
+            Column('withholding_original', 'Withholding tax (original)', 'money'),
+            Column('expenses_original', 'Expenses (original)', 'money'),
+            Column('unallocated_original', 'Unallocated (original)', 'money'),
+            Column('gross_eur', 'Gross EUR', 'money'), Column('net_eur', 'Net EUR', 'money'), *_breakdown_cols(),
             Column('monthly_equiv', 'Monthly equivalent gross EUR (recurring only)', 'money'),
             Column('period_start', 'Income period start', 'date'), Column('period_end', 'Income period end', 'date'),
             Column('import_batch', 'Import batch', 'int'), Column('comment', 'Comment')]
     total = actual_totals(payments)
-    totals = {'organisation': 'Total (converted payments)', 'gross_eur': total.gross_eur, 'net_eur': total.net_eur}
+    totals = {'organisation': 'Total (converted payments)', 'gross_eur': total.gross_eur, 'net_eur': total.net_eur,
+              **_breakdown(total)}
     return _make('payments', 'Payment-level detail', year, ACTUAL, cols, rows, payments, totals,
                  notes=['Unconverted payments are listed (original amounts only) but contribute nothing to EUR columns or totals.'])
 
@@ -268,7 +298,8 @@ def reconciliation(year=None):
     payments = list(_payments(year))
     sections = [('Not converted', r.pending), ('Manually entered rate', r.manual_rates),
                 ('Rate date differs from payment date', r.date_differs), ('No net amount', r.missing_net),
-                ('Inconsistent stored values', r.inconsistent)]
+                ('Inconsistent stored values', r.inconsistent),
+                ('Gross differs from net + withholding tax + expenses (unallocated)', r.unallocated)]
     rows = []
     for label, items in sections:
         for p in items:
