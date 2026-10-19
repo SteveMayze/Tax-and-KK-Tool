@@ -189,6 +189,7 @@ sudo rm -r /etc/tax-healthcare-tool                                   # the old 
 
 | What you see | Likely cause and what to do |
 |---|---|
+| `Permission denied (publickey)` when logging in as `homeapps` | the key your SSH really uses was not authorised: run `make bootstrap-rootless KEY=~/.ssh/<that key>.pub` (safe to repeat; `ssh -G <server> \| grep identityfile` shows which key is used) |
 | `make deploy` says it cannot connect or the user does not exist | the bootstrap has not been run: `make bootstrap-rootless` |
 | `Linger must be on` | the bootstrap did not finish; run it again (it is safe to repeat) |
 | `The user's own systemd must be running` | log in once with `ssh homeapps@<server>` and run `loginctl show-user homeapps`; if linger is on and it still fails, run the bootstrap again and reboot the server |

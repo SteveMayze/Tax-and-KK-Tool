@@ -4,11 +4,13 @@
 PYTHON := .venv/bin/python
 INFRA_PY := .venv-infra/bin
 ANSIBLE := ANSIBLE_CONFIG=infra/ansible.cfg $(INFRA_PY)/ansible-playbook -i infra/inventory.ini
-HOST := $(shell awk 'NR==2 {print $$1}' infra/inventory.ini 2>/dev/null)
+HOST := $(shell awk 'NR==2 {h=$$1; for (i=2;i<=NF;i++) if ($$i ~ /^ansible_host=/) {h=$$i; sub("ansible_host=","",h)}; print h}' infra/inventory.ini 2>/dev/null)
 USER_AT := $(shell awk 'NR==2 {for (i=2;i<=NF;i++) if ($$i ~ /^ansible_user=/) {sub("ansible_user=","",$$i); print $$i "@"}}' infra/inventory.ini 2>/dev/null)
 BACKUP_ARG := $(if $(BACKUP),-e backup_file=$(BACKUP),)
 PORT_ARG := $(if $(PORT),-e app_port=$(PORT),)
-KEY_ARG := $(if $(KEY),-e key=$(KEY),)
+# The key to authorise for the service user: KEY=path if given, else the identity file your SSH config uses for this host.
+SSH_KEY_GUESS := $(shell ssh -G $(HOST) 2>/dev/null | awk '/^identityfile /{print $$2; exit}' | sed "s|^~|$$HOME|").pub
+KEY_ARG := $(if $(KEY),-e key=$(KEY),$(if $(wildcard $(SSH_KEY_GUESS)),-e key=$(SSH_KEY_GUESS),))
 MANAGE := bin/tax-healthcare-tool-manage
 
 .PHONY: setup test check ansible-setup syntax bootstrap-rootless deploy status backup-now \

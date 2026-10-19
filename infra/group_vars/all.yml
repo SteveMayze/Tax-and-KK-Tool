@@ -10,7 +10,7 @@ image_repo: localhost/tax-healthcare-tool
 app_uid: 10001                       # the user INSIDE the container; must match the user in Containerfile
 app_port: 8889                       # the app is reached directly on this port (use 8890 for the rootless trial run)
 listen_address: 0.0.0.0              # all interfaces, like the other app on this host; use the server's LAN IP to narrow it
-public_host: "{{ inventory_hostname }}"
+public_host: "{{ ansible_host | default(inventory_hostname) }}"   # the real server name, not the inventory alias
 use_https: false                     # plain HTTP on the LAN (owner decision); set true only behind a TLS-terminating proxy
 public_scheme: "{{ 'https' if use_https else 'http' }}"
 

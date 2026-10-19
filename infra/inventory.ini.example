@@ -1,8 +1,9 @@
-# Two logins for the same server.
+# Two logins for the same server. They need DIFFERENT aliases (first word): Ansible merges entries with the same name
+# into one host, and then only one of the two logins would apply.
 # [taxtool]           the rootless service user: used by every routine command (no sudo).
 # [taxtool_bootstrap] your own admin login with sudo: used only by `make bootstrap-rootless` and `make migrate-copy`.
 [taxtool]
-your-host.example.com ansible_user=homeapps
+tax-service ansible_host=your-host.example.com ansible_user=homeapps
 
 [taxtool_bootstrap]
-your-host.example.com ansible_user=your-admin-login
+tax-admin ansible_host=your-host.example.com ansible_user=your-admin-login

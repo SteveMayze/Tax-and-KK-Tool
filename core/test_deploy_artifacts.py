@@ -120,7 +120,7 @@ class AnsibleFilesTests(SimpleTestCase):
     def test_group_vars_hold_no_secrets_or_personal_names(self):
         text = read('infra/group_vars/all.yml')
         self.assertNotRegex(text.lower(), r'secret_key\s*:|password|token')
-        self.assertIn('public_host: "{{ inventory_hostname }}"', text)
+        self.assertIn('public_host: "{{ ansible_host | default(inventory_hostname) }}"', text)
 
     def test_one_off_container_runs_share_the_service_hardening(self):
         flags = read('infra/group_vars/all.yml')
