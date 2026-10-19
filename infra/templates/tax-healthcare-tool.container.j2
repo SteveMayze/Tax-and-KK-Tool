@@ -9,6 +9,9 @@ Image={{ image_repo }}:current
 ContainerName={{ container_name }}
 # Reached directly over plain HTTP on the LAN (owner decision). Narrow with listen_address in group_vars.
 PublishPort={{ listen_address }}:{{ app_port }}:8000
+# Also joins the gateway network (created by the separate gateway repository), so the reverse proxy reaches this container by
+# name ({{ container_name }}:8000, the port INSIDE the container). Quadlet makes this unit wait for gateway.network.
+Network={{ gateway_network }}
 Volume={{ data_root }}/data:/data
 Volume={{ data_root }}/uploads:/uploads
 Volume={{ data_root }}/backups:/backups

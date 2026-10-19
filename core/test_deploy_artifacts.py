@@ -83,6 +83,27 @@ class QuadletTests(SimpleTestCase):
         self.assertRegex(groups, r'listen_address: 0\.0\.0\.0')            # owner decision: reachable on the LAN, like the other app
         self.assertIn('use_https: false', groups)
 
+    def test_unit_joins_the_gateway_network_and_keeps_its_name_and_port(self):
+        self.assertEqual(re.findall(r'^Network=(.+)$', self.text, re.M), ['{{ gateway_network }}'])
+        self.assertEqual(re.findall(r'^ContainerName=(.+)$', self.text, re.M), ['{{ container_name }}'])
+        groups = read('infra/group_vars/all.yml')
+        self.assertIn('gateway_network: gateway.network', groups)
+        self.assertIn('container_name: tax-healthcare-tool-web', groups)
+        self.assertIn('PublishPort=', self.text)                 # the plain-HTTP port stays open until the gateway track closes it
+
+    def test_gateway_settings_are_on_while_hsts_and_secure_cookies_stay_off(self):
+        groups = read('infra/group_vars/all.yml')
+        self.assertIn('behind_tls_proxy: true', groups)
+        self.assertIn('hsts_seconds: 0', groups)
+        self.assertIn('use_https: false', groups)                # plain HTTP on the old port must keep working
+        self.assertIn('extra_csrf_origins: ["https://{{ public_host }}"]', groups)
+        self.assertIn("[public_scheme ~ '://' ~ public_host ~ ':' ~ app_port] + extra_csrf_origins", groups)
+
+    def test_deploy_checks_that_the_gateway_network_exists(self):
+        text = read('infra/deploy.yaml')
+        self.assertIn('{{ quadlet_dir }}/{{ gateway_network }}', text)
+        self.assertIn('gateway_network_file.stat.exists', text)
+
     def test_hardening(self):
         for line in ('ReadOnly=true', 'NoNewPrivileges=true', 'DropCapability=ALL', 'Tmpfs=/tmp', 'Restart=always'):
             self.assertIn(line, self.text)
@@ -361,7 +382,7 @@ class RepositoryHygieneTests(SimpleTestCase):
     def test_no_host_or_user_names_in_files_that_would_be_committed(self):
         offenders = []
         for rel in self.tracked_and_new():
-            if rel.endswith(('.png', '.ico', '.crt')):
+            if rel.endswith(('.png', '.ico', '.crt')) or rel.startswith('docs/prompts/'):    # owner's own prompt records
                 continue
             text = (ROOT / rel).read_text(errors='ignore')
             if re.search(r'fritz\.box|\bcornil\b|\bsteve\b', text, re.I):

@@ -34,6 +34,18 @@
     - name: Connected as the service user, with linger on and a running user systemd
       ansible.builtin.include_tasks: tasks/service-session.yml
 
+    - name: Look for the gateway network file (created by the separate gateway repository, in the same Quadlet folder)
+      ansible.builtin.stat:
+        path: "{{ quadlet_dir }}/{{ gateway_network }}"
+      register: gateway_network_file
+
+    - name: The gateway network must exist before this app can join it
+      ansible.builtin.assert:
+        that: gateway_network_file.stat.exists
+        fail_msg: >-
+          {{ quadlet_dir }}/{{ gateway_network }} does not exist. The app joins the network that the separate gateway
+          repository creates; deploy the gateway first (nothing was changed here). See docs/deployment.md, "Gateway network".
+
     - name: Check that Podman is installed (nothing is installed or upgraded by this playbook)
       ansible.builtin.command: podman --version
       changed_when: false

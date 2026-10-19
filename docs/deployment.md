@@ -132,6 +132,15 @@ Prepares the app for the gateway (a separate repository) that serves it over HTT
 - **`listen_address`** (default `0.0.0.0`) is the interface the container port is published on; set it to the server's LAN address to narrow it, or `127.0.0.1` when only the gateway on the same host should reach the app. It is rendered into `PublishPort=` in the Quadlet unit.
 - The new settings are plain variables and environment lines in `group_vars/all.yml` and the Quadlet template; Phase 9A moved them unchanged to the rootless layout.
 
+## Gateway network (Phase 9B, ADR 0008)
+The gateway (a separate repository; Caddy as a rootless container of the same service user) listens on 80/443 and forwards `/tax-healthcare/` to this app. Plain language: a **Podman network** is a private virtual switch between containers; containers on it find each other by name. The gateway made one called `gateway`; this app's unit now also plugs into it (`Network=gateway.network`), so the proxy can call `tax-healthcare-tool-web:8000` without any published port.
+
+- `make deploy` first checks that `~/.config/containers/systemd/gateway.network` exists for the service user and stops with a clear message if not (deploy the gateway first). Nothing changes in that case.
+- Defaults in `infra/group_vars/all.yml`: `behind_tls_proxy: true`, `extra_csrf_origins: ["https://{{ public_host }}"]`, `hsts_seconds: 0`, `use_https: false`. The plain `http://<server>:<port>` origin and the published port stay until the gateway track closes them (G3); then set `use_https: true`, `extra_csrf_origins` as is, and remove the plain origin.
+- Why cookies are not Secure yet: see ADR 0008, decision 4.
+- Check it: `ssh homeapps@<server> podman ps --format '{{.Names}} {{.Networks}}'` should list `tax-healthcare-tool-web` with `gateway` (and the default network). `podman network inspect gateway` lists both containers.
+- If the proxy shows 502/connection errors: the app container is not on the network (`podman ps` network column), or its health check is failing (`make status`). If a form post gives 403: the browser origin is not in `DJANGO_CSRF_TRUSTED_ORIGINS`.
+
 ### Rehearsal run for this phase
 `make syntax` passed for the six Phase 8 playbooks. The Quadlet template and `podman_run_flags` were rendered with Ansible's own template engine (default values and with a proxy host, origin and `behind_tls_proxy: true`). `ansible-playbook --check` against the server and a container build were **not** run (see the Phase 9 report: `--check` needs the sudo password, and there is no container runtime on the development Mac).
 

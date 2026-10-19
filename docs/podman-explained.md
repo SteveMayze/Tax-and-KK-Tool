@@ -179,6 +179,7 @@ sudo rm -r /etc/tax-healthcare-tool                                   # the old 
 | keep-id | the user-namespace setting that shows the service user as the app user inside the container |
 | Linger | lets a user's services run without a login session and at boot |
 | Podman | the program that runs containers |
+| Podman network | a private virtual switch between containers; the `gateway` network lets the proxy reach this app by container name |
 | Quadlet | a text file describing a container for systemd |
 | Rootful / rootless | Podman run by root / by an ordinary user |
 | Service user | the ordinary Linux user `homeapps` that runs the containers |

@@ -32,9 +32,10 @@ container_userns: "keep-id:uid={{ app_uid }},gid={{ app_uid }}"
 # --- URL prefix and reverse proxy (Phase 9). The app answers on its own port with or without the prefix, so it stays
 # reachable at http://<host>:8889/ and also at http://<host>:8889/tax-healthcare/ during the move behind the gateway.
 url_prefix: /tax-healthcare          # "" serves the app at the root, as before
-behind_tls_proxy: false              # true only once a TLS proxy sends X-Forwarded-Proto (the app trusts that header then)
+behind_tls_proxy: true               # the gateway (Caddy) sends X-Forwarded-Proto; the app trusts that header
+gateway_network: gateway.network     # Quadlet network file owned by the separate gateway repository (rootless, same service user)
 extra_allowed_hosts: []              # host names the proxy forwards, e.g. ["tax.home.example"]
-extra_csrf_origins: []               # browser origins of the proxy, with scheme, e.g. ["https://tax.home.example"]
+extra_csrf_origins: ["https://{{ public_host }}"]   # browser origin of the gateway (https, no port); the plain-HTTP origin stays while the old port is open
 hsts_seconds: 0                      # keep 0 until the local CA is installed on every device (see docs/deployment.md)
 allowed_hosts: "{{ ([public_host, 'localhost', '127.0.0.1'] + extra_allowed_hosts) | join(',') }}"
 csrf_trusted_origins: "{{ ([public_scheme ~ '://' ~ public_host ~ ':' ~ app_port] + extra_csrf_origins) | join(',') }}"

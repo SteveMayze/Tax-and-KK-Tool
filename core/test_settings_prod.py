@@ -180,3 +180,54 @@ class DeploymentCheckTests(SimpleTestCase):
             r = run(code, env_overrides=env)
             self.assertEqual(r.returncode, 0, r.stderr[-500:])
             self.assertEqual(r.stdout.strip(), '400 200 True Lax')
+
+    def test_gateway_scenario_login_and_csrf_over_https_proxy_and_plain_http(self):
+        """The deployed shape: prefix, proxy header trusted, plain HTTP still allowed (cookies not Secure)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {'DJANGO_DB_PATH': f'{tmp}/db.sqlite3', 'DJANGO_UPLOAD_DIR': f'{tmp}/up', 'DJANGO_BACKUP_DIR': f'{tmp}/bk',
+                   'DJANGO_HTTPS': '0', 'DJANGO_BEHIND_TLS_PROXY': '1', 'DJANGO_URL_PREFIX': '/tax-healthcare',
+                   'DJANGO_ALLOWED_HOSTS': 'gw.example.test,localhost',
+                   'DJANGO_CSRF_TRUSTED_ORIGINS': 'http://gw.example.test:8890,https://gw.example.test'}
+            self.assertEqual(run(None, env_overrides=env, extra_args=['migrate', '--noinput']).returncode, 0)
+            code = '''
+import re, django
+django.setup()
+from django.contrib.auth import get_user_model
+from django.core.handlers.wsgi import get_script_name
+from django.test import Client
+from django.test.client import ClientHandler
+from django.urls import set_script_prefix
+get_user_model().objects.create_user('u', password='pw-for-test-only-1')
+
+class H(ClientHandler):
+    def __call__(self, environ):
+        set_script_prefix(get_script_name(environ))
+        return super().__call__(environ)
+
+def client(**extra):
+    c = Client(enforce_csrf_checks=True, HTTP_HOST='gw.example.test', **extra)
+    c.handler = H(True)
+    return c
+
+def login(c, origin):
+    page = c.get('/accounts/login/')
+    token = c.cookies['taxhc_csrftoken'].value
+    m = re.search(r'<form[^>]*action="([^"]*)"', page.content.decode())
+    action = m.group(1) if m else ''   # no action attribute: the browser posts to the page's own (prefixed) URL
+    r = c.post('/accounts/login/', {'username': 'u', 'password': 'pw-for-test-only-1', 'csrfmiddlewaretoken': token},
+               HTTP_ORIGIN=origin)
+    return (bool(page.cookies['taxhc_csrftoken']['secure']), action, r.status_code, r['Location'],
+            c.cookies['taxhc_sessionid']['path'])
+
+https = login(client(HTTP_X_FORWARDED_PROTO='https'), 'https://gw.example.test')
+plain = login(client(), 'http://gw.example.test:8890')
+bad = client(HTTP_X_FORWARDED_PROTO='https')
+bad.get('/accounts/login/')
+foreign = bad.post('/accounts/login/', {'username': 'u', 'password': 'x',
+                   'csrfmiddlewaretoken': bad.cookies['taxhc_csrftoken'].value}, HTTP_ORIGIN='https://evil.example').status_code
+print(https, plain, foreign)
+'''
+            r = run(code, env_overrides=env)
+            self.assertEqual(r.returncode, 0, r.stderr[-800:])
+            same = "(False, '', 302, '/tax-healthcare/', '/tax-healthcare')"
+            self.assertEqual(r.stdout.strip(), f'{same} {same} 403')
