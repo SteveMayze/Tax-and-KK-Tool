@@ -26,6 +26,7 @@ from .dividend_statements import UnsupportedStatement
 from .imports import COLUMNS
 from .organisations import BANK_ORGANISATIONS
 from .pdf_text import mask_digit_runs
+from . import rvb_joint
 
 READER_ID = 'rvb_giro'
 DE = r'\d{1,3}(?:\.\d{3})*,\d{2}'
@@ -52,7 +53,8 @@ def _lines(pages):
 
 def recognises(pages) -> bool:
     found = {m.group(1) for _p, l in _lines(pages) if (m := BALANCE.match(l))}
-    return found == {'alter', 'neuer'}
+    # the configured joint account has its own reader (Phase 25, J1): step aside for that account only
+    return found == {'alter', 'neuer'} and not rvb_joint.is_joint_account(pages)
 
 
 def _amount(amount, sign):

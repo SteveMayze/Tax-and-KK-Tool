@@ -24,6 +24,9 @@ All models live in `core/models.py`. Money uses `Decimal` (see decisions/0001-de
 - Corrections/reversals: `kind` (normal/correction/reversal) and `corrects` (FK to the original). Normal gross must be > 0, except in a category flagged `may_be_negative` (Phase 11, ADR 0011), where a normal payment may be negative (a loss; never 0); reversal < 0; correction non-zero; net must share gross's sign; corrections/reversals must reference an original in the same currency. A payment that has corrections cannot be deleted (PROTECT).
 - Every `save()` runs `full_clean()`, including the month/date consistency check, so invariants hold outside forms too. Editing `payment_date` into another month requires re-assigning `month` (`ReportingMonth.for_date`); otherwise validation fails.
 
+## StatementRule (Phase 25, ADR 0025)
+Owner-edited matching rule for bank-statement credits (label, kind, direction, pattern, match_on, organisation, valid_from/valid_to, active). Standalone: no foreign keys, nothing is deleted with it, no payment refers to it. No rule is seeded.
+
 ## Deletion behaviour
 - Deleting a `ReportingYear` deletes its months and their payments (cascade). UI confirmation is Phase 3.
 - Deleting a `ReportingMonth` deletes its payments (cascade).

@@ -183,6 +183,16 @@ DATA_UPLOAD_MAX_NUMBER_FILES = 400
 # environment (for example DJANGO_RENTAL_ORGANISATION='<agent name>'). Empty = the Hodges reader refuses the statement.
 RENTAL_ORGANISATION = os.environ.get('DJANGO_RENTAL_ORGANISATION', '').strip()
 
+# The joint current account whose statements carry rent paid straight from the tenant (Phase 25, ADR 0025). The account
+# number is given once, digits only, in the environment (DJANGO_JOINT_RENTAL_ACCOUNT); it is never stored, logged or shown
+# unmasked. Empty = the joint-account reader claims nothing. A value that is not digits only stops start-up (a silent
+# fallback would let the other RVB reader claim the files). The rent category's name is a setting too (Phase 26).
+JOINT_RENTAL_ACCOUNT = os.environ.get('DJANGO_JOINT_RENTAL_ACCOUNT', '').strip()
+if JOINT_RENTAL_ACCOUNT and not (JOINT_RENTAL_ACCOUNT.isascii() and JOINT_RENTAL_ACCOUNT.isdigit()):
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured('DJANGO_JOINT_RENTAL_ACCOUNT must be digits only.')
+JOINT_RENTAL_CATEGORY = os.environ.get('DJANGO_JOINT_RENTAL_CATEGORY', 'Rental (joint)').strip() or 'Rental (joint)'
+
 # Exchange-rate provider (dotted path). Default: ECB reference rates via Frankfurter.
 # Set DJANGO_RATE_PROVIDER=core.services.rates.ManualOnlyProvider to work offline (manual rates only).
 RATE_PROVIDER = os.environ.get('DJANGO_RATE_PROVIDER', 'core.services.frankfurter.FrankfurterProvider')

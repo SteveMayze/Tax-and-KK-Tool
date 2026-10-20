@@ -490,3 +490,57 @@ class AnnualInput(models.Model):
     @property
     def months_earned(self):
         return self.last_month - self.first_month + 1
+
+
+class StatementRule(models.Model):
+    """What counts as rent (or another income kind) on a bank statement: data the owner edits, never code (Phase 25, ADR 0025).
+
+    The pattern is a case-insensitive regular expression searched in the normalised counterparty line and/or purpose of a
+    credit (see services/statement_rules.py). Tenant and organisation names live here only."""
+    class Kind(models.TextChoices):
+        TENANT_RENT = 'tenant_rent', _('Rent paid by the tenant')
+        SERVICE_CHARGE = 'service_charge_settlement', _('Service-charge settlement paid by the tenant')
+
+    class Direction(models.TextChoices):
+        CREDIT = 'credit', _('Credit (money in)')
+
+    class MatchOn(models.TextChoices):
+        COUNTERPARTY = 'counterparty', _('Counterparty line')
+        PURPOSE = 'purpose', _('Purpose text')
+        EITHER = 'either', _('Counterparty line or purpose text')
+
+    label = models.CharField(max_length=100, help_text='Your own name for the rule. Shown nowhere else.')
+    kind = models.CharField(max_length=30, choices=Kind.choices)
+    direction = models.CharField(max_length=10, choices=Direction.choices, default=Direction.CREDIT)
+    pattern = models.CharField(
+        max_length=300, help_text='Case-insensitive regular expression. Umlauts: ü, ue and u all match; hyphens count as spaces.')
+    match_on = models.CharField(max_length=12, choices=MatchOn.choices, default=MatchOn.EITHER)
+    organisation = models.CharField(max_length=200, blank=True, help_text='Organisation recorded on the payment (usually the tenant).')
+    valid_from = models.DateField(null=True, blank=True)
+    valid_to = models.DateField(null=True, blank=True)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['label', 'id']
+
+    def clean(self):
+        from .services import statement_rules
+        errors = {}
+        try:
+            statement_rules.compile_pattern(self.pattern)
+        except statement_rules.RuleError as e:
+            errors['pattern'] = str(e)
+        self.organisation = ' '.join(self.organisation.split())
+        if not self.organisation:
+            errors['organisation'] = gettext('An income rule needs the organisation to record.')
+        if self.valid_from and self.valid_to and self.valid_from > self.valid_to:
+            errors['valid_to'] = gettext('Valid to is before valid from.')
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.label
