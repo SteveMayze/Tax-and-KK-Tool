@@ -18,5 +18,7 @@ Phase 14 read one payment per statement with an `if` chain in `pdf_imports`. The
 
 ## Consequences
 - Verified on the owner's samples: the 87 supplied Australian-dividend and Revolut files give identical rows (and identical refusals) through the registry as through the Phase 14 code.
-- **Open: all 23 RVB statements are AES-encrypted** (open without a password in a viewer). Phase 17 cannot read them until either the `cryptography` package is added to the pinned requirements or the files are re-saved unencrypted. This needs the owner's decision (CLAUDE.md: no unneeded dependency).
+- **Resolved in Phase 16 (owner: "add cryptography"): all 23 RVB statements are AES-encrypted** (open without a password in a viewer). Phase 17 cannot read them until either the `cryptography` package is added to the pinned requirements or the files are re-saved unencrypted. This needs the owner's decision (CLAUDE.md: no unneeded dependency).
 - Old Phase 14 behaviour kept: a Revolut fund statement with zero return is still refused (reason: nothing to import) rather than reported as "nothing to import"; changing it would alter a Phase 14 reader.
+
+Addendum (Phase 16): `cryptography` 50.0.2 (with `cffi` 2.1.1 and `pycparser` 3.11) is pinned in `requirements.txt`; the 23 RVB files now open. The container image build with these wheels has not been run in this phase.

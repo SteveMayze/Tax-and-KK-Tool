@@ -22,7 +22,11 @@ def make_pdf(pages):
         content_number = 5 + 2 * i
         objects.append(f'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> '
                        f'/Contents {content_number} 0 R >>'.encode())
-        stream = '\n'.join(f'BT /F1 9 Tf 1 0 0 1 30 {800 - 13 * n} Tm ({_escape(line)}) Tj ET' for n, line in enumerate(lines))
+        # A line is a string, or a list of (x, text) cells placed at their own x positions (a table row).
+        stream = '\n'.join(
+            ' '.join(f'BT /F1 9 Tf 1 0 0 1 {x} {800 - 13 * n} Tm ({_escape(text)}) Tj ET' for x, text in line)
+            if isinstance(line, list) else f'BT /F1 9 Tf 1 0 0 1 30 {800 - 13 * n} Tm ({_escape(line)}) Tj ET'
+            for n, line in enumerate(lines))
         data = stream.encode('latin-1', 'replace')
         objects.append(b'<< /Length ' + str(len(data)).encode() + b' >>\nstream\n' + data + b'\nendstream')
     out = bytearray(b'%PDF-1.4\n')

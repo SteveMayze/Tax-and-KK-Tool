@@ -68,7 +68,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
     staged, skipped, seen = [], [], set()                 # skipped: (name, reason) for every file that was not staged
     refused = nothing = not_imported = 0
     statements_seen = {}                                  # (reader id, fingerprint) -> display name of the first file
-    notices = []
+    notices, continuity = [], []
     for raw_name, raw in sorted(files, key=lambda f: _clean_name(f[0]).lower()):
         name = _clean_name(raw_name)
         shown = _display_name(name)
@@ -92,6 +92,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
         notices += [f'{shown}: {n}' for n in result.notices]
         if result.rows:
             staged.append((name, shown, raw, result))
+            continuity.append((shown, outcome.reader_id, result.continuity))
         elif result.not_imported:
             not_imported += 1
         else:
@@ -110,6 +111,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
     if len(skipped) > MAX_SKIPPED_SHOWN:
         warnings.append(gettext('%(n)s more files were not staged.') % {'n': len(skipped) - MAX_SKIPPED_SHOWN})
     warnings += _summary_lines(nothing, not_imported)
+    warnings += [f'{label}: {text}' for label, text in statement_readers.continuity_notes(continuity)]
     warnings += notices[:MAX_SKIPPED_SHOWN]
     if len(notices) > MAX_SKIPPED_SHOWN:
         warnings.append(gettext('%(n)s more notices were left out.') % {'n': len(notices) - MAX_SKIPPED_SHOWN})

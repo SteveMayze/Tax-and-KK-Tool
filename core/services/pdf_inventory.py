@@ -25,6 +25,7 @@ class Entry:
     _raw_name: str = ''
     _text_hash: str = ''
     _fingerprint: str = ''
+    _continuity: object = None
 
 
 def name_months(name: str) -> set[tuple[int, int]]:
@@ -61,9 +62,14 @@ def inventory(folder, recursive=False) -> list[Entry]:
         else:
             entry.period, entry.rows, entry.notices = result.period, len(result.rows), len(result.notices)
             entry._fingerprint = result.fingerprint
+            entry._continuity = (entry.reader, result.continuity)
             entry.outcome = 'staged' if result.rows else 'recognised, not imported' if result.not_imported else 'nothing to import'
         entries.append(entry)
     _flag(entries)
+    by_name = {e.name: e for e in entries}
+    notes = statement_readers.continuity_notes([(e.name, e._continuity[0], e._continuity[1]) for e in entries if e._continuity])
+    for label, text in notes:
+        by_name[label].flags.append(text)
     return entries
 
 
@@ -89,10 +95,10 @@ def _flag(entries):
     for items in by_reader.values():
         items.sort(key=lambda e: e.period)
         for prev, cur in zip(items, items[1:]):
-            gap = (cur.period[0] - prev.period[1]).days - 1
-            if gap > 0:
-                cur.flags.append(f'period gap of {gap} day(s) after {prev.name}')
-            elif gap < 0:
+            days = (cur.period[0] - prev.period[1]).days       # 0 or 1: the next statement starts where the last ended
+            if days > 1:
+                cur.flags.append(f'period gap of {days - 1} day(s) after {prev.name}')
+            elif days < 0:
                 cur.flags.append(f'period overlaps {prev.name}')
 
 

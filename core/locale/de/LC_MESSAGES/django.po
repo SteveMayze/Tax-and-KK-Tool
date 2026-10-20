@@ -2345,3 +2345,59 @@ msgstr "Zwei Leser erkennen diese Datei (%(a)s und %(b)s); sie wurde daher nicht
 
 msgid "This is not recognised as a statement this importer can read (Australian dividend or distribution advice, Revolut Flexible Cash Funds statement)."
 msgstr "Dies wird nicht als Abrechnung erkannt, die dieser Import lesen kann (australische Dividenden- oder Ausschüttungsmitteilung, Revolut-Flexible-Cash-Funds-Abrechnung)."
+
+#, python-format
+msgid "A date in the table could not be read (%(what)s)."
+msgstr "Ein Datum in der Tabelle konnte nicht gelesen werden (%(what)s)."
+
+msgid "The balance brought forward and balance carried forward rows do not pair up."
+msgstr "Die Zeilen „Saldo Übertrag“ und „Saldo Vortrag“ (BALANCE BROUGHT/CARRIED FORWARD) passen nicht paarweise zusammen."
+
+#, python-format
+msgid "A row of the table could not be read (row %(n)s)."
+msgstr "Eine Zeile der Tabelle konnte nicht gelesen werden (Zeile %(n)s)."
+
+msgid "The balance brought forward does not continue from the previous part of the table."
+msgstr "Der Übertragssaldo schließt nicht an den vorigen Teil der Tabelle an."
+
+#, python-format
+msgid "The running balance does not add up at row %(n)s of the table."
+msgstr "Der laufende Saldo geht in Zeile %(n)s der Tabelle nicht auf."
+
+#, python-format
+msgid "The \"TO\" date of the interest credit at row %(n)s could not be read."
+msgstr "Das „TO“-Datum der Zinsgutschrift in Zeile %(n)s konnte nicht gelesen werden."
+
+msgid "Gross interest (PDF import)."
+msgstr "Bruttozinsen (PDF-Import)."
+
+#, python-format
+msgid "Row %(n)s of the table is a type this importer does not read (\"%(kind)s\"), so nothing was staged."
+msgstr "Zeile %(n)s der Tabelle hat einen Typ, den dieser Import nicht liest („%(kind)s“); daher wurde nichts vorbereitet."
+
+msgid "The balance carried forward does not match the running balance."
+msgstr "Der Saldo am Ende stimmt nicht mit dem laufenden Saldo überein."
+
+#, python-format
+msgid "The summary block does not agree with the table (%(label)s)."
+msgstr "Der Zusammenfassungsblock stimmt nicht mit der Tabelle überein (%(label)s)."
+
+#, python-format
+msgid "sheet numbers overlap (%(a)s, then %(b)s)"
+msgstr "Blattnummern überschneiden sich (%(a)s, dann %(b)s)"
+
+#, python-format
+msgid "sheet numbers skip from %(a)s to %(b)s, but the balances connect, so no money movement is missing"
+msgstr "Blattnummern springen von %(a)s auf %(b)s, die Salden schließen aber aneinander an; es fehlt also keine Kontobewegung"
+
+#, python-format
+msgid "sheet numbers skip from %(a)s to %(b)s and the balances do not connect: a statement may be missing"
+msgstr "Blattnummern springen von %(a)s auf %(b)s und die Salden schließen nicht aneinander an: möglicherweise fehlt eine Abrechnung"
+
+#, python-format
+msgid "after %(file)s, %(what)s"
+msgstr "nach %(file)s: %(what)s"
+
+#, python-format
+msgid "the opening balance does not match the closing balance of %(file)s"
+msgstr "der Anfangssaldo stimmt nicht mit dem Endsaldo von %(file)s überein"

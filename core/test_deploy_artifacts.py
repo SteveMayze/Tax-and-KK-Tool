@@ -59,7 +59,7 @@ class ContainerfileTests(SimpleTestCase):
         self.assertTrue(lines)
         self.assertTrue(all('==' in l for l in lines), lines)
         names = {l.split('==')[0].lower() for l in lines}
-        self.assertEqual(names, {'asgiref', 'django', 'gunicorn', 'pypdf', 'sqlparse', 'whitenoise'})      # nothing unneeded
+        self.assertEqual(names, {'asgiref', 'cffi', 'cryptography', 'django', 'gunicorn', 'pycparser', 'pypdf', 'sqlparse', 'whitenoise'})   # nothing unneeded; cryptography (+ cffi, pycparser) opens AES-encrypted bank PDFs (owner decision, Phase 16)
 
     def test_ignore_files_keep_private_data_out_of_the_build_context(self):
         for name in ('.containerignore', '.dockerignore'):

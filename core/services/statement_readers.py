@@ -9,29 +9,16 @@ Readers know nothing about the database. Staging is done by core.services.pdf_im
 """
 import datetime
 import hashlib
+from decimal import Decimal
 from dataclasses import dataclass, field
 from typing import Callable
 
 from django.utils.translation import gettext
 
-from . import dividend_statements, interest_statements, pdf_text
+from . import dividend_statements, hsbc_savings, interest_statements, pdf_text
 from .dividend_statements import UnsupportedStatement
 from .imports import COLUMNS
-
-
-@dataclass
-class StatementRow:
-    data: dict                      # the import columns (see imports.COLUMNS)
-    provenance: dict                # field -> (page number, source line)
-
-
-@dataclass
-class StatementResult:
-    rows: list[StatementRow]
-    notices: list[str] = field(default_factory=list)    # informational; never document text beyond figures shown in the review
-    fingerprint: str = ''           # identity of the statement (see docs/imports.md); '' = the reader has none
-    period: tuple[datetime.date, datetime.date] | None = None
-    not_imported: bool = False      # recognised, deliberately not imported (for example a stock sale): a notice, not an error
+from .statement_types import Continuity, StatementResult, StatementRow, short_hash  # noqa: F401  (re-exported for readers and tests)
 
 
 @dataclass(frozen=True)
@@ -40,10 +27,6 @@ class Reader:
     recognises: Callable[[list[str]], bool]
     parse: Callable[[list[str]], StatementResult]
     needs_layout: bool = False
-
-
-def short_hash(*parts) -> str:
-    return hashlib.sha256('\x1f'.join(str(p) for p in parts).encode()).hexdigest()[:16]
 
 
 def _single(statement, fingerprint='', period=None) -> StatementResult:
@@ -66,9 +49,36 @@ def _parse_fund(pages) -> StatementResult:
 
 # Order matters only for reporting; no two readers may claim the same file.
 READERS: list[Reader] = [
+    Reader(hsbc_savings.READER_ID, hsbc_savings.recognises, hsbc_savings.parse, needs_layout=True),
     Reader('revolut_flexible_cash_funds', interest_statements.recognises, _parse_fund),
     Reader('au_dividend_advice', dividend_statements.recognises, _parse_dividend),
 ]
+
+
+def continuity_notes(items):
+    """items: [(label, reader id, Continuity)] -> [(label, text)]. Consecutive statements of one account should have
+    consecutive sheet numbers and the opening balance of one equal to the closing balance of the previous. Warnings only;
+    the texts contain no amounts."""
+    notes, groups = [], {}
+    for label, reader_id, c in items:
+        if c is not None:
+            groups.setdefault((reader_id, c.series), []).append((label, c))
+    for entries in groups.values():
+        entries.sort(key=lambda e: (e[1].sequence is None, e[1].sequence or 0, e[1].start or datetime.date.min))
+        for (label_a, a), (label_b, b) in zip(entries, entries[1:]):
+            connected = a.closing == b.opening
+            if a.sequence is not None and b.sequence is not None and b.sequence != a.sequence + 1:
+                if b.sequence <= a.sequence:
+                    what = gettext('sheet numbers overlap (%(a)s, then %(b)s)')
+                elif connected:
+                    what = gettext('sheet numbers skip from %(a)s to %(b)s, but the balances connect, so no money movement is missing')
+                else:
+                    what = gettext('sheet numbers skip from %(a)s to %(b)s and the balances do not connect: a statement may be missing')
+                notes.append((label_b, gettext('after %(file)s, %(what)s') % {
+                    'file': label_a, 'what': what % {'a': a.sequence, 'b': b.sequence}}))
+            elif not connected:
+                notes.append((label_b, gettext('the opening balance does not match the closing balance of %(file)s') % {'file': label_a}))
+    return notes
 
 
 @dataclass
