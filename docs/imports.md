@@ -141,6 +141,24 @@ Reader ids `ordminnett_cmt` and `ordminnett_valuation` (AUD), layout mode, organ
 
 **Interest rows are made by a batch step (the reader's `settle`), not per statement,** because the monthly statements and the two financial-year statements overlap and the June-quarter interest exists only in the financial-year file. Exact repeats across statements (same kind, date and amount) are staged once, the first statement by file name wins, and the repeats are listed in the batch warnings (two identical lines inside one statement are two payments). Each withholding debit ("Overseas Withholding Tax") is paired with the interest credit of the same **calendar quarter** (the debit date goes in the comment). Row: payment date = the credit date, gross = the credit, withholding = the paired debit, net = gross - withholding, income period = the calendar quarter, AUD, Interest, quarterly. A withholding without an interest credit in its quarter is a warning and no row; an interest credit without a withholding debit stages with withholding 0 and a warning (never assumed silently). **Taxation summary (O4):** the financial-year statement's quarterly gross interest and non-resident withholding are compared with the lines; a difference is a warning only. **Fingerprint:** period, statement date and closing balance. The inventory tool runs the same batch step, so its row counts are those of an upload of the folder; the financial-year files overlap the monthly ones by design (the "period overlaps" flag is expected for them).
 
+## Australian statements together: rental, MECU, Ord Minnett (Phase 24, ADR 0024)
+This section only consolidates; the details are in the three sections above.
+
+| | Rental agent (`hodges_rental`) | MECU (`mecu_account`) | Ord Minnett (`ordminnett_cmt`) |
+|---|---|---|---|
+| Rows | one per statement | one per interest credit, bonus interest and term-deposit interest | one per quarter's interest (batch step) |
+| Category / frequency | Rental / monthly | Interest / monthly | Interest / quarterly |
+| Organisation | setting `DJANGO_RENTAL_ORGANISATION` | `MECU` (fixed) | `Ord Minnett` (fixed) |
+| Gross / withholding / expenses | rent received / 0 / costs and sundry fees | Gross Interest memo / Overseas Withholding Tax memo / 0 | interest credit / paired withholding debit / 0 |
+| Payment date | statement date | Effective date (Posted in the comment) | credit date |
+| Fingerprint | statement number, period end, You Received | statement number, period end, sum of closing balances | period, statement date, closing balance |
+| Warnings / notices | owner withdrawal (notice) | annual Payment Summary mismatch or not comparable (warning) | repeats across overlapping statements, orphan or missing withholding, taxation-summary mismatch (warnings); scheme consideration, stock-sale proceeds, large credit (date-only notices) |
+
+* **Tolerant opening.** A file pypdf cannot open goes once through an in-memory repair of the one-entry cross-reference defect (MECU); the upload is stored unchanged. The PDF size limit is 16 MB.
+* **Dedupe and pairing.** Only Ord Minnett dedupes across statements (exact repeats of overlapping monthly and financial-year statements; the first by file name wins, repeats are listed). Every reader also relies on the row duplicate rule at review (date + organisation + currency + gross) against rows already in the database.
+* **Collisions with existing data.** `tools/collision_report.py` (read only, counts only, also written to the git-ignored `local/exports/collision_report.txt`) compares the staged rows with the payments in the database: exact collisions (the review flags them), near collisions (same gross within 3 days under another organisation, or same date and organisation with another gross), rows with no counterpart, and database payments of the same organisation without a staged counterpart. Nothing is changed or deleted; deletion would be a separate decision of the owner.
+* **Samples check.** The Phase 14 to 23 sample folders are read by optional local tests that print only counts; `core/test_sample_regression.py` proves that the Phase 14 samples give identical rows through the registry.
+
 ## Security and privacy
 - Login required on every import view; the stored file is served only through a login-protected download with a generated name, `Content-Disposition: attachment` and `nosniff`; stored paths are checked to stay inside `UPLOAD_DIR`.
 - Cell contents and amounts are never logged. Cell text is HTML-escaped when displayed.
