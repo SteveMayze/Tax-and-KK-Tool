@@ -44,6 +44,15 @@ memory_limit: 512m
 backup_time: "03:15:00"
 keep_images: 5
 
+# Optional app settings, written to the 0600 env file on every deploy (read by the service AND by every one-off run).
+# Set them in the git-ignored infra/inventory.ini under [taxtool:vars] (see inventory.ini.example); nothing personal is kept here.
+# An empty value removes the line again, so the app falls back to its own default.
+app_env_extra:
+  DJANGO_JOINT_RENTAL_ACCOUNT: "{{ joint_rental_account | default('') | string }}"
+  DJANGO_JOINT_RENTAL_CATEGORY: "{{ joint_rental_category | default('') }}"
+  DJANGO_RENTAL_ORGANISATION: "{{ rental_organisation | default('') }}"
+  DJANGO_ENABLE_ADMIN: "{{ '1' if (enable_admin | default(false) | bool) else '' }}"
+
 # Flags shared by every one-off `podman run` (migrate, backup, restore): same mounts, user mapping and environment as the service.
 podman_run_flags: >-
   --rm --read-only --tmpfs /tmp --cap-drop=ALL --security-opt=no-new-privileges

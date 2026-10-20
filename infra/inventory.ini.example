@@ -7,3 +7,11 @@ tax-service ansible_host=your-host.example.com ansible_user=homeapps
 
 [taxtool_bootstrap]
 tax-admin ansible_host=your-host.example.com ansible_user=your-admin-login
+
+# Optional app settings (this file is git-ignored; they are written to the 0600 env file on the server by `make deploy`).
+# Remove or empty a line and the next deploy removes the setting again.
+# [taxtool:vars]
+# joint_rental_account="0000000000"        # the joint current account number, digits only, in quotes (Phase 25)
+# joint_rental_category="Rental (joint)"   # optional: income category for the joint rent (default is this name)
+# rental_organisation="Name of the managing agent"   # Phase 21 rental statements
+# enable_admin=true                        # Django admin, needed to edit the statement rules; off by default

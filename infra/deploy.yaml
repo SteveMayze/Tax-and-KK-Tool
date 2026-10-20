@@ -80,6 +80,24 @@
         path: "{{ etc_dir }}/env"
         mode: "0600"
 
+    - name: Check the optional settings given in the inventory (the joint account number must be digits only; the value is never shown)
+      ansible.builtin.assert:
+        that: (joint_rental_account | default('') | string) is match('^[0-9]*$')
+        fail_msg: "joint_rental_account in infra/inventory.ini must be digits only (write it in quotes)."
+      no_log: true
+
+    - name: Keep the optional app settings in the 0600 env file (values come from group_vars and the git-ignored inventory; an unset value is removed again)
+      ansible.builtin.lineinfile:
+        path: "{{ etc_dir }}/env"
+        regexp: "^{{ item.key }}="
+        line: "{{ item.key }}={{ item.value }}"
+        state: "{{ 'present' if (item.value | string | length) > 0 else 'absent' }}"
+        mode: "0600"
+      loop: "{{ app_env_extra | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      no_log: true
+
     - name: Is there an image from a previous deploy?
       ansible.builtin.command: "podman image exists {{ image_repo }}:current"
       register: current_image

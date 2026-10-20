@@ -157,7 +157,13 @@ The gateway (a separate repository; Caddy as a rootless container of the same se
 | `DJANGO_URL_PREFIX` | unit (`url_prefix`) | `/tax-healthcare`; empty serves at the root |
 | `DJANGO_BEHIND_TLS_PROXY` | unit (`behind_tls_proxy`) | `1` makes the app trust `X-Forwarded-Proto` from a TLS proxy |
 | `DJANGO_STATIC_ROOT` | image | `/app/staticfiles`, filled by `collectstatic` during the image build |
-| `DJANGO_ENABLE_ADMIN` | optional | Django admin, off in production |
+| `DJANGO_ENABLE_ADMIN` | env file, from inventory `enable_admin=true` | Django admin (needed to edit the statement rules), off in production unless set |
+| `DJANGO_JOINT_RENTAL_ACCOUNT` | env file, from inventory `joint_rental_account="<digits>"` | joint current account number (Phase 25); digits only, never in the repository or the unit file |
+| `DJANGO_JOINT_RENTAL_CATEGORY` | env file, from inventory `joint_rental_category` | income category for the joint rent; app default `Rental (joint)` |
+| `DJANGO_RENTAL_ORGANISATION` | env file, from inventory `rental_organisation` | organisation for the managing-agent rental statements (Phase 21) |
+
+### Optional app settings (ADR 0028)
+`make deploy` writes the four settings above into the 0600 env file (`app_env_extra` in `infra/group_vars/all.yml`) from variables in the git-ignored `infra/inventory.ini` under `[taxtool:vars]` (example in `inventory.ini.example`; write the account number in quotes). It is idempotent, shows no value in its output (`no_log`), checks that the account number is digits only, and removes a line again when its variable is empty or deleted. The service and every one-off run (`manage`, migrate, backup, restore) read the same file, and the deploy restarts the service, so no manual edit on the server is needed. The account number is deliberately not in the unit file (which is world-readable) or in group_vars.
 
 ## What has and has not been verified
 Verified on the Mac (all in the test suite or run by hand): production settings in both HTTPS and plain-HTTP mode (each required variable is enforced, weak values rejected, host checking, a real login over plain HTTP with CSRF checks on, `check --deploy` without errors); gunicorn on Python 3.14; backup, retention, tamper/corruption detection, path-traversal protection and restore; the health-check script; the exact `git archive` the playbook ships; syntax and template rendering of all playbooks; static guard-rail tests for the Containerfile, Quadlet file and repository hygiene.

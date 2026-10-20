@@ -165,6 +165,16 @@ class AnsibleFilesTests(SimpleTestCase):
         self.assertNotIn('rsync', text)
         self.assertIn('dirty_tree', text)
 
+    def test_optional_app_settings_come_from_the_inventory_into_the_env_file_only(self):
+        deploy, groups = read('infra/deploy.yaml'), read('infra/group_vars/all.yml')
+        block = deploy[deploy.index('Keep the optional app settings'):deploy.index('Is there an image from a previous deploy?')]
+        self.assertIn('{{ etc_dir }}/env', block)
+        self.assertIn('no_log: true', block)
+        self.assertIn('mode: "0600"', block)
+        self.assertIn('joint_rental_account | default(\'\')', groups)
+        self.assertNotRegex(groups, r'DJANGO_JOINT_RENTAL_ACCOUNT: "?\d')           # never a literal number
+        self.assertNotIn('JOINT_RENTAL_ACCOUNT', read('infra/templates/tax-healthcare-tool.container.j2'))   # not in the unit file
+
     def test_deploy_secret_handling(self):
         text = read('infra/deploy.yaml')
         block = text[text.index('Generate the Django SECRET_KEY'):text.index('Make sure the secret file can only be read by the service user')]
