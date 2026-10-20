@@ -23,7 +23,7 @@ STRIP = {'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 'ss', 'Ä': 'A', 'Ö': 'O', 'Ü'
 KIND_TENANT_RENT = 'tenant_rent'
 KIND_SERVICE_CHARGE = 'service_charge_settlement'
 KINDS = (KIND_TENANT_RENT, KIND_SERVICE_CHARGE)
-MATCH_ON = ('counterparty', 'purpose', 'either')
+MATCH_ON = ('counterparty', 'purpose', 'either', 'combined')
 
 
 class RuleError(ValueError):
@@ -86,6 +86,8 @@ class Rule:
             return pattern_matches(self.pattern, counterparty)
         if self.match_on == 'purpose':
             return pattern_matches(self.pattern, purpose)
+        if self.match_on == 'combined':      # one text "counterparty | purpose": lets a pattern say "this payer but not that purpose"
+            return pattern_matches(self.pattern, f'{counterparty} | {purpose}')
         return pattern_matches(self.pattern, counterparty) or pattern_matches(self.pattern, purpose)
 
 

@@ -102,6 +102,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
                 settle_warnings += settle(items)
             except UnsupportedStatement as e:
                 raise ImportFileError(str(e))
+    ignored = sum(result.meta.get('ignored', 0) for _n, _s, _r, result in accepted)
     for name, shown, raw, result in accepted:            # classified after settling: a reader may add rows across statements
         if result.rows:
             staged.append((name, shown, raw, result))
@@ -110,7 +111,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
         else:
             nothing += 1
     if not staged:
-        summary = _summary_lines(nothing, not_imported)
+        summary = _summary_lines(nothing, not_imported, ignored)
         if refused:
             reasons = '; '.join(f'{n}: {r}' for n, r in skipped[:MAX_SKIPPED_SHOWN])
             if len(files) == 1:
@@ -123,7 +124,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
     if len(skipped) > MAX_SKIPPED_SHOWN:
         warnings.append(gettext('%(n)s more files were not staged.') % {'n': len(skipped) - MAX_SKIPPED_SHOWN})
     warnings += settle_warnings
-    warnings += _summary_lines(nothing, not_imported)
+    warnings += _summary_lines(nothing, not_imported, ignored)
     warnings += [f'{label}: {text}' for label, text in statement_readers.continuity_notes(continuity)]
     warnings += _notice_lines(notices)
 
@@ -172,7 +173,7 @@ def _notice_lines(notices):
     return lines
 
 
-def _summary_lines(nothing, not_imported):
+def _summary_lines(nothing, not_imported, ignored=0):
     """One line per outcome, with a count, never one line per file."""
     lines = []
     if nothing:
@@ -181,4 +182,6 @@ def _summary_lines(nothing, not_imported):
     if not_imported:
         lines.append(ngettext('%(n)s statement recognised and not imported (see the notices).',
                               '%(n)s statements recognised and not imported (see the notices).', not_imported) % {'n': not_imported})
+    if ignored:
+        lines.append(ngettext('%(n)s booking ignored (not rent).', '%(n)s bookings ignored (not rent).', ignored) % {'n': ignored})
     return lines

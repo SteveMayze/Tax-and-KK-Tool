@@ -1,11 +1,11 @@
-"""RVB joint current-account statements, EUR: rent received straight from the tenant (Phase 25 skeleton, ADR 0025).
+"""RVB joint current-account statements, EUR: rent received straight from the tenant (Phases 25 and 26, ADRs 0025 and 0026).
 
 The same bank and layout as rvb_account (Phase 17), a different account and a different job. The joint account is
 identified by its printed account number, which must equal the setting JOINT_RENTAL_ACCOUNT (digit for digit); with the
 setting empty this reader claims nothing. rvb_account steps aside for exactly that account (rvb_account.recognises), so
 one reader claims a file (ADR 0015). The number is never stored, logged or shown unmasked.
 
-Phase 25 reads the statement grammar and proves the arithmetic; it stages nothing yet (Phase 26 adds the rent rows):
+Phase 25 reads the statement grammar and proves the arithmetic; Phase 26 stages the rent rows (see parse):
 
 * every booking parses: Bu-Tag, Wert, type text, "PN:" code, amount with H/S, then detail lines (the first is the
   counterparty, the rest the purpose; reference blocks EREF/MREF/IBAN/BIC/... are dropped);
@@ -28,6 +28,8 @@ from django.utils.translation import gettext
 from . import statement_rules, statement_types as st
 from .amounts import parse_amount_de_with_hs, squeeze_spaces
 from .dividend_statements import UnsupportedStatement
+from .imports import COLUMNS
+from .pdf_text import mask_digit_runs
 
 READER_ID = 'rvb_joint'
 DE = r'\d{1,3}(?:\.\d{3})*,\d{2}'
@@ -201,23 +203,116 @@ def read_statement(pages) -> JointStatement:
                           opening=opening, closing=closing, start=start, end=end, bookings=bookings, account=account_number(pages))
 
 
+FIGURE = r'(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)'
+LABELLED = {label: re.compile(r'\b' + label + r'\b[^\d]{0,12}?' + FIGURE) for label in ('kaution', 'miete')}
+MONTH_NAMES = ('januar', 'februar', 'maerz', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'dezember')
+MONTH_SHOWN = {'maerz': 'März'}
+COMMENT = {
+    statement_rules.KIND_TENANT_RENT: 'Rent received directly from tenant, joint account, whole amount (PDF import).',
+    statement_rules.KIND_SERVICE_CHARGE: 'Service-charge settlement paid by the tenant (kind: service-charge settlement), joint account, '
+                                         'whole amount (PDF import).',
+}
+
+
+def _german_figure(text):
+    return Decimal(text.replace('.', '').replace(',', '.'))
+
+
+def split_deposit(purpose, credit):
+    """J8. The purpose names a deposit (Kaution). -> (rent figure, deposit figure) when it states both a Kaution and a
+    Miete figure, each once, and the two sum to the credit; otherwise None (the credit cannot be split)."""
+    text = statement_rules.normalise(purpose)
+    figures = {}
+    for label, rx in LABELLED.items():
+        found = rx.findall(text)
+        if len(found) != 1:
+            return None
+        figures[label] = _german_figure(found[0])
+    if figures['kaution'] <= 0 or figures['miete'] <= 0 or figures['kaution'] + figures['miete'] != credit:
+        return None
+    return figures['miete'], figures['kaution']
+
+
+def _month_comment(purpose):
+    """Q26.3: the month the purpose names, only when it names exactly one. Never derived from the payment date."""
+    text = statement_rules.normalise(purpose)
+    named = {m for m in MONTH_NAMES if re.search(r'\b' + m + r'\b', text)}
+    if len(named) != 1:
+        return ''
+    name = named.pop()
+    return ' ' + gettext('Purpose names the month: %(month)s.') % {'month': MONTH_SHOWN.get(name, name.capitalize())}
+
+
+def _evidence(b):
+    return mask_digit_runs(' / '.join(x for x in (b.counterparty, b.purpose) if x))
+
+
+def _row(b, rule, amount, extra=''):
+    data = {c: '' for c in COLUMNS}
+    rent = rule.kind == statement_rules.KIND_TENANT_RENT
+    comment = gettext(COMMENT[rule.kind]) + extra + _month_comment(b.purpose)
+    data.update(payment_date=b.booking_date.isoformat(), organisation=rule.organisation, category=settings.JOINT_RENTAL_CATEGORY,
+                currency='EUR', gross_amount=format(amount.quantize(Decimal('0.01')), 'f'), net_amount=format(amount.quantize(Decimal('0.01')), 'f'), withholding_tax='0', expenses='0',
+                frequency='monthly' if rent else 'one_off', comment=comment)
+    evidence = (b.page, mask_digit_runs(b.line) + ' / ' + _evidence(b))
+    provenance = {'payment_date': (b.page, mask_digit_runs(b.line)), 'gross_amount': evidence, 'organisation': (b.page, _evidence(b))}
+    return st.StatementRow(data, provenance)
+
+
+def _check_category():
+    from core.models import IncomeCategory
+    name = settings.JOINT_RENTAL_CATEGORY
+    category = IncomeCategory.objects.filter(name__iexact=name).first()
+    if category is None or not category.active:
+        raise UnsupportedStatement(gettext(
+            'Rent was found, but the income category "%(name)s" (setting DJANGO_JOINT_RENTAL_CATEGORY) does not exist or is '
+            'inactive. Create or reactivate it on the Categories page, then upload again. Nothing was staged.') % {'name': name})
+
+
 def parse(pages: list[str]) -> st.StatementResult:
-    """Phase 25: the statement is proved and read, nothing is staged. A credit that matches rules of different kinds
-    is reported (RuleConflict); rent rows come in Phase 26."""
+    """Phase 26: one row per tenant-rent credit and per service-charge back-payment; a deposit part, an unresolvable
+    credit, a possible rent no rule matched and a rule conflict are notices. Debits (costs, charges, interest) and
+    everything else are ignored, counted in `meta['ignored']`. Nothing is skipped silently."""
     statement = read_statement(pages)
     rules = statement_rules.load_rules()
-    conflicts = 0
+    rows, notices, ignored, conflicts = [], [], 0, 0
+
+    def shown(b, amount=None):
+        return {'date': b.booking_date.isoformat(), 'amount': format(b.amount if amount is None else amount, 'f')}
+
     for b in statement.bookings:
-        if b.is_credit:
-            try:
-                statement_rules.match_credit(rules, b.booking_date, b.counterparty, b.purpose)
-            except statement_rules.RuleConflict:
-                conflicts += 1
-    notices = []
+        if not b.is_credit:
+            ignored += 1                                    # J10, J18: a debit never makes income; costs are out of scope
+            continue
+        try:
+            rule = statement_rules.match_credit(rules, b.booking_date, b.counterparty, b.purpose)
+        except statement_rules.RuleConflict:
+            conflicts += 1
+            continue
+        if rule is None:
+            if re.search(r'\bmiete\b', statement_rules.normalise(b.purpose)):         # J12
+                notices.append(gettext('Credit of %(date)s (%(amount)s EUR): possible rent not matched by any rule, not staged.') % shown(b))
+            else:
+                ignored += 1                                # J13
+            continue
+        if re.search(r'\bkaution\b', statement_rules.normalise(b.purpose)):           # J8
+            parts = split_deposit(b.purpose, b.amount) if rule.kind == statement_rules.KIND_TENANT_RENT else None
+            if parts is None:
+                notices.append(gettext('Credit of %(date)s (%(amount)s EUR) mentions a deposit and could not be split into deposit '
+                                       'and rent, so it was not staged. Handle it manually.') % shown(b))
+                continue
+            rent, deposit = parts
+            notices.append(gettext('Credit of %(date)s: the deposit part (%(deposit)s EUR) is not income and was not staged.')
+                           % {'date': b.booking_date.isoformat(), 'deposit': format(deposit, 'f')})
+            rows.append(_row(b, rule, rent, ' ' + gettext('Rent part of a combined credit of %(total)s EUR with a deposit.') % {'total': format(b.amount, 'f')}))
+            continue
+        rows.append(_row(b, rule, b.amount))
     if conflicts:
         notices.append(gettext('%(n)s credit(s) match rules that disagree (different kinds or tenants), so they cannot be read.') % {'n': conflicts})
+    if rows:
+        _check_category()
     fingerprint = st.short_hash(READER_ID, statement.number, statement.year, statement.closing)
     continuity = st.Continuity(series=st.short_hash(READER_ID, statement.account), sequence=None, opening=statement.opening,
                                closing=statement.closing, start=statement.start, end=statement.end)
-    return st.StatementResult(rows=[], notices=notices, fingerprint=fingerprint, period=(statement.start, statement.end),
-                              continuity=continuity)
+    return st.StatementResult(rows=rows, notices=notices, fingerprint=fingerprint, period=(statement.start, statement.end),
+                              continuity=continuity, meta={'ignored': ignored})

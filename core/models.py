@@ -507,7 +507,8 @@ class StatementRule(models.Model):
     class MatchOn(models.TextChoices):
         COUNTERPARTY = 'counterparty', _('Counterparty line')
         PURPOSE = 'purpose', _('Purpose text')
-        EITHER = 'either', _('Counterparty line or purpose text')
+        EITHER = 'either', _('Counterparty line or purpose text (each on its own)')
+        COMBINED = 'combined', _('Counterparty line and purpose text as one text ("counterparty | purpose")')
 
     label = models.CharField(max_length=100, help_text='Your own name for the rule. Shown nowhere else.')
     kind = models.CharField(max_length=30, choices=Kind.choices)

@@ -47,6 +47,12 @@ def resolve(model, name):
 
 
 def resolve_organisation(name):
+    """An organisation named by a statement rule (the tenant of the joint-account rent, Phase 26) is created with country
+    DE; any other new organisation is created without a country, as before."""
+    from core.models import StatementRule
+    if find(Organisation, name) is None and StatementRule.objects.filter(organisation__iexact=_clean(name)).exists():
+        check_usable(Organisation, name)
+        return Organisation.objects.create(name=_clean(name), country='DE')
     return resolve(Organisation, name)
 
 

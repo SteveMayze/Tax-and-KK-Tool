@@ -199,7 +199,9 @@ class RuleModelTests(TestCase):
 class GrammarTests(TestCase):
     def test_J2_a_household_statement_with_unmatched_lines_is_nothing_to_import(self):
         outcome = read(statement())
-        self.assertEqual((outcome.reader_id, outcome.error, outcome.result.rows, outcome.result.notices), ('rvb_joint', '', [], []))
+        self.assertEqual((outcome.reader_id, outcome.error, outcome.result.rows), ('rvb_joint', '', []))
+        self.assertEqual(len(outcome.result.notices), 1)                  # the "Miete" purpose, with no rule to match it (J12)
+        self.assertIn('possible rent not matched', outcome.result.notices[0])
         self.assertEqual(outcome.result.period, (datetime.date(2025, 1, 31), datetime.date(2025, 2, 28)))
 
     def test_the_bookings_are_parsed_with_counterparty_purpose_and_without_reference_lines(self):
