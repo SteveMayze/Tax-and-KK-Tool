@@ -179,6 +179,10 @@ IMPORT_MAX_ROWS = 5000
 # A whole folder of PDF statements arrives as one request with one part per file (Django's default limit is 100).
 DATA_UPLOAD_MAX_NUMBER_FILES = 400
 
+# Organisation recorded for rent imported from the managing agent's PDF statements (Phase 21). Never in code: set it in the
+# environment (for example DJANGO_RENTAL_ORGANISATION='<agent name>'). Empty = the Hodges reader refuses the statement.
+RENTAL_ORGANISATION = os.environ.get('DJANGO_RENTAL_ORGANISATION', '').strip()
+
 # Exchange-rate provider (dotted path). Default: ECB reference rates via Frankfurter.
 # Set DJANGO_RATE_PROVIDER=core.services.rates.ManualOnlyProvider to work offline (manual rates only).
 RATE_PROVIDER = os.environ.get('DJANGO_RATE_PROVIDER', 'core.services.frankfurter.FrankfurterProvider')

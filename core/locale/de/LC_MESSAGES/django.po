@@ -2651,3 +2651,56 @@ msgid "%(n)s dividend has a net tax refund; its withholding is recorded as 0."
 msgid_plural "%(n)s dividends have a net tax refund; their withholding is recorded as 0."
 msgstr[0] "%(n)s Dividende hat eine Netto-Steuererstattung; ihr Einbehalt wird mit 0 erfasst."
 msgstr[1] "%(n)s Dividenden haben eine Netto-Steuererstattung; ihr Einbehalt wird mit 0 erfasst."
+
+#, python-format
+msgid "The \"%(label)s\" figure could not be found exactly once."
+msgstr "Die Angabe „%(label)s“ wurde nicht genau einmal gefunden."
+
+msgid "The organisation for the rental is not set (setting DJANGO_RENTAL_ORGANISATION)."
+msgstr "Die Organisation für die Vermietung ist nicht festgelegt (Einstellung DJANGO_RENTAL_ORGANISATION)."
+
+msgid "The statement date could not be found."
+msgstr "Das Abrechnungsdatum wurde nicht gefunden."
+
+msgid "Money In minus Money Out does not equal You Received."
+msgstr "Money In minus Money Out ergibt nicht You Received."
+
+msgid "The money in/out table could not be found (balance and total lines)."
+msgstr "Die Tabelle mit Ein- und Auszahlungen wurde nicht gefunden (Saldo- und Summenzeilen)."
+
+#, python-format
+msgid "A money-in entry is not rent (\"%(kind)s\"), so nothing was staged."
+msgstr "Ein Eingang ist keine Miete („%(kind)s“); daher wurde nichts vorbereitet."
+
+#, python-format
+msgid "The statement has a line this importer does not read (\"%(kind)s\"), so nothing was staged."
+msgstr "Die Abrechnung enthält eine Zeile, die dieser Import nicht liest („%(kind)s“); daher wurde nichts vorbereitet."
+
+msgid "The rent entry of the statement could not be read."
+msgstr "Der Mieteintrag der Abrechnung konnte nicht gelesen werden."
+
+msgid "The rent entries do not add up to Money In."
+msgstr "Die Mieteinträge ergeben nicht die Summe Money In."
+
+msgid "The cost lines do not add up to the Total line."
+msgstr "Die Kostenzeilen ergeben nicht die Zeile Total."
+
+msgid "The cost lines and sundry fees do not add up to Money Out."
+msgstr "Die Kostenzeilen und Nebengebühren ergeben nicht die Summe Money Out."
+
+msgid "The \"paid to\" date of the rent could not be read."
+msgstr "Das „paid to“-Datum der Miete konnte nicht gelesen werden."
+
+msgid "The rent period is not in order."
+msgstr "Der Mietzeitraum ist nicht in Ordnung."
+
+msgid "Rental statement (PDF import)."
+msgstr "Mietabrechnung (PDF-Import)."
+
+#, python-format
+msgid "%(n)s cost line(s) flagged * include GST (no GST split recorded)."
+msgstr "%(n)s mit * gekennzeichnete Kostenzeile(n) enthalten GST (keine GST-Aufteilung erfasst)."
+
+#, python-format
+msgid "Owner withdrawal not imported (%(n)s, statement dated %(date)s)."
+msgstr "Auszahlung an den Eigentümer nicht importiert (%(n)s, Abrechnung vom %(date)s)."
