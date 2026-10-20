@@ -67,7 +67,7 @@ def inventory(folder, recursive=False) -> list[Entry]:
         entries.append(entry)
     _flag(entries)
     by_name = {e.name: e for e in entries}
-    notes = statement_readers.continuity_notes([(e.name, e._continuity[0], e._continuity[1]) for e in entries if e._continuity])
+    notes = statement_readers.continuity_notes([(e.name, e._continuity[0], e._continuity[1]) for e in entries if e._continuity and not any(f.startswith('same content') for f in e.flags)])
     for label, text in notes:
         by_name[label].flags.append(text)
     return entries
@@ -86,7 +86,7 @@ def _flag(entries):
             first_with[key] = e
         if e.period:
             wanted = name_months(e._raw_name)
-            if wanted and not wanted & set(_months_between(*e.period)):
+            if wanted and not wanted & set(_months_between(e.period[0] - datetime.timedelta(days=3), e.period[1] + datetime.timedelta(days=3))):
                 e.flags.append('file name period differs from the period read')
     by_reader = {}
     for e in entries:

@@ -89,10 +89,10 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
                 skipped.append((shown, gettext('same statement as %(file)s') % {'file': statements_seen[key]}))
                 continue
             statements_seen[key] = shown
-        notices += [f'{shown}: {n}' for n in result.notices]
+        notices += [(shown, n) for n in result.notices]
+        continuity.append((shown, outcome.reader_id, result.continuity))      # all recognised statements, income or not
         if result.rows:
             staged.append((name, shown, raw, result))
-            continuity.append((shown, outcome.reader_id, result.continuity))
         elif result.not_imported:
             not_imported += 1
         else:
@@ -106,15 +106,13 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
                                       % {'reason': skipped[0][1]})
             raise ImportFileError(' '.join([gettext('None of the %(n)s PDFs was recognised, so nothing was staged. %(reasons)s Enter the payments manually.')
                                             % {'n': len(files), 'reasons': reasons}] + summary))
-        raise NothingToImport(' '.join(summary + [gettext('Nothing to import.')] + notices[:MAX_SKIPPED_SHOWN]))
+        raise NothingToImport(' '.join(summary + [gettext('Nothing to import.')] + _notice_lines(notices)))
     warnings = [gettext('Not staged: %(file)s (%(reason)s).') % {'file': n, 'reason': r} for n, r in skipped[:MAX_SKIPPED_SHOWN]]
     if len(skipped) > MAX_SKIPPED_SHOWN:
         warnings.append(gettext('%(n)s more files were not staged.') % {'n': len(skipped) - MAX_SKIPPED_SHOWN})
     warnings += _summary_lines(nothing, not_imported)
     warnings += [f'{label}: {text}' for label, text in statement_readers.continuity_notes(continuity)]
-    warnings += notices[:MAX_SKIPPED_SHOWN]
-    if len(notices) > MAX_SKIPPED_SHOWN:
-        warnings.append(gettext('%(n)s more notices were left out.') % {'n': len(notices) - MAX_SKIPPED_SHOWN})
+    warnings += _notice_lines(notices)
 
     single = len(staged) == 1
     stored_bytes = staged[0][2] if single else _zip([(n, r) for n, _s, r, _d in staged])
@@ -145,6 +143,20 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
     batch.file_counts = {'files': len(files), 'staged': len(staged), 'rows': len(rows), 'nothing': nothing,
                          'not_imported': not_imported, 'not_staged': len(skipped)}
     return batch
+
+
+def _notice_lines(notices):
+    """notices: [(file, text)]. The same text from several files is one line with the number of statements; a text from a
+    single file names the file. At most MAX_SKIPPED_SHOWN lines."""
+    grouped = {}
+    for shown, text in notices:
+        grouped.setdefault(text, []).append(shown)
+    lines = [f'{files[0]}: {text}' if len(files) == 1 else
+             gettext('%(text)s (in %(n)s statements, for example %(file)s)') % {'text': text, 'n': len(files), 'file': files[0]}
+             for text, files in grouped.items()]
+    if len(lines) > MAX_SKIPPED_SHOWN:
+        lines = lines[:MAX_SKIPPED_SHOWN] + [gettext('%(n)s more notices were left out.') % {'n': len(lines) - MAX_SKIPPED_SHOWN}]
+    return lines
 
 
 def _summary_lines(nothing, not_imported):

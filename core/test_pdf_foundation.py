@@ -175,7 +175,7 @@ class MultiRowStagingTests(UploadDirMixin, TestCase):
         reader = example_reader(not_imported=True)
         batch = self.stage(('sale.pdf', example_pdf(0, 'S1')), ('div.pdf', example_pdf(1, 'D1')), readers=[reader])
         self.assertTrue(any('recognised and not imported' in w for w in batch.warnings))
-        self.assertTrue(any('sale.pdf: Example notice.' in w for w in batch.warnings))
+        self.assertTrue(any('Example notice. (in 2 statements, for example div.pdf)' in w for w in batch.warnings), batch.warnings)   # the same text is one line
 
     def test_a_refused_file_next_to_a_nothing_to_import_file_is_an_error(self):
         with self.assertRaisesRegex(svc.ImportFileError, 'nothing was staged.*1 statement recognised, no income'):

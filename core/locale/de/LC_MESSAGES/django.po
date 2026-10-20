@@ -2401,3 +2401,80 @@ msgstr "nach %(file)s: %(what)s"
 #, python-format
 msgid "the opening balance does not match the closing balance of %(file)s"
 msgstr "der Anfangssaldo stimmt nicht mit dem Endsaldo von %(file)s überein"
+
+#, python-format
+msgid "%(text)s (in %(n)s statements, for example %(file)s)"
+msgstr "%(text)s (in %(n)s Abrechnungen, zum Beispiel %(file)s)"
+
+msgid "A date in the statement could not be read."
+msgstr "Ein Datum in der Abrechnung konnte nicht gelesen werden."
+
+msgid "The opening and closing balance rows could not be found exactly once each."
+msgstr "Die Zeilen „alter Kontostand“ und „neuer Kontostand“ wurden nicht genau je einmal gefunden."
+
+msgid "The interest closing booking is not unique or not a credit."
+msgstr "Die Buchung des Zinsabschlusses ist nicht eindeutig oder keine Gutschrift."
+
+#, python-format
+msgid "A tax booking is a credit, which is not expected (row %(n)s)."
+msgstr "Eine Steuerbuchung ist eine Gutschrift, das wird nicht erwartet (Buchung %(n)s)."
+
+#, python-format
+msgid "Booking %(n)s is a type this importer does not read (\"%(kind)s\"), so nothing was staged."
+msgstr "Buchung %(n)s hat einen Typ, den dieser Import nicht liest („%(kind)s“); daher wurde nichts vorbereitet."
+
+msgid "The bookings do not add up to the new balance (alter Kontostand + credits - debits)."
+msgstr "Die Buchungen ergeben nicht den neuen Kontostand (alter Kontostand + Gutschriften - Belastungen)."
+
+msgid "Savings-lottery prize credit, not imported."
+msgstr "Gewinn aus der Sparlotterie, nicht importiert."
+
+#, python-format
+msgid "Savings-lottery prize credits (%(n)s), not imported."
+msgstr "Gewinne aus der Sparlotterie (%(n)s), nicht importiert."
+
+msgid "A credit (Gutschrift) that is not interest, not imported."
+msgstr "Eine Gutschrift, die keine Zinsen ist, nicht importiert."
+
+#, python-format
+msgid "Credits (Gutschrift) that are not interest (%(n)s), not imported."
+msgstr "Gutschriften, die keine Zinsen sind (%(n)s), nicht importiert."
+
+msgid "Tax was booked but no interest closing (\"Abschluss lt. Anlage\") was found."
+msgstr "Es wurde Steuer gebucht, aber kein Zinsabschluss („Abschluss lt. Anlage“) gefunden."
+
+msgid "The interest closing booking has no readable Anlage 1 block (period and total)."
+msgstr "Zur Buchung des Zinsabschlusses wurde kein lesbarer Block „Anlage 1“ (Zeitraum und Summe) gefunden."
+
+#, python-format
+msgid "The interest closing block has a line this importer does not read (\"%(kind)s\"), so nothing was staged."
+msgstr "Der Zinsabschluss enthält eine Zeile, die dieser Import nicht liest („%(kind)s“); daher wurde nichts vorbereitet."
+
+msgid "The interest closing block has no interest (HABENZINSEN) line."
+msgstr "Der Zinsabschluss enthält keine Zeile HABENZINSEN."
+
+msgid "The interest lines, the total of the closing block and the booked closing amount do not agree."
+msgstr "Die Zinszeilen, die Summe des Abschlussblocks und der gebuchte Abschlussbetrag stimmen nicht überein."
+
+msgid "The tax lines of the closing block do not agree with the tax bookings."
+msgstr "Die Steuerzeilen des Abschlussblocks stimmen nicht mit den Steuerbuchungen überein."
+
+msgid "The closing block states the interest base more than once."
+msgstr "Der Abschlussblock nennt die Zinsbasis mehrfach."
+
+msgid "The tax base stated is larger than the interest."
+msgstr "Die genannte Steuerbasis ist größer als die Zinsen."
+
+msgid "Tax was booked but the interest base it was charged on could not be read."
+msgstr "Es wurde Steuer gebucht, aber die zugrunde liegende Zinsbasis konnte nicht gelesen werden."
+
+msgid "The base stated under a tax booking does not agree with the closing block."
+msgstr "Die unter einer Steuerbuchung genannte Basis stimmt nicht mit dem Abschlussblock überein."
+
+#, python-format
+msgid "Quarterly interest (PDF import). Value date %(value)s."
+msgstr "Quartalszinsen (PDF-Import). Wertstellung %(value)s."
+
+#, python-format
+msgid "Withholding as booked: %(parts)s. Tax charged on %(base)s of the %(gross)s interest."
+msgstr "Einbehalt wie gebucht: %(parts)s. Steuer berechnet auf %(base)s der Zinsen von %(gross)s."

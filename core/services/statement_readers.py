@@ -15,7 +15,7 @@ from typing import Callable
 
 from django.utils.translation import gettext
 
-from . import dividend_statements, hsbc_savings, interest_statements, pdf_text
+from . import dividend_statements, hsbc_savings, interest_statements, pdf_text, rvb_account
 from .dividend_statements import UnsupportedStatement
 from .imports import COLUMNS
 from .statement_types import Continuity, StatementResult, StatementRow, short_hash  # noqa: F401  (re-exported for readers and tests)
@@ -50,6 +50,7 @@ def _parse_fund(pages) -> StatementResult:
 # Order matters only for reporting; no two readers may claim the same file.
 READERS: list[Reader] = [
     Reader(hsbc_savings.READER_ID, hsbc_savings.recognises, hsbc_savings.parse, needs_layout=True),
+    Reader(rvb_account.READER_ID, rvb_account.recognises, rvb_account.parse, needs_layout=True),
     Reader('revolut_flexible_cash_funds', interest_statements.recognises, _parse_fund),
     Reader('au_dividend_advice', dividend_statements.recognises, _parse_dividend),
 ]
