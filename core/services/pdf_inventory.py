@@ -26,6 +26,7 @@ class Entry:
     _text_hash: str = ''
     _fingerprint: str = ''
     _continuity: object = None
+    _result: object = None
 
 
 def name_months(name: str) -> set[tuple[int, int]]:
@@ -65,15 +66,38 @@ def inventory(folder, recursive=False) -> list[Entry]:
         else:
             entry.period, entry.rows, entry.notices = result.period, len(result.rows), len(result.notices)
             entry._fingerprint = result.fingerprint
+            entry._result = result
             entry._continuity = (entry.reader, result.continuity)
             entry.outcome = 'staged' if result.rows else 'recognised, not imported' if result.not_imported else 'nothing to import'
         entries.append(entry)
+    _settle(entries)
     _flag(entries)
     by_name = {e.name: e for e in entries}
     notes = statement_readers.continuity_notes([(e.name, e._continuity[0], e._continuity[1]) for e in entries if e._continuity and not any(f.startswith('same content') for f in e.flags)])
     for label, text in notes:
         by_name[label].flags.append(text)
     return entries
+
+
+def _settle(entries):
+    """Readers that settle values across the statements of an upload (Fidelity, Ord Minnett ...) get the same chance here, so the
+    row counts shown are those of an upload of this folder."""
+    groups = {}
+    for e in entries:
+        if e._result is not None:
+            groups.setdefault(e.reader, []).append((e.name, e._result))
+    for reader_id, items in groups.items():
+        settle = statement_readers.reader_by_id(reader_id).settle
+        if settle:
+            try:
+                settle(items)
+            except Exception:           # a refusal at this stage is reported by the real upload; the inventory just shows the file rows
+                continue
+    for e in entries:
+        if e._result is not None:
+            e.rows, e.notices = len(e._result.rows), len(e._result.notices)
+            if e.rows and e.outcome == 'nothing to import':
+                e.outcome = 'staged'
 
 
 def _flag(entries):

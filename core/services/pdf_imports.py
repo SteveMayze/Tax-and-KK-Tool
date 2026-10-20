@@ -69,7 +69,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
     staged, skipped, seen = [], [], set()                 # skipped: (name, reason) for every file that was not staged
     refused = nothing = not_imported = 0
     statements_seen = {}                                  # (reader id, fingerprint) -> display name of the first file
-    notices, continuity, by_reader = [], [], {}
+    notices, continuity, by_reader, accepted = [], [], {}, []
     for raw_name, raw in sorted(files, key=lambda f: _clean_name(f[0]).lower()):
         name = _clean_name(raw_name)
         shown = _display_name(name)
@@ -93,12 +93,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
         notices += [(shown, n) for n in result.notices]
         by_reader.setdefault(outcome.reader_id, []).append((shown, result))
         continuity.append((shown, outcome.reader_id, result.continuity))      # all recognised statements, income or not
-        if result.rows:
-            staged.append((name, shown, raw, result))
-        elif result.not_imported:
-            not_imported += 1
-        else:
-            nothing += 1
+        accepted.append((name, shown, raw, result))
     settle_warnings = []
     for reader_id, items in by_reader.items():
         settle = statement_readers.reader_by_id(reader_id).settle
@@ -107,6 +102,13 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
                 settle_warnings += settle(items)
             except UnsupportedStatement as e:
                 raise ImportFileError(str(e))
+    for name, shown, raw, result in accepted:            # classified after settling: a reader may add rows across statements
+        if result.rows:
+            staged.append((name, shown, raw, result))
+        elif result.not_imported:
+            not_imported += 1
+        else:
+            nothing += 1
     if not staged:
         summary = _summary_lines(nothing, not_imported)
         if refused:

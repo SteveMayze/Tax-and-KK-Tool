@@ -119,6 +119,20 @@ class RegistryTests(SimpleTestCase):
         self.assertEqual((row.data, row.provenance), (f.row_data(COLUMNS), f.provenance_items()))
         self.assertEqual(outcome.result.period, (f.period_start, f.payment_date))
 
+    def test_a_failing_layout_extraction_does_not_hide_a_file_from_the_plain_text_readers(self):
+        """Regression (found in Phase 23): layout mode can return no text for a file whose default text is fine; the Australian
+        dividend advices then looked like scans as soon as a reader that needs layout was registered."""
+        raw = make_pdf([ACCEPTED['mufg'][0]])
+        real = pdf_text.extract_pages
+
+        def broken_layout(data, layout=False):
+            if layout:
+                raise pdf_text.PdfError('no text layer')
+            return real(data)
+        with mock.patch.object(pdf_text, 'extract_pages', broken_layout):
+            outcome = sr.read_statement(raw)
+        self.assertEqual((outcome.reader_id, outcome.error), ('au_dividend_advice', ''))
+
     def test_unrecognised_file_names_no_reader(self):
         outcome = sr.read_statement(make_pdf([['A letter about nothing in particular.']]))
         self.assertIsNone(outcome.reader_id)

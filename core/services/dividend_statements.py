@@ -336,6 +336,8 @@ def recognises(pages: list[str]) -> bool:
     """A dividend or distribution advice in Australian dollars, or one of the two kinds that parse() refuses with advice
     (scheme consideration, bonus share plan). Everything else is left to the other readers or reported as unrecognised."""
     text = '\n'.join(pages)
+    if re.search(r'Balance \(\$\)|Portfolio Valuation', text):       # account statements and valuations are for other readers (Phase 23)
+        return False
     if re.search(r'(?i)scheme consideration|bonus share plan', text):
         return True
     # AUD is matched as a whole word in capitals (the word "audit" must not make a US broker statement look Australian).

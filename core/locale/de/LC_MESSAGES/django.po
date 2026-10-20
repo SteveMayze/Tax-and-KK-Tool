@@ -2776,3 +2776,66 @@ msgstr "Die Jahreszusammenfassung in %(file)s wurde nicht verglichen: Der Upload
 #, python-format
 msgid "The annual payment summary in %(file)s does not agree with the staged interest rows of the financial year."
 msgstr "Die Jahreszusammenfassung in %(file)s stimmt nicht mit den vorbereiteten Zinszeilen des Geschäftsjahres überein."
+
+msgid "A statement has more than one brought-forward row."
+msgstr "Eine Abrechnung hat mehr als eine Übertragszeile."
+
+msgid "The first row of the table is not the brought-forward balance."
+msgstr "Die erste Zeile der Tabelle ist nicht der Übertragssaldo."
+
+#, python-format
+msgid "A row of the table could not be read (%(kind)s)."
+msgstr "Eine Zeile der Tabelle konnte nicht gelesen werden (%(kind)s)."
+
+#, python-format
+msgid "The direction of a row could not be proved from the running balance (%(kind)s)."
+msgstr "Die Richtung einer Zeile konnte aus dem laufenden Saldo nicht belegt werden (%(kind)s)."
+
+msgid "A withholding tax row is a credit, which is not expected."
+msgstr "Eine Quellensteuerzeile ist eine Gutschrift, das wird nicht erwartet."
+
+msgid "A direct credit is a debit, which is not expected."
+msgstr "Eine Direktgutschrift ist eine Belastung, das wird nicht erwartet."
+
+#, python-format
+msgid "Share-scheme consideration credit on %(date)s is not imported."
+msgstr "Gutschrift einer Aktienplan-Abfindung am %(date)s wird nicht importiert."
+
+#, python-format
+msgid "A large credit on %(date)s (a property sale or similar) is not imported."
+msgstr "Eine große Gutschrift am %(date)s (Immobilienverkauf oder Ähnliches) wird nicht importiert."
+
+#, python-format
+msgid "Stock-sale proceeds transfer on %(date)s is not imported (sales are not recorded)."
+msgstr "Übertrag von Aktienverkaufserlösen am %(date)s wird nicht importiert (Verkäufe werden nicht erfasst)."
+
+msgid "The brought-forward balance could not be found."
+msgstr "Der Übertragssaldo wurde nicht gefunden."
+
+#, python-format
+msgid "%(n)s line(s) repeated in overlapping statements were staged once (the first statement wins): %(list)s"
+msgstr "%(n)s in überlappenden Abrechnungen wiederholte Zeile(n) wurden nur einmal vorbereitet (die erste Abrechnung gilt): %(list)s"
+
+#, python-format
+msgid "Interest of the Cash Management Trust for the quarter %(start)s to %(end)s (PDF import)."
+msgstr "Zinsen des Cash Management Trust für das Quartal %(start)s bis %(end)s (PDF-Import)."
+
+#, python-format
+msgid "Overseas withholding tax debited on %(date)s."
+msgstr "Ausländische Quellensteuer belastet am %(date)s."
+
+#, python-format
+msgid "%(n)s interest credit(s) have no overseas withholding debit in their quarter; withholding is recorded as 0."
+msgstr "%(n)s Zinsgutschrift(en) haben in ihrem Quartal keine Belastung für ausländische Quellensteuer; der Einbehalt wird mit 0 erfasst."
+
+#, python-format
+msgid "%(n)s overseas withholding debit(s) have no interest credit in their quarter in this upload (not staged)."
+msgstr "%(n)s Belastung(en) für ausländische Quellensteuer haben in diesem Upload keine Zinsgutschrift im selben Quartal (nicht vorbereitet)."
+
+#, python-format
+msgid "The taxation summary of %(file)s lists a quarter ending %(date)s with no interest line in this upload."
+msgstr "Die Steuerübersicht in %(file)s nennt ein Quartal bis %(date)s ohne Zinszeile in diesem Upload."
+
+#, python-format
+msgid "The taxation summary of %(file)s does not agree with the lines of the quarter ending %(date)s."
+msgstr "Die Steuerübersicht in %(file)s stimmt nicht mit den Zeilen des Quartals bis %(date)s überein."

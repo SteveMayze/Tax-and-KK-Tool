@@ -15,7 +15,7 @@ from typing import Callable
 
 from django.utils.translation import gettext
 
-from . import dividend_statements, etrade_client, fidelity_stock_plan, hodges_rental, hsbc_savings, interest_statements, mecu_account, pdf_text, rvb_account
+from . import dividend_statements, etrade_client, fidelity_stock_plan, hodges_rental, hsbc_savings, interest_statements, mecu_account, ordminnett_cmt, pdf_text, rvb_account
 from .dividend_statements import UnsupportedStatement
 from .imports import COLUMNS
 from .statement_types import Continuity, StatementResult, StatementRow, short_hash  # noqa: F401  (re-exported for readers and tests)
@@ -53,6 +53,8 @@ READERS: list[Reader] = [
     Reader(hsbc_savings.READER_ID, hsbc_savings.recognises, hsbc_savings.parse, needs_layout=True),
     Reader(hodges_rental.READER_ID, hodges_rental.recognises, hodges_rental.parse),
     Reader(mecu_account.READER_ID, mecu_account.recognises, mecu_account.parse, needs_layout=True, settle=mecu_account.settle),
+    Reader(ordminnett_cmt.READER_ID, ordminnett_cmt.recognises, ordminnett_cmt.parse, needs_layout=True, settle=ordminnett_cmt.settle),
+    Reader(ordminnett_cmt.VALUATION_ID, ordminnett_cmt.recognises_valuation, ordminnett_cmt.parse_valuation, needs_layout=True),
     Reader(rvb_account.READER_ID, rvb_account.recognises, rvb_account.parse, needs_layout=True),
     Reader(etrade_client.READER_ID, etrade_client.recognises, etrade_client.parse, needs_layout=True),
     Reader(fidelity_stock_plan.READER_ID, fidelity_stock_plan.recognises, fidelity_stock_plan.parse, needs_layout=True,
@@ -114,8 +116,9 @@ def read_statement(raw: bytes) -> ReadOutcome:
             if layout_pages is None:
                 try:
                     layout_pages = pdf_text.extract_pages(raw, layout=True)
-                except pdf_text.PdfError as e:
-                    return ReadOutcome(error=str(e), text_hash=outcome.text_hash)
+                except pdf_text.PdfError:
+                    layout_pages = []        # layout mode can come back empty for files whose default text is fine (rotated text):
+                                             # the readers that need layout then simply do not claim the file; the others still can
             pages = layout_pages
         else:
             pages = plain

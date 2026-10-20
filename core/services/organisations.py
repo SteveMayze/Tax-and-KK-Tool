@@ -9,6 +9,7 @@ BANK_ORGANISATIONS = {
     'hsbc_savings': 'HSBC UK (Flexible Saver)',
     'rvb_giro': 'RVB (Girokonto)',
     'mecu_account': 'MECU',
+    'ordminnett_cmt': 'Ord Minnett',
 }
 
 SMALL_WORDS = {'LTD': 'Ltd', 'PTY': 'Pty', 'AND': 'and', 'OF': 'of', 'THE': 'the', 'CO': 'Co', 'INC': 'Inc', 'PLC': 'Plc',
