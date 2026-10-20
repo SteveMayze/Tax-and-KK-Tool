@@ -2478,3 +2478,87 @@ msgstr "Quartalszinsen (PDF-Import). Wertstellung %(value)s."
 #, python-format
 msgid "Withholding as booked: %(parts)s. Tax charged on %(base)s of the %(gross)s interest."
 msgstr "Einbehalt wie gebucht: %(parts)s. Steuer berechnet auf %(base)s der Zinsen von %(gross)s."
+
+msgid "The statement period could not be read."
+msgstr "Der Abrechnungszeitraum konnte nicht gelesen werden."
+
+msgid "A date in the activity table is outside the statement period."
+msgstr "Ein Datum in der Aktivitätstabelle liegt außerhalb des Abrechnungszeitraums."
+
+msgid "An amount in the activity table could not be read."
+msgstr "Ein Betrag in der Aktivitätstabelle konnte nicht gelesen werden."
+
+#, python-format
+msgid "The %(what)s could not be found."
+msgstr "%(what)s wurde nicht gefunden."
+
+msgid "A row of the income summary appears more than once."
+msgstr "Eine Zeile der Einkommensübersicht kommt mehrfach vor."
+
+msgid "cash flow activity table"
+msgstr "Die Tabelle „Cash Flow Activity by Date“"
+
+msgid "A row of the activity table has no amount."
+msgstr "Eine Zeile der Aktivitätstabelle hat keinen Betrag."
+
+#, python-format
+msgid "The activity table has a type this importer does not read (\"%(kind)s\"), so nothing was staged."
+msgstr "Die Aktivitätstabelle enthält einen Typ, den dieser Import nicht liest („%(kind)s“); daher wurde nichts vorbereitet."
+
+msgid "The net credits/(debits) line of the activity table could not be found."
+msgstr "Die Zeile „Net Credits/(Debits)“ der Aktivitätstabelle wurde nicht gefunden."
+
+msgid "The net credits/(debits) line could not be read."
+msgstr "Die Zeile „Net Credits/(Debits)“ konnte nicht gelesen werden."
+
+msgid "The activity lines do not add up to the net credits/(debits)."
+msgstr "Die Aktivitätszeilen ergeben nicht die Summe „Net Credits/(Debits)“."
+
+msgid "No sweep table in this statement; the sweep check was skipped."
+msgstr "Diese Abrechnung hat keine Sweep-Tabelle; die Sweep-Prüfung wurde übersprungen."
+
+msgid "The automatic investments of the sweep table do not add up to the net credits."
+msgstr "Die automatischen Anlagen der Sweep-Tabelle ergeben nicht die Nettogutschriften."
+
+msgid "Two withholding lines belong to one dividend."
+msgstr "Zwei Einbehaltszeilen gehören zu einer Dividende."
+
+msgid "A withholding line is a credit, which is not expected."
+msgstr "Eine Einbehaltszeile ist eine Gutschrift, das wird nicht erwartet."
+
+msgid "A company-stock dividend has no withholding line, so it cannot be recorded with certainty."
+msgstr "Eine Aktiendividende hat keine Einbehaltszeile und kann daher nicht sicher erfasst werden."
+
+msgid "A dividend line is not a credit."
+msgstr "Eine Dividendenzeile ist keine Gutschrift."
+
+msgid "A withholding line has no matching dividend line (same date and description)."
+msgstr "Eine Einbehaltszeile hat keine passende Dividendenzeile (gleiches Datum und gleiche Beschreibung)."
+
+msgid "The income and distribution summary does not agree with the dividend lines."
+msgstr "Die Einkommensübersicht stimmt nicht mit den Dividendenzeilen überein."
+
+msgid "The tax withholding total of the account summary was not found; that check was skipped."
+msgstr "Die Summe der Steuereinbehalte in der Kontoübersicht wurde nicht gefunden; diese Prüfung wurde übersprungen."
+
+msgid "The tax withholdings of the account summary do not agree with the withholding lines."
+msgstr "Die Steuereinbehalte der Kontoübersicht stimmen nicht mit den Einbehaltszeilen überein."
+
+#, python-format
+msgid "%(type)s on %(date)s is not imported."
+msgstr "%(type)s am %(date)s wird nicht importiert."
+
+msgid "A securities purchased/sold section is present; it is not imported."
+msgstr "Ein Abschnitt zu gekauften/verkauften Wertpapieren ist vorhanden; er wird nicht importiert."
+
+msgid "Fund dividend"
+msgstr "Fondsdividende"
+
+msgid "Qualified dividend"
+msgstr "Qualifizierte Dividende"
+
+msgid "via E*TRADE."
+msgstr "über E*TRADE."
+
+msgid "The statement marks this transaction as reportable for the prior year."
+msgstr "Die Abrechnung kennzeichnet diesen Vorgang als meldepflichtig für das Vorjahr."
