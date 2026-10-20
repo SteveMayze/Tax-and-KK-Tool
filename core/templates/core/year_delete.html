@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load i18n privacy %}
+{% block title %}{% trans "Confirm delete" %}{% endblock %}
+{% block content %}
+<h1>{% blocktrans trimmed with y=year.year %}Delete year {{ y }}?{% endblocktrans %}</h1>
+<p class="warn">{% blocktrans trimmed %}{{ months }} month(s) and {{ payments }} payment(s) will be permanently deleted.{% endblocktrans %}</p>
+{% if batches %}
+<h2>{% trans "Imports that contributed to this year" %}</h2>
+<p class="note">{% trans "The files you uploaded stay on the server after the year is deleted unless you tick the box below. Only imports used by this year alone can be removed here; the others can be deleted later from the Imports page." %}</p>
+<table>
+  <thead><tr><th>#</th><th>{% trans "File" %}</th><th class="num">{% trans "Payments in this year" %}</th><th class="num">{% trans "Payments in other years" %}</th><th>{% trans "If you tick the box" %}</th></tr></thead>
+  <tbody>
+  {% for item in batches %}
+  <tr><td>{{ item.batch.pk }}</td><td>{{ item.batch.file_name|masked }}</td><td class="num">{{ item.in_year }}</td><td class="num">{{ item.elsewhere }}</td>
+    <td>{% if item.exclusive %}{% trans "stored file and import history are deleted" %}{% else %}{% trans "kept: also used by other years" %}{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="note">{% trans "No import batch is linked to the payments of this year. Imports whose payments were deleted earlier can be removed from the Imports page." %}</p>{% endif %}
+<form method="post">{% csrf_token %}
+  {% if batches %}<p><label><input type="checkbox" name="delete_imports"> {% trans "Also delete the stored files and import history of the imports marked above (this cannot be undone; existing backups keep their copies)" %}</label></p>{% endif %}
+  <button type="submit" class="btn-danger">{% trans "Yes, delete" %}</button>
+  <a href="{{ cancel_href }}" class="btn btn-secondary">{% trans "Cancel" %}</a>
+</form>
+{% endblock %}

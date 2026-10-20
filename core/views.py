@@ -14,6 +14,7 @@ from .forms import YearForm, YearNotesForm
 from .models import AssessmentSettings, Payment, ReportingMonth, ReportingYear
 from .services.aggregation import (
     actual_totals, average_of_actuals, normalised_monthly_totals, year_payments)
+from .services import import_files
 from .services.i18n import month_name
 from .services.normalisation import is_recurring, monthly_equivalent
 
@@ -98,14 +99,21 @@ def year_notes(request, year):
 def year_delete(request, year):
     y = get_object_or_404(ReportingYear, year=year)
     if request.method == 'POST':
-        y.delete()
+        removal = import_files.delete_year(y, delete_imports=request.POST.get('delete_imports') == 'on')
         messages.success(request, _('Year %(year)s and all its months and payments were deleted.') % {'year': year})
+        if removal.batches:
+            messages.success(request, _('%(batches)s import batch(es) used only by this year were deleted: %(removed)s stored file(s) removed, %(gone)s already gone.') % {
+                'batches': removal.batches, 'removed': removal.removed, 'gone': removal.already_gone})
+        if removal.failed:
+            messages.error(request, _('%(n)s stored file(s) could not be removed and are no longer linked to any import. List them with the command stored_files_report and remove them with its --apply option.') % {'n': removal.failed})
+        if removal.kept_shared:
+            messages.warning(request, _('%(n)s import batch(es) also support other years and were kept.') % {'n': removal.kept_shared})
+        if removal.refused_batches:
+            messages.error(request, _('%(n)s import batch(es) were kept because their stored path is not inside the storage directory.') % {'n': removal.refused_batches})
         return redirect('home')
-    return render(request, 'core/confirm_delete.html', {
-        'what': _('year %(year)s') % {'year': year},
-        'consequence': _('%(months)s month(s) and %(payments)s payment(s) will be permanently deleted.') % {
-            'months': y.months.count(), 'payments': year_payments(y).count()},
-        'cancel_href': reverse('year_detail', args=[year])})
+    return render(request, 'core/year_delete.html', {
+        'year': y, 'months': y.months.count(), 'payments': year_payments(y).count(),
+        'batches': import_files.year_batches(y), 'cancel_href': reverse('year_detail', args=[year])})
 
 
 @login_required

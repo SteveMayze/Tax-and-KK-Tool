@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+from django.db.models import Count
+
 from django.contrib import messages
 from django.utils.translation import gettext as _
 from django.contrib.auth.decorators import login_required
@@ -7,14 +9,19 @@ from django.core.exceptions import ValidationError
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .forms import ImportRowForm, ImportUploadForm
-from .models import ImportBatch, ImportRow
+from .models import ImportBatch, ImportDeletion, ImportRow
+from .services import import_files
 from .services import imports as svc
 from .services import pdf_imports, pdf_text
 from .services.conversion import ConversionError, eur_amount, for_storage
 from .services.rates import get_provider
+
+
+def _batches():
+    return ImportBatch.objects.annotate(payment_total=Count('payment'))
 
 
 def _preview_redirect(batch):
@@ -33,8 +40,8 @@ def _proposed_eur(row):
 @login_required
 def import_list(request):
     return render(request, 'core/import_list.html', {
-        'batches': ImportBatch.objects.all(), 'form': ImportUploadForm(), 'columns': svc.COLUMNS,
-        'required': svc.REQUIRED})
+        'batches': _batches(), 'form': ImportUploadForm(), 'columns': svc.COLUMNS,
+        'required': svc.REQUIRED, 'deletions': ImportDeletion.objects.all()[:10]})
 
 
 @login_required
@@ -72,7 +79,8 @@ def import_upload(request):
                 messages.success(request, _('File read. Review the rows below; nothing has been imported yet.'))
             return _preview_redirect(batch)
     return render(request, 'core/import_list.html', {
-        'batches': ImportBatch.objects.all(), 'form': form, 'columns': svc.COLUMNS, 'required': svc.REQUIRED})
+        'batches': _batches(), 'form': form, 'columns': svc.COLUMNS, 'required': svc.REQUIRED,
+        'deletions': ImportDeletion.objects.all()[:10]})
 
 
 @login_required
@@ -190,6 +198,8 @@ def import_file(request, pk):
     batch = get_object_or_404(ImportBatch, pk=pk)
     path = svc.upload_path(batch)
     if path is None:
+        if batch.original_removed_at:
+            return render(request, 'core/import_file_removed.html', {'batch': batch}, status=410)
         raise Http404('File is not available.')
     kinds = {'.pdf': 'application/pdf', '.zip': 'application/zip', '.csv': 'text/csv; charset=utf-8'}
     response = FileResponse(open(path, 'rb'), as_attachment=True, filename=f'import-{batch.pk}{path.suffix}',
@@ -204,3 +214,46 @@ def import_template(request):
     response = HttpResponse(svc.TEMPLATE_CSV, content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = 'attachment; filename="payments-import-template.csv"'
     return response
+
+
+def _report_removal(request, removal, what):
+    if removal.failed:
+        messages.error(request, _('The database was updated but the stored file could not be removed. It is no longer linked to any import; list it with the command stored_files_report and remove it with its --apply option.'))
+    else:
+        messages.success(request, what)
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def import_delete_file(request, pk):
+    batch = get_object_or_404(ImportBatch, pk=pk)
+    if not batch.stored_path:
+        messages.error(request, _('This import has no stored file.'))
+        return redirect('import_list')
+    if request.method == 'POST':
+        try:
+            removal = import_files.delete_batch_file(batch)
+        except import_files.StoredPathRefused:
+            messages.error(request, _('Refused: the stored path is not inside the storage directory. Nothing was changed.'))
+            return redirect('import_list')
+        _report_removal(request, removal, _('The stored file was deleted (already gone from disk: %(n)s). The history and the %(p)s payment(s) are unchanged.') % {
+            'n': removal.already_gone, 'p': removal.payments_kept})
+        return redirect('import_list')
+    return render(request, 'core/import_delete.html', {
+        'batch': batch, 'file_only': True, 'payments': import_files.payment_count(batch), 'rows': batch.rows.count()})
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def import_delete(request, pk):
+    batch = get_object_or_404(ImportBatch, pk=pk)
+    if request.method == 'POST':
+        try:
+            removal = import_files.delete_batch(batch)
+        except import_files.StoredPathRefused:
+            messages.error(request, _('Refused: the stored path is not inside the storage directory. Nothing was changed.'))
+            return redirect('import_list')
+        _report_removal(request, removal, _('Import deleted completely. %(p)s payment(s) it created were kept.') % {'p': removal.payments_kept})
+        return redirect('import_list')
+    return render(request, 'core/import_delete.html', {
+        'batch': batch, 'file_only': False, 'payments': import_files.payment_count(batch), 'rows': batch.rows.count()})

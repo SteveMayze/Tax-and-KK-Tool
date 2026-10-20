@@ -38,5 +38,8 @@ There is no display-currency selector (removed in Phase 9, ADR 0006). Amounts ar
 ## Language and locale (Phase 12, ADR 0012)
 One setting (`AssessmentSettings.language`) is activated per request by `core.middleware.LanguageMiddleware`. Texts use Django's gettext (`core/locale/de`); numbers and dates use `core/formats` and `core.services.i18n` (display only, never in calculations). CSV rendering is forced to English and to the fixed CSV format.
 
+## Stored import files (Phase 28, ADR 0029)
+`core/services/import_files.py` is the only place that removes stored originals: delete the file, delete a batch, delete a year with its exclusively-used batches, report and delete unreferenced files. Each does its database work in one transaction, removes files after the commit, records an `ImportDeletion` line (counts only) and logs counts only. Views (`year_delete`, `import_delete_file`, `import_delete`) are confirmation pages (GET shows, POST acts); the command `stored_files_report` is a dry run unless `--apply`.
+
 ## Deployment (Phase 8; rootless since Phase 9A, see ADR 0007 and docs/podman-explained.md)
 Two settings modules: `config.settings` (development, safe defaults) and `config.settings_prod` (container; everything from the environment, refuses to start on missing or weak values). The container runs gunicorn as an unprivileged user with a read-only root file system; data lives on three mounted directories (`/data`, `/uploads`, `/backups`). Plain HTTP on its own port (no proxy). Backup and restore logic is in `core/services/backup.py` with the management commands `backup_db` and `restore_backup`. Infrastructure code is in `infra/` (Ansible playbooks and templates) and the `Makefile`. Details: `docs/deployment.md`.

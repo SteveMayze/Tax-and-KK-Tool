@@ -204,3 +204,6 @@ sudo rm -r /etc/tax-healthcare-tool                                   # the old 
 | 403 when submitting a form | the page's address is not in the allowed origins; the trial port needs `make deploy PORT=8890` so the origin matches |
 | `make migrate-copy` fails to find the old wrapper | the old rootful setup is not installed (nothing to migrate), or is already removed |
 | A memory or process limit "was not applied" | the user's systemd does not hand the `memory` or `pids` controller to the user; `make status` prints the delegated controllers, and the limits it applied |
+
+## Finding stored files nobody refers to (Phase 28)
+After deleting imports, or if a file removal ever failed, `stored_files_report` lists files in the uploads folder that no import refers to. It only counts and prints masked names unless you add `--apply`. Run it as any other one-off command through the `manage` wrapper (`bin/tax-healthcare-tool-manage stored_files_report`, then again with `--apply` once you have read the list). Backups are not changed by it.

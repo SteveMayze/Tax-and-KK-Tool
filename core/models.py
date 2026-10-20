@@ -164,12 +164,34 @@ class ImportBatch(models.Model):
     source_document = models.ForeignKey(SourceDocument, null=True, blank=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)
     committed_at = models.DateTimeField(null=True, blank=True)
+    original_removed_at = models.DateTimeField(
+        null=True, blank=True, help_text='Set when the owner deleted the stored original (Phase 28); the history stays.')
 
     class Meta:
         ordering = ['-created_at', '-id']
 
     def __str__(self):
         return self.description or f'Import batch {self.pk}'
+
+
+class ImportDeletion(models.Model):
+    """Audit line for a deliberate deletion of stored import files (Phase 28). Counts only: no names, no amounts."""
+    class Kind(models.TextChoices):
+        YEAR = 'year', 'Year deleted with its import files'
+        BATCH_FILE = 'batch_file', 'Stored original deleted'
+        BATCH = 'batch', 'Import batch deleted completely'
+        ORPHANS = 'orphans', 'Unreferenced stored files deleted'
+
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    at = models.DateTimeField(auto_now_add=True)
+    batches = models.PositiveIntegerField(default=0)
+    files_removed = models.PositiveIntegerField(default=0)
+    files_already_gone = models.PositiveIntegerField(default=0)
+    files_failed = models.PositiveIntegerField(default=0)
+    payments_kept = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['-at', '-id']
 
 
 class ImportRow(models.Model):

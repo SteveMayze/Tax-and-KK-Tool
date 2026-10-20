@@ -2839,3 +2839,164 @@ msgstr "Die Steuerübersicht in %(file)s nennt ein Quartal bis %(date)s ohne Zin
 #, python-format
 msgid "The taxation summary of %(file)s does not agree with the lines of the quarter ending %(date)s."
 msgstr "Die Steuerübersicht in %(file)s stimmt nicht mit den Zeilen des Quartals bis %(date)s überein."
+
+
+msgid "Delete import"
+msgstr "Import löschen"
+
+#, python-format
+msgid "Delete the stored file of import #%(n)s?"
+msgstr "Gespeicherte Datei von Import Nr. %(n)s löschen?"
+
+#, python-format
+msgid "Delete import #%(n)s completely?"
+msgstr "Import Nr. %(n)s vollständig löschen?"
+
+msgid "File:"
+msgstr "Datei:"
+
+msgid "What will be removed"
+msgstr "Was entfernt wird"
+
+msgid "The stored copy of the uploaded file (it can no longer be downloaded)."
+msgstr "Die gespeicherte Kopie der hochgeladenen Datei (sie kann danach nicht mehr heruntergeladen werden)."
+
+msgid "The stored copy of the uploaded file, if there is one."
+msgstr "Die gespeicherte Kopie der hochgeladenen Datei, falls vorhanden."
+
+#, python-format
+msgid "The %(n)s staged row(s) and the history line of this import."
+msgstr "Die %(n)s vorbereiteten Zeilen und der Verlaufseintrag dieses Imports."
+
+msgid "The memory that this file was imported: the same statement can be uploaded again afterwards (its rows will then be flagged as possible duplicates of the payments that remain)."
+msgstr "Der Vermerk, dass diese Datei importiert wurde: Dieselbe Abrechnung kann danach erneut hochgeladen werden (ihre Zeilen werden dann als mögliche Duplikate der verbleibenden Zahlungen markiert)."
+
+msgid "What stays"
+msgstr "Was bleibt"
+
+#, python-format
+msgid "%(n)s payment(s) created by this import. Payments are never deleted here."
+msgstr "%(n)s Zahlung(en), die dieser Import angelegt hat. Zahlungen werden hier nie gelöscht."
+
+msgid "The history line and the row data, marked as original removed."
+msgstr "Der Verlaufseintrag und die Zeilendaten, als „Original entfernt“ gekennzeichnet."
+
+msgid "Existing backups keep their copy of the file."
+msgstr "Bestehende Sicherungen behalten ihre Kopie der Datei."
+
+msgid "Original removed"
+msgstr "Original entfernt"
+
+msgid "The original file was removed"
+msgstr "Die Originaldatei wurde entfernt"
+
+#, python-format
+msgid "The stored copy of the file of import #%(n)s was deleted on %(when)s UTC. The history and the row data are still available."
+msgstr "Die gespeicherte Kopie der Datei von Import Nr. %(n)s wurde am %(when)s UTC gelöscht. Verlauf und Zeilendaten sind weiterhin vorhanden."
+
+msgid "View import"
+msgstr "Import ansehen"
+
+msgid "Back to imports"
+msgstr "Zurück zu den Importen"
+
+msgid "Payments linked"
+msgstr "Verknüpfte Zahlungen"
+
+#, python-format
+msgid "original removed on %(when)s"
+msgstr "Original entfernt am %(when)s"
+
+msgid "unattributed"
+msgstr "nicht zugeordnet"
+
+msgid "Delete stored file"
+msgstr "Gespeicherte Datei löschen"
+
+msgid "Delete batch completely"
+msgstr "Import vollständig löschen"
+
+msgid "Deleting never deletes payments. Existing backups keep their copies of removed files. “unattributed” means no payment is linked to the import any more (for example its year was deleted); such imports can only be removed here."
+msgstr "Das Löschen entfernt nie Zahlungen. Bestehende Sicherungen behalten ihre Kopien entfernter Dateien. „Nicht zugeordnet“ heißt: Mit dem Import ist keine Zahlung mehr verknüpft (zum Beispiel, weil sein Jahr gelöscht wurde); solche Importe lassen sich nur hier entfernen."
+
+msgid "Deletion log"
+msgstr "Löschprotokoll"
+
+msgid "What"
+msgstr "Was"
+
+msgid "Batches"
+msgstr "Importe"
+
+msgid "Files removed"
+msgstr "Dateien entfernt"
+
+msgid "Already gone"
+msgstr "Bereits weg"
+
+msgid "Failed"
+msgstr "Fehlgeschlagen"
+
+#, python-format
+msgid "Delete year %(y)s?"
+msgstr "Jahr %(y)s löschen?"
+
+msgid "Imports that contributed to this year"
+msgstr "Importe, die zu diesem Jahr beigetragen haben"
+
+msgid "The files you uploaded stay on the server after the year is deleted unless you tick the box below. Only imports used by this year alone can be removed here; the others can be deleted later from the Imports page."
+msgstr "Die hochgeladenen Dateien bleiben nach dem Löschen des Jahres auf dem Server, wenn Sie das Kästchen unten nicht anhaken. Hier lassen sich nur Importe entfernen, die allein zu diesem Jahr gehören; die übrigen können später auf der Seite „Importe“ gelöscht werden."
+
+msgid "Payments in this year"
+msgstr "Zahlungen in diesem Jahr"
+
+msgid "Payments in other years"
+msgstr "Zahlungen in anderen Jahren"
+
+msgid "If you tick the box"
+msgstr "Wenn Sie das Kästchen anhaken"
+
+msgid "stored file and import history are deleted"
+msgstr "gespeicherte Datei und Importverlauf werden gelöscht"
+
+msgid "kept: also used by other years"
+msgstr "bleibt erhalten: wird auch von anderen Jahren genutzt"
+
+msgid "No import batch is linked to the payments of this year. Imports whose payments were deleted earlier can be removed from the Imports page."
+msgstr "Mit den Zahlungen dieses Jahres ist kein Import verknüpft. Importe, deren Zahlungen früher gelöscht wurden, lassen sich auf der Seite „Importe“ entfernen."
+
+msgid "Also delete the stored files and import history of the imports marked above (this cannot be undone; existing backups keep their copies)"
+msgstr "Auch die gespeicherten Dateien und den Importverlauf der oben markierten Importe löschen (nicht rückgängig zu machen; bestehende Sicherungen behalten ihre Kopien)"
+
+#, python-format
+msgid "%(batches)s import batch(es) used only by this year were deleted: %(removed)s stored file(s) removed, %(gone)s already gone."
+msgstr "%(batches)s Import(e), die nur zu diesem Jahr gehörten, wurden gelöscht: %(removed)s gespeicherte Datei(en) entfernt, %(gone)s bereits nicht mehr vorhanden."
+
+#, python-format
+msgid "%(n)s stored file(s) could not be removed and are no longer linked to any import. List them with the command stored_files_report and remove them with its --apply option."
+msgstr "%(n)s gespeicherte Datei(en) konnten nicht entfernt werden und gehören zu keinem Import mehr. Listen Sie sie mit dem Befehl stored_files_report auf und entfernen Sie sie mit dessen Option --apply."
+
+#, python-format
+msgid "%(n)s import batch(es) also support other years and were kept."
+msgstr "%(n)s Import(e) stützen auch andere Jahre und blieben erhalten."
+
+#, python-format
+msgid "%(n)s import batch(es) were kept because their stored path is not inside the storage directory."
+msgstr "%(n)s Import(e) blieben erhalten, weil ihr gespeicherter Pfad nicht im Speicherverzeichnis liegt."
+
+msgid "The database was updated but the stored file could not be removed. It is no longer linked to any import; list it with the command stored_files_report and remove it with its --apply option."
+msgstr "Die Datenbank wurde aktualisiert, aber die gespeicherte Datei konnte nicht entfernt werden. Sie gehört zu keinem Import mehr; listen Sie sie mit dem Befehl stored_files_report auf und entfernen Sie sie mit dessen Option --apply."
+
+msgid "This import has no stored file."
+msgstr "Dieser Import hat keine gespeicherte Datei."
+
+msgid "Refused: the stored path is not inside the storage directory. Nothing was changed."
+msgstr "Abgelehnt: Der gespeicherte Pfad liegt nicht im Speicherverzeichnis. Es wurde nichts geändert."
+
+#, python-format
+msgid "The stored file was deleted (already gone from disk: %(n)s). The history and the %(p)s payment(s) are unchanged."
+msgstr "Die gespeicherte Datei wurde gelöscht (bereits nicht mehr auf dem Datenträger: %(n)s). Der Verlauf und die %(p)s Zahlung(en) sind unverändert."
+
+#, python-format
+msgid "Import deleted completely. %(p)s payment(s) it created were kept."
+msgstr "Import vollständig gelöscht. %(p)s von ihm angelegte Zahlung(en) blieben erhalten."

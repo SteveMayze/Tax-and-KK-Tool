@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n privacy %}
 {% block title %}{% trans "Imports" %}{% endblock %}
 {% block content %}
 <h1>{% trans "CSV imports" %}</h1>
@@ -32,16 +32,25 @@
 <h2>{% trans "History" %}</h2>
 {% if batches %}
 <table>
-  <thead><tr><th>#</th><th>{% trans "Uploaded (UTC)" %}</th><th>{% trans "File" %}</th><th>{% trans "Status" %}</th><th class="num">{% trans "Imported" %}</th><th class="num">{% trans "Skipped" %}</th><th class="num">{% trans "Unconverted" %}</th><th></th></tr></thead>
+  <thead><tr><th>#</th><th>{% trans "Uploaded (UTC)" %}</th><th>{% trans "File" %}</th><th>{% trans "Status" %}</th><th class="num">{% trans "Imported" %}</th><th class="num">{% trans "Skipped" %}</th><th class="num">{% trans "Unconverted" %}</th><th class="num">{% trans "Payments linked" %}</th><th></th></tr></thead>
   <tbody>
   {% for b in batches %}
-  <tr><td>{{ b.pk }}</td><td>{{ b.created_at|date:"DATETIME_FORMAT" }}</td><td>{{ b.file_name }}</td><td>{{ b.get_status_display }}</td>
+  <tr><td>{{ b.pk }}</td><td>{{ b.created_at|date:"DATETIME_FORMAT" }}</td><td>{{ b.file_name|masked }}{% if b.original_removed_at %} <span class="note">({% blocktrans trimmed with when=b.original_removed_at|date:"DATE_FORMAT" %}original removed on {{ when }}{% endblocktrans %})</span>{% endif %}</td><td>{{ b.get_status_display }}</td>
     <td class="num">{% if b.status == 'committed' %}{{ b.imported_count }}{% endif %}</td>
     <td class="num">{% if b.status == 'committed' %}{{ b.skipped_count }}{% endif %}</td>
     <td class="num">{% if b.status == 'committed' %}{{ b.unconverted_count }}{% endif %}</td>
-    <td><a href="{% url 'import_preview' b.pk %}" class="btn btn-secondary">{% if b.status == 'preview' %}{% trans "Review" %}{% else %}{% trans "View" %}{% endif %}</a>{% if b.stored_path %} &middot; <a href="{% url 'import_file' b.pk %}">{% trans "Original file" %}</a>{% endif %}</td></tr>
+    <td class="num">{% if b.status == 'committed' %}{% if b.payment_total %}{{ b.payment_total }}{% else %}<span class="note">{% trans "unattributed" %}</span>{% endif %}{% endif %}</td>
+    <td><a href="{% url 'import_preview' b.pk %}" class="btn btn-secondary">{% if b.status == 'preview' %}{% trans "Review" %}{% else %}{% trans "View" %}{% endif %}</a>{% if b.stored_path %} &middot; <a href="{% url 'import_file' b.pk %}">{% trans "Original file" %}</a> &middot; <a href="{% url 'import_delete_file' b.pk %}" class="btn btn-secondary">{% trans "Delete stored file" %}</a>{% endif %} <a href="{% url 'import_delete' b.pk %}" class="btn btn-secondary">{% trans "Delete batch completely" %}</a></td></tr>
   {% endfor %}
   </tbody>
 </table>
+<p class="note">{% trans "Deleting never deletes payments. Existing backups keep their copies of removed files. “unattributed” means no payment is linked to the import any more (for example its year was deleted); such imports can only be removed here." %}</p>
 {% else %}<p>{% trans "No imports yet." %}</p>{% endif %}
+{% if deletions %}
+<h2>{% trans "Deletion log" %}</h2>
+<table>
+  <thead><tr><th>{% trans "When (UTC)" %}</th><th>{% trans "What" %}</th><th class="num">{% trans "Batches" %}</th><th class="num">{% trans "Files removed" %}</th><th class="num">{% trans "Already gone" %}</th><th class="num">{% trans "Failed" %}</th></tr></thead>
+  <tbody>{% for d in deletions %}<tr><td>{{ d.at|date:"DATETIME_FORMAT" }}</td><td>{{ d.get_kind_display }}</td><td class="num">{{ d.batches }}</td><td class="num">{{ d.files_removed }}</td><td class="num">{{ d.files_already_gone }}</td><td class="num">{{ d.files_failed }}</td></tr>{% endfor %}</tbody>
+</table>
+{% endif %}
 {% endblock %}

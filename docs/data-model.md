@@ -28,10 +28,10 @@ All models live in `core/models.py`. Money uses `Decimal` (see decisions/0001-de
 Owner-edited matching rule for bank-statement credits (label, kind, direction, pattern, match_on, organisation, valid_from/valid_to, active). Standalone: no foreign keys, nothing is deleted with it, no payment refers to it. No rule is seeded.
 
 ## Deletion behaviour
-- Deleting a `ReportingYear` deletes its months and their payments (cascade). UI confirmation is Phase 3.
+- Deleting a `ReportingYear` deletes its months and their payments (cascade). Its import batches and stored files stay unless the owner ticks the box on the confirmation page, which removes the batches used by that year only (Phase 28, ADR 0029; docs/imports.md).
 - Deleting a `ReportingMonth` deletes its payments (cascade).
 - `Organisation` and `IncomeCategory` referenced by payments cannot be deleted (PROTECT); deactivate instead.
-- Deleting a `SourceDocument` or `ImportBatch` keeps payments (FK set to null). `ImportRow`s are deleted with their batch. Discarding a pending batch deletes its rows and stored file but keeps the batch record in history.
+- Deleting a `SourceDocument` or `ImportBatch` keeps payments (FK set to null). `ImportRow`s are deleted with their batch. Discarding a pending batch deletes its rows and stored file but keeps the batch record in history. `ImportBatch.original_removed_at` is set when the owner deletes only the stored file; `ImportDeletion` is an audit line (counts only) for each deliberate deletion of stored import files.
 - `ExchangeRateRecord` referenced by a payment or conversion event cannot be deleted (PROTECT).
 - Deleting a payment deletes its `ConversionEvent` history.
 

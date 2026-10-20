@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load i18n privacy %}
+{% block title %}{% trans "Delete import" %}{% endblock %}
+{% block content %}
+{% if file_only %}<h1>{% blocktrans trimmed with n=batch.pk %}Delete the stored file of import #{{ n }}?{% endblocktrans %}</h1>
+{% else %}<h1>{% blocktrans trimmed with n=batch.pk %}Delete import #{{ n }} completely?{% endblocktrans %}</h1>{% endif %}
+<p class="note">{% trans "File:" %} {{ batch.file_name|masked }}</p>
+<h2>{% trans "What will be removed" %}</h2>
+<ul>
+  {% if file_only %}
+  <li>{% trans "The stored copy of the uploaded file (it can no longer be downloaded)." %}</li>
+  {% else %}
+  <li>{% trans "The stored copy of the uploaded file, if there is one." %}</li>
+  <li>{% blocktrans trimmed with n=rows %}The {{ n }} staged row(s) and the history line of this import.{% endblocktrans %}</li>
+  <li>{% trans "The memory that this file was imported: the same statement can be uploaded again afterwards (its rows will then be flagged as possible duplicates of the payments that remain)." %}</li>
+  {% endif %}
+</ul>
+<h2>{% trans "What stays" %}</h2>
+<ul>
+  <li>{% blocktrans trimmed with n=payments %}{{ n }} payment(s) created by this import. Payments are never deleted here.{% endblocktrans %}</li>
+  {% if file_only %}<li>{% trans "The history line and the row data, marked as original removed." %}</li>{% endif %}
+  <li>{% trans "Existing backups keep their copy of the file." %}</li>
+</ul>
+<p class="warn">{% trans "This cannot be undone." %}</p>
+<form method="post">{% csrf_token %}<button type="submit" class="btn-danger">{% trans "Yes, delete" %}</button> <a href="{% url 'import_list' %}" class="btn btn-secondary">{% trans "Cancel" %}</a></form>
+{% endblock %}
