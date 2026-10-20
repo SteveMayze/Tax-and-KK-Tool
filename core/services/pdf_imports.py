@@ -18,6 +18,7 @@ from django.utils.translation import gettext, ngettext
 from core.models import ImportBatch, ImportRow
 
 from . import imports, pdf_text, statement_readers
+from .dividend_statements import UnsupportedStatement
 from .imports import COLUMNS, ImportFileError
 from .rates import RateProvider
 
@@ -37,7 +38,7 @@ def _clean_name(name):
 
 def _clean_evidence(text):
     """Source lines are shown in the review and kept in the database: hide long digit runs (reference numbers)."""
-    return pdf_text.mask_digit_runs(text)[:160]
+    return pdf_text.mask_digit_runs(text)[:400]
 
 
 def _display_name(name):
@@ -68,7 +69,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
     staged, skipped, seen = [], [], set()                 # skipped: (name, reason) for every file that was not staged
     refused = nothing = not_imported = 0
     statements_seen = {}                                  # (reader id, fingerprint) -> display name of the first file
-    notices, continuity = [], []
+    notices, continuity, by_reader = [], [], {}
     for raw_name, raw in sorted(files, key=lambda f: _clean_name(f[0]).lower()):
         name = _clean_name(raw_name)
         shown = _display_name(name)
@@ -90,6 +91,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
                 continue
             statements_seen[key] = shown
         notices += [(shown, n) for n in result.notices]
+        by_reader.setdefault(outcome.reader_id, []).append((shown, result))
         continuity.append((shown, outcome.reader_id, result.continuity))      # all recognised statements, income or not
         if result.rows:
             staged.append((name, shown, raw, result))
@@ -97,6 +99,14 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
             not_imported += 1
         else:
             nothing += 1
+    settle_warnings = []
+    for reader_id, items in by_reader.items():
+        settle = statement_readers.reader_by_id(reader_id).settle
+        if settle:
+            try:
+                settle_warnings += settle(items)
+            except UnsupportedStatement as e:
+                raise ImportFileError(str(e))
     if not staged:
         summary = _summary_lines(nothing, not_imported)
         if refused:
@@ -110,6 +120,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
     warnings = [gettext('Not staged: %(file)s (%(reason)s).') % {'file': n, 'reason': r} for n, r in skipped[:MAX_SKIPPED_SHOWN]]
     if len(skipped) > MAX_SKIPPED_SHOWN:
         warnings.append(gettext('%(n)s more files were not staged.') % {'n': len(skipped) - MAX_SKIPPED_SHOWN})
+    warnings += settle_warnings
     warnings += _summary_lines(nothing, not_imported)
     warnings += [f'{label}: {text}' for label, text in statement_readers.continuity_notes(continuity)]
     warnings += _notice_lines(notices)

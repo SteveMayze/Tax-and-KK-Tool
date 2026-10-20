@@ -2562,3 +2562,92 @@ msgstr "über E*TRADE."
 
 msgid "The statement marks this transaction as reportable for the prior year."
 msgstr "Die Abrechnung kennzeichnet diesen Vorgang als meldepflichtig für das Vorjahr."
+
+msgid "An amount in a table could not be read."
+msgstr "Ein Betrag in einer Tabelle konnte nicht gelesen werden."
+
+msgid "A table of the statement has no total line."
+msgstr "Eine Tabelle der Abrechnung hat keine Summenzeile."
+
+msgid "A date in the income table is outside the statement period."
+msgstr "Ein Datum in der Einkommenstabelle liegt außerhalb des Abrechnungszeitraums."
+
+msgid "A date in the tax table could not be read."
+msgstr "Ein Datum in der Steuertabelle konnte nicht gelesen werden."
+
+msgid "A row of the income table could not be read."
+msgstr "Eine Zeile der Einkommenstabelle konnte nicht gelesen werden."
+
+#, python-format
+msgid "The income table has a description this importer does not read (\"%(kind)s\"), so nothing was staged."
+msgstr "Die Einkommenstabelle enthält eine Beschreibung, die dieser Import nicht liest („%(kind)s“); daher wurde nichts vorbereitet."
+
+msgid "The security name of an income row could not be read."
+msgstr "Der Wertpapiername einer Einkommenszeile konnte nicht gelesen werden."
+
+msgid "The income lines do not add up to the total of the income table."
+msgstr "Die Einkommenszeilen ergeben nicht die Summe der Einkommenstabelle."
+
+msgid "The income summary does not agree with the income lines."
+msgstr "Die Einkommensübersicht stimmt nicht mit den Einkommenszeilen überein."
+
+msgid "The income summary was not found; that check was skipped."
+msgstr "Die Einkommensübersicht wurde nicht gefunden; diese Prüfung wurde übersprungen."
+
+msgid "A row of the tax table could not be read."
+msgstr "Eine Zeile der Steuertabelle konnte nicht gelesen werden."
+
+#, python-format
+msgid "The tax table has a description this importer does not read (\"%(kind)s\"), so nothing was staged."
+msgstr "Die Steuertabelle enthält eine Beschreibung, die dieser Import nicht liest („%(kind)s“); daher wurde nichts vorbereitet."
+
+msgid "A tax posting has an unexpected sign."
+msgstr "Eine Steuerbuchung hat ein unerwartetes Vorzeichen."
+
+msgid "The tax lines do not add up to the printed total of federal taxes withheld."
+msgstr "Die Steuerzeilen ergeben nicht die ausgewiesene Summe der einbehaltenen Bundessteuern."
+
+msgid "The total of federal taxes withheld was not found; that check was skipped."
+msgstr "Die Summe der einbehaltenen Bundessteuern wurde nicht gefunden; diese Prüfung wurde übersprungen."
+
+msgid "shares bought (a delivery or purchase)"
+msgstr "Aktien gekauft (Einbuchung oder Kauf)"
+
+msgid "shares sold"
+msgstr "Aktien verkauft"
+
+msgid "other activity (a journal)"
+msgstr "sonstige Aktivität (eine Umbuchung)"
+
+#, python-format
+msgid "Not imported: %(what)s on %(date)s."
+msgstr "Nicht importiert: %(what)s am %(date)s."
+
+msgid "Dividend"
+msgstr "Dividende"
+
+msgid "via Fidelity."
+msgstr "über Fidelity."
+
+msgid "A tax posting matches more than one dividend, so the withholding cannot be settled."
+msgstr "Eine Steuerbuchung passt zu mehreren Dividenden; der Einbehalt kann daher nicht abgerechnet werden."
+
+#, python-format
+msgid "Tax postings for events not in this upload: %(n)s (not staged)."
+msgstr "Steuerbuchungen zu Ereignissen, die nicht in diesem Upload enthalten sind: %(n)s (nicht vorbereitet)."
+
+msgid "The postings for this dividend are a net refund; withholding is recorded as 0."
+msgstr "Die Buchungen zu dieser Dividende ergeben eine Nettoerstattung; der Einbehalt wird mit 0 erfasst."
+
+#, python-format
+msgid "Withholding is the sum of %(n)s postings (%(reversals)s reversal(s))."
+msgstr "Der Einbehalt ist die Summe von %(n)s Buchungen (davon %(reversals)s Stornierung(en))."
+
+msgid "Withholding may be revised by a later statement."
+msgstr "Der Einbehalt kann durch eine spätere Abrechnung korrigiert werden."
+
+#, python-format
+msgid "%(n)s dividend has a net tax refund; its withholding is recorded as 0."
+msgid_plural "%(n)s dividends have a net tax refund; their withholding is recorded as 0."
+msgstr[0] "%(n)s Dividende hat eine Netto-Steuererstattung; ihr Einbehalt wird mit 0 erfasst."
+msgstr[1] "%(n)s Dividenden haben eine Netto-Steuererstattung; ihr Einbehalt wird mit 0 erfasst."

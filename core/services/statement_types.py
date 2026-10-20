@@ -9,6 +9,18 @@ from decimal import Decimal
 class StatementRow:
     data: dict                      # the import columns (see imports.COLUMNS)
     provenance: dict                # field -> (page number, source line)
+    extra: dict = field(default_factory=dict)       # reader-private working data (for example for settlement across statements)
+
+
+@dataclass
+class Posting:
+    """A tax posting that belongs to an income event, possibly booked in a later statement than the event (Fidelity)."""
+    name: tuple[str, ...]           # the security name as normalised tokens
+    date: datetime.date             # the date of the event the posting belongs to
+    amount: Decimal                 # signed as printed: withholding negative, reversal positive
+    page: int
+    line: str
+    flagged: bool = False
 
 
 @dataclass
@@ -30,6 +42,7 @@ class StatementResult:
     period: tuple[datetime.date, datetime.date] | None = None
     not_imported: bool = False      # recognised, deliberately not imported (for example a stock sale): a notice, not an error
     continuity: Continuity | None = None
+    postings: list = field(default_factory=list)
 
 
 def short_hash(*parts) -> str:

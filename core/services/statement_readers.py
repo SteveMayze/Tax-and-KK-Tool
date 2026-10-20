@@ -15,7 +15,7 @@ from typing import Callable
 
 from django.utils.translation import gettext
 
-from . import dividend_statements, etrade_client, hsbc_savings, interest_statements, pdf_text, rvb_account
+from . import dividend_statements, etrade_client, fidelity_stock_plan, hsbc_savings, interest_statements, pdf_text, rvb_account
 from .dividend_statements import UnsupportedStatement
 from .imports import COLUMNS
 from .statement_types import Continuity, StatementResult, StatementRow, short_hash  # noqa: F401  (re-exported for readers and tests)
@@ -27,6 +27,7 @@ class Reader:
     recognises: Callable[[list[str]], bool]
     parse: Callable[[list[str]], StatementResult]
     needs_layout: bool = False
+    settle: Callable | None = None     # optional: settles values across all statements of one upload (see fidelity_stock_plan)
 
 
 def _single(statement, fingerprint='', period=None) -> StatementResult:
@@ -52,6 +53,8 @@ READERS: list[Reader] = [
     Reader(hsbc_savings.READER_ID, hsbc_savings.recognises, hsbc_savings.parse, needs_layout=True),
     Reader(rvb_account.READER_ID, rvb_account.recognises, rvb_account.parse, needs_layout=True),
     Reader(etrade_client.READER_ID, etrade_client.recognises, etrade_client.parse, needs_layout=True),
+    Reader(fidelity_stock_plan.READER_ID, fidelity_stock_plan.recognises, fidelity_stock_plan.parse, needs_layout=True,
+           settle=fidelity_stock_plan.settle),
     Reader('revolut_flexible_cash_funds', interest_statements.recognises, _parse_fund),
     Reader('au_dividend_advice', dividend_statements.recognises, _parse_dividend),
 ]
@@ -81,6 +84,10 @@ def continuity_notes(items):
             elif not connected:
                 notes.append((label_b, gettext('the opening balance does not match the closing balance of %(file)s') % {'file': label_a}))
     return notes
+
+
+def reader_by_id(reader_id):
+    return next(r for r in READERS if r.id == reader_id)
 
 
 @dataclass
