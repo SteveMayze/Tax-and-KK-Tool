@@ -11,8 +11,10 @@ def _escape(text):
     return text.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
 
 
-def make_pdf(pages):
-    """pages: list of lists of text lines. A page with no lines is a blank page (no text layer)."""
+def make_pdf(pages, short_xref=False):
+    """pages: list of lists of text lines. A page with no lines is a blank page (no text layer).
+    short_xref=True writes the defect of the MECU files: the cross-reference subsection header declares one entry fewer than the
+    table lists (pypdf then stops with "Could not read Null object")."""
     objects = []                       # object number n is objects[n - 1]
     objects.append(b'<< /Type /Catalog /Pages 2 0 R >>')
     kids = ' '.join(f'{4 + 2 * i} 0 R' for i in range(len(pages)))
@@ -35,7 +37,7 @@ def make_pdf(pages):
         offsets.append(len(out))
         out += f'{number} 0 obj\n'.encode() + body + b'\nendobj\n'
     xref = len(out)
-    out += f'xref\n0 {len(objects) + 1}\n'.encode() + b'0000000000 65535 f \n'
+    out += f'xref\n0 {len(objects) + 1 - (1 if short_xref else 0)}\n'.encode() + b'0000000000 65535 f \n'
     for offset in offsets:
         out += f'{offset:010d} 00000 n \n'.encode()
     out += f'trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n'.encode()

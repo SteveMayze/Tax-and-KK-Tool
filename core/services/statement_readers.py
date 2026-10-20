@@ -15,7 +15,7 @@ from typing import Callable
 
 from django.utils.translation import gettext
 
-from . import dividend_statements, etrade_client, fidelity_stock_plan, hodges_rental, hsbc_savings, interest_statements, pdf_text, rvb_account
+from . import dividend_statements, etrade_client, fidelity_stock_plan, hodges_rental, hsbc_savings, interest_statements, mecu_account, pdf_text, rvb_account
 from .dividend_statements import UnsupportedStatement
 from .imports import COLUMNS
 from .statement_types import Continuity, StatementResult, StatementRow, short_hash  # noqa: F401  (re-exported for readers and tests)
@@ -52,6 +52,7 @@ def _parse_fund(pages) -> StatementResult:
 READERS: list[Reader] = [
     Reader(hsbc_savings.READER_ID, hsbc_savings.recognises, hsbc_savings.parse, needs_layout=True),
     Reader(hodges_rental.READER_ID, hodges_rental.recognises, hodges_rental.parse),
+    Reader(mecu_account.READER_ID, mecu_account.recognises, mecu_account.parse, needs_layout=True, settle=mecu_account.settle),
     Reader(rvb_account.READER_ID, rvb_account.recognises, rvb_account.parse, needs_layout=True),
     Reader(etrade_client.READER_ID, etrade_client.recognises, etrade_client.parse, needs_layout=True),
     Reader(fidelity_stock_plan.READER_ID, fidelity_stock_plan.recognises, fidelity_stock_plan.parse, needs_layout=True,

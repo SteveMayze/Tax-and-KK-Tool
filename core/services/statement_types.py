@@ -43,6 +43,7 @@ class StatementResult:
     not_imported: bool = False      # recognised, deliberately not imported (for example a stock sale): a notice, not an error
     continuity: Continuity | None = None
     postings: list = field(default_factory=list)
+    meta: dict = field(default_factory=dict)        # reader-private data for the batch step (settle), never shown
 
 
 def short_hash(*parts) -> str:

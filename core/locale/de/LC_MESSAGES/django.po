@@ -2704,3 +2704,75 @@ msgstr "%(n)s mit * gekennzeichnete Kostenzeile(n) enthalten GST (keine GST-Auft
 #, python-format
 msgid "Owner withdrawal not imported (%(n)s, statement dated %(date)s)."
 msgstr "Auszahlung an den Eigentümer nicht importiert (%(n)s, Abrechnung vom %(date)s)."
+
+#, python-format
+msgid "A row of an account could not be read (%(kind)s)."
+msgstr "Eine Zeile eines Kontos konnte nicht gelesen werden (%(kind)s)."
+
+msgid "No account section was found."
+msgstr "Es wurde kein Kontoabschnitt gefunden."
+
+msgid "An account has two opening balances."
+msgstr "Ein Konto hat zwei Anfangssalden."
+
+msgid "An account section has no opening or closing balance."
+msgstr "Ein Kontoabschnitt hat keinen Anfangs- oder Endsaldo."
+
+msgid "The statement period could not be read with certainty."
+msgstr "Der Abrechnungszeitraum konnte nicht sicher gelesen werden."
+
+msgid "A date in the statement is outside the statement period."
+msgstr "Ein Datum in der Abrechnung liegt außerhalb des Abrechnungszeitraums."
+
+msgid "A memo line has no interest row above it."
+msgstr "Eine Memozeile hat darüber keine Zinszeile."
+
+msgid "An interest row has the same memo line twice."
+msgstr "Eine Zinszeile hat dieselbe Memozeile doppelt."
+
+#, python-format
+msgid "The running balance of an account does not add up (%(kind)s)."
+msgstr "Der laufende Saldo eines Kontos geht nicht auf (%(kind)s)."
+
+msgid "An interest row is a debit, which is not expected."
+msgstr "Eine Zinszeile ist eine Belastung, das wird nicht erwartet."
+
+#, python-format
+msgid "A booking is a type this importer does not read (\"%(kind)s\"), so nothing was staged."
+msgstr "Eine Buchung hat einen Typ, den dieser Import nicht liest („%(kind)s“); daher wurde nichts vorbereitet."
+
+msgid "The rows of an account do not add up to its closing balance."
+msgstr "Die Zeilen eines Kontos ergeben nicht den Endsaldo."
+
+msgid "An interest credit paid by transfer has no matching term-deposit interest payment."
+msgstr "Eine per Übertrag gutgeschriebene Zinszahlung hat keine passende Termingeld-Zinszahlung."
+
+msgid "The gross interest and the withholding tax do not agree with the amount credited."
+msgstr "Bruttozinsen und Quellensteuer stimmen nicht mit dem gutgeschriebenen Betrag überein."
+
+msgid "Term-deposit interest"
+msgstr "Termingeldzinsen"
+
+msgid "Bonus interest"
+msgstr "Bonuszinsen"
+
+msgid "Interest"
+msgstr "Zinsen"
+
+msgid "term deposit"
+msgstr "Termingeld"
+
+msgid "savings account"
+msgstr "Sparkonto"
+
+#, python-format
+msgid "%(kind)s (%(where)s), posted %(posted)s (PDF import)."
+msgstr "%(kind)s (%(where)s), gebucht am %(posted)s (PDF-Import)."
+
+#, python-format
+msgid "The annual payment summary in %(file)s was not compared: the upload does not cover the whole financial year."
+msgstr "Die Jahreszusammenfassung in %(file)s wurde nicht verglichen: Der Upload deckt nicht das ganze Geschäftsjahr ab."
+
+#, python-format
+msgid "The annual payment summary in %(file)s does not agree with the staged interest rows of the financial year."
+msgstr "Die Jahreszusammenfassung in %(file)s stimmt nicht mit den vorbereiteten Zinszeilen des Geschäftsjahres überein."

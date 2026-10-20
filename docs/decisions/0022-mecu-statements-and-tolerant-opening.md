@@ -1,0 +1,22 @@
+# ADR 0022: MECU statements and the tolerant opening of damaged PDFs
+
+Status: accepted (Phase 22, 2026-10-20; owner answers: a new dependency is approved if it causes no conflict; term-deposit interest is staged from the term-deposit section with category Interest; bonus interest as separate rows; payment date = Effective date; no fees expected).
+
+## Context
+pypdf stops on all 24 MECU files with "Could not read Null object" (strict and non-strict, pypdf 6.21.1). Cause, verified with a synthetic PDF and on all 24 real files: exactly one classic cross-reference section whose subsection header declares one entry fewer than the table lists ("0 N" over N+1 entries). Poppler tolerates it. The statements are multi-account (savings, term deposits), accounts continue over page breaks, dates have no year, the amount column is single (direction only from the running balance), interest comes with parenthesised memo lines, one statement is 12 MB, and file names are unreliable.
+
+## Decision 1: how to open the files
+- **Candidate evaluated: `pikepdf` 10.17.0** (MPL-2.0, bundled qpdf). In a scratch environment it opens the synthetic defect, hands pypdf normalised bytes that read correctly, and refuses a garbage cross-reference table. Wheels exist for CPython 3.14 on macOS arm64, Linux x86_64 and Linux aarch64 (the Containerfile's base image and the home server). Cost: it pulls Pillow and lxml with it (about 41 MB of installed files: pikepdf 8 MB, Pillow 13 MB, lxml 20 MB), three more packages to pin and keep patched, for a defect in a single bank's files.
+- **Chosen: a pure-Python repair of the subsection count** (`pdf_text.repair_xref_counts`, about 30 lines, no dependency). All 24 real files have exactly the same single-entry defect and all open after it; the repair changes one number in memory and only when pypdf has already failed, so undamaged files never go through it; a table that is not intact, or any other damage, stays refused ("could not be read"); the repaired bytes are never stored. This is the fallback of Phase 22 task 2; it was chosen not because pikepdf conflicts but because it meets the need with no new dependency, keeps the image and the supply chain unchanged and follows the risk note of the plan (repair only the count mismatch, then require page text and reconciling balances). If another institution later delivers files with other damage, pikepdf is the evaluated next step and the owner's approval stands. The container image build was not run (no dependency or image change).
+- The PDF size limit rises from 5 MB to 16 MB (one MECU statement is 12 MB).
+
+## Decision 2: the reader
+1. **Reader `mecu_account`** (layout mode, organisation `MECU` in `BANK_ORGANISATIONS`), recognised by structure. Accounts continuing on a later page are merged by account number; no account number is stored.
+2. **Years and period** from "Statement Date"; period from the earliest opening-balance date; dates outside it refuse the statement. **Direction** only from the running balance, proved per row and per account.
+3. **Interest rows:** `Interest Credit` and `Bonus Interest` (separate rows) and the term-deposit `Interest Payment ... ($x)`; gross and withholding from the memo lines, gross - withholding must equal the credit. The receiving `Interest Credit ... Transfer` credit is a transfer and is matched to its term-deposit payment (same date, same amount) or the statement is refused. Payment date = Effective; Posted in the comment.
+4. **Not income** is recognised by the first words of the booking; anything else (a fee) refuses naming those words. Three kinds of information rows without movement are accepted only when their single figure equals the running balance.
+5. **Annual Payment Summary** (June): warning-only cross-check, done by the reader's `settle` hook when the upload covers the whole financial year. **Fingerprint:** statement number, period end, sum of closing balances.
+6. The inventory flags the YYMM-prefix of a file name when it disagrees with the period read.
+
+## Consequences
+All 24 real statements open and stage (27 rows: 22 bonus interest, 2 savings-account interest credits, 3 term-deposit rows) with every balance proved; the two annual summaries (financial years ending June 2025 and June 2026) agree exactly with the staged rows; two file names carry each other's month (flagged). The owner's checked rows go in the git-ignored `local/samples/expected/mecu.csv`. Tax treatment is open (rules README item 18). Collisions with rows already in the database are Phase 24.

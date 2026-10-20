@@ -33,6 +33,9 @@ def name_months(name: str) -> set[tuple[int, int]]:
     found = set()
     for m in re.finditer(r'(?<!\d)(20\d{2})[-_. ]?(0[1-9]|1[0-2])(?!\d)', name):
         found.add((int(m.group(1)), int(m.group(2))))
+    m = re.match(r'^(\d{2})(0[1-9]|1[0-2])[-_ ]', name)          # YYMM-... at the start of the name
+    if m:
+        found.add((2000 + int(m.group(1)), int(m.group(2))))
     for m in re.finditer(r'(?i)(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-_. ]*(20\d{2})(?!\d)', name):
         found.add((int(m.group(2)), MONTHS.index(m.group(1).lower()) + 1))
     return found
