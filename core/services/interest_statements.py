@@ -43,6 +43,7 @@ class FundReturn:
     evidence: dict = field(default_factory=dict)
     category: str = 'Interest'
     frequency: str = 'monthly'
+    period_start: datetime.date | None = None
 
     def row_data(self, columns):
         data = {c: '' for c in columns}
@@ -119,4 +120,4 @@ def parse(pages: list[str]) -> FundReturn:
     evidence = {'payment_date': (period[0], period[1]), 'gross_amount': earned_evidence, 'expenses': fee_evidence,
                 'net_amount': fee_evidence}
     return FundReturn(payment_date=end, currency=currency, gross=gross, expenses=expenses, net=gross - expenses,
-                      days=days, evidence=evidence)
+                      days=days, evidence=evidence, period_start=start)

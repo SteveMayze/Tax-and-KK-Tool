@@ -2207,8 +2207,8 @@ msgid "Upload one CSV file at a time (PDF statements can be uploaded together)."
 msgstr "Laden Sie jeweils eine CSV-Datei hoch (PDF-Abrechnungen können zusammen hochgeladen werden)."
 
 #, python-format
-msgid "%(staged)s of %(total)s PDF files read and staged; %(skipped)s not staged (listed below). Nothing has been imported yet."
-msgstr "%(staged)s von %(total)s PDF-Dateien gelesen und vorbereitet; %(skipped)s nicht vorbereitet (unten aufgeführt). Es wurde noch nichts importiert."
+msgid "%(staged)s of %(total)s PDF files read and staged as %(rows)s rows; %(nothing)s recognised with no income or not imported; %(skipped)s not staged (listed below). Nothing has been imported yet."
+msgstr "%(staged)s von %(total)s PDF-Dateien gelesen und als %(rows)s Zeilen vorbereitet; %(nothing)s erkannt ohne Einkünfte oder nicht importiert; %(skipped)s nicht vorbereitet (unten aufgeführt). Es wurde noch nichts importiert."
 
 msgid "File read. Review the rows below; nothing has been imported yet."
 msgstr "Datei gelesen. Prüfen Sie die Zeilen unten; es wurde noch nichts importiert."
@@ -2312,3 +2312,36 @@ msgstr "Unbekanntes Jahr „%(year)s“."
 #, python-format
 msgid "\"%(title)s\" needs a specific year."
 msgstr "„%(title)s“ braucht ein bestimmtes Jahr."
+
+#, python-format
+msgid "same statement as %(file)s"
+msgstr "dieselbe Abrechnung wie %(file)s"
+
+msgid "Nothing to import."
+msgstr "Es gibt nichts zu importieren."
+
+#, python-format
+msgid "%(n)s more notices were left out."
+msgstr "%(n)s weitere Hinweise wurden weggelassen."
+
+#, python-format
+msgid "%(n)s statement recognised, no income."
+msgid_plural "%(n)s statements recognised, no income."
+msgstr[0] "%(n)s Abrechnung erkannt, keine Einkünfte."
+msgstr[1] "%(n)s Abrechnungen erkannt, keine Einkünfte."
+
+#, python-format
+msgid "%(n)s statement recognised and not imported (see the notices)."
+msgid_plural "%(n)s statements recognised and not imported (see the notices)."
+msgstr[0] "%(n)s Abrechnung erkannt und nicht importiert (siehe Hinweise)."
+msgstr[1] "%(n)s Abrechnungen erkannt und nicht importiert (siehe Hinweise)."
+
+msgid "The PDF is AES-encrypted and the library needed to open it is not installed. Remove the encryption (for example by printing the PDF to a new PDF) and upload it again."
+msgstr "Das PDF ist AES-verschlüsselt, und die zum Öffnen nötige Bibliothek ist nicht installiert. Entfernen Sie die Verschlüsselung (zum Beispiel durch Drucken in ein neues PDF) und laden Sie es erneut hoch."
+
+#, python-format
+msgid "Two readers claim this file (%(a)s and %(b)s), so it was not read."
+msgstr "Zwei Leser erkennen diese Datei (%(a)s und %(b)s); sie wurde daher nicht gelesen."
+
+msgid "This is not recognised as a statement this importer can read (Australian dividend or distribution advice, Revolut Flexible Cash Funds statement)."
+msgstr "Dies wird nicht als Abrechnung erkannt, die dieser Import lesen kann (australische Dividenden- oder Ausschüttungsmitteilung, Revolut-Flexible-Cash-Funds-Abrechnung)."

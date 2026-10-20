@@ -57,12 +57,17 @@ def import_upload(request):
                 batch = svc.stage_batch(uploads[0][1], uploads[0][0], get_provider())
             else:
                 raise svc.ImportFileError(_('Upload one CSV file at a time (PDF statements can be uploaded together).'))
+        except pdf_imports.NothingToImport as e:
+            messages.success(request, str(e))
+            return redirect('import_list')
         except svc.ImportFileError as e:
             form.add_error('file', str(e))
         else:
             if batch.kind == ImportBatch.Kind.PDF and len(pdfs) > 1:
-                messages.success(request, _('%(staged)s of %(total)s PDF files read and staged; %(skipped)s not staged (listed below). Nothing has been imported yet.') % {
-                    'staged': batch.rows.count(), 'total': len(pdfs), 'skipped': len(pdfs) - batch.rows.count()})
+                c = batch.file_counts
+                messages.success(request, _('%(staged)s of %(total)s PDF files read and staged as %(rows)s rows; %(nothing)s recognised with no income or not imported; %(skipped)s not staged (listed below). Nothing has been imported yet.') % {
+                    'staged': c['staged'], 'total': c['files'], 'rows': c['rows'],
+                    'nothing': c['nothing'] + c['not_imported'], 'skipped': c['not_staged']})
             else:
                 messages.success(request, _('File read. Review the rows below; nothing has been imported yet.'))
             return _preview_redirect(batch)

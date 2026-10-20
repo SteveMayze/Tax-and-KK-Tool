@@ -19,6 +19,8 @@ from decimal import Decimal
 
 from django.utils.translation import gettext
 
+from .organisations import tidy_security_name
+
 MONTHS = {m: i for i, m in enumerate(
     ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november',
      'december'], start=1)}
@@ -256,16 +258,7 @@ def _withholding(lines):
 
 COMPANY_WORDS = re.compile(r'(?i)\b(?:limited|ltd|group|corporation|corp|trust|holdings|bank|company|pty|plc|fund|inc)\b')
 ABN_NUMBER = r'ABN[: ]\s*\d{2} \d{3} \d{3} \d{3}'
-SMALL_WORDS = {'LTD': 'Ltd', 'PTY': 'Pty', 'AND': 'and', 'OF': 'of', 'THE': 'the', 'CO': 'Co', 'INC': 'Inc', 'PLC': 'Plc',
-               'CORP': 'Corp'}
-
-
-def _tidy_name(name):
-    name = re.sub(r'^\S*_V\d+', '', name)                       # a reference printed in front of the name
-    name = re.sub(r'[|,;:]+$', '', name.strip('| ')).strip()
-    if name.isupper():                                          # "ENDEAVOUR GROUP LIMITED" -> "Endeavour Group Limited"
-        name = ' '.join(SMALL_WORDS.get(w, w if len(w) <= 3 or re.search(r'\d', w) else w.capitalize()) for w in name.split())
-    return name
+_tidy_name = tidy_security_name                              # shared with every other reader (organisations.py)
 
 
 def _issuer(lines):
@@ -337,3 +330,13 @@ def parse(pages: list[str]) -> Dividend:
         evidence['withholding_tax'] = withheld[0][1]
     return Dividend(code=code, payment_date=payment_date, gross=gross, net=net, withholding=withholding,
                     record_date=record_date, issuer=_issuer(lines), reinvested=_reinvested(lines), evidence=evidence)
+
+
+def recognises(pages: list[str]) -> bool:
+    """A dividend or distribution advice in Australian dollars, or one of the two kinds that parse() refuses with advice
+    (scheme consideration, bonus share plan). Everything else is left to the other readers or reported as unrecognised."""
+    text = '\n'.join(pages)
+    if re.search(r'(?i)scheme consideration|bonus share plan', text):
+        return True
+    # AUD is matched as a whole word in capitals (the word "audit" must not make a US broker statement look Australian).
+    return bool(re.search(r'(?i)dividend|distribution', text) and re.search(r'\bABN\b|(?i:australian dollar)|\bAUD\b|A\$|AU\$', text))

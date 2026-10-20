@@ -288,7 +288,7 @@ class ViewTests(UploadDirMixin, TestCase):
         r = self.client.post(reverse('import_upload'), {'folder': [SimpleUploadedFile(n, raw) for n, raw in files]}, follow=True)
         batch = ImportBatch.objects.get()
         self.assertEqual(batch.rows.count(), 2)
-        self.assertContains(r, '2 of 3 PDF files read and staged; 1 not staged')
+        self.assertContains(r, '2 of 3 PDF files read and staged as 2 rows; 0 recognised with no income or not imported; 1 not staged')
         self.assertContains(r, 'nab.pdf')                                 # listed with its reason
         self.assertContains(r, 'bonus share plan')
 
