@@ -5,6 +5,7 @@ Single Django project (`config`) with one app (`core`), SQLite, server-rendered 
 ## Layers
 - `core/models.py`: data and invariants (see data-model.md).
 - `core/services/`: calculation and workflow logic, independent of views (`money`, `rates`, `conversion`, `normalisation`, `aggregation`, `lookups`, `reconciliation`, `imports`, `reports`, `report_csv`, `policy_reports`) and `core/services/policies/` (`sbk`, `tax`: versioned rule policies, see docs/rules/). Templates only display values.
+- PDF import (Phase 15, ADR 0015): `pdf_text` (bytes to page text, plain or layout mode) -> `statement_readers` (ordered registry; exactly one reader claims a file; a reader returns a `StatementResult` of zero, one or many rows plus notices and a fingerprint) -> `pdf_imports` (staging into `ImportBatch`/`ImportRow`, the only step that touches the database). `amounts` holds the US/UK/German amount parsers, `organisations` the shared security-name tidier and the fixed bank names, `pdf_inventory` the read-only folder report behind `tools/pdf_inventory.py`.
 - `core/forms.py`: validation of user input. `core/views*.py`: thin request handlers. `core/templates/core/`: pages.
 
 ## Pages (all require login except `/health/`)
