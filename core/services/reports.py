@@ -18,6 +18,7 @@ from .aggregation import actual_totals, average_of_actuals, normalised_monthly_t
 from .i18n import month_name, number
 from .normalisation import is_recurring, monthly_equivalent
 from .reconciliation import build_report
+from .report_filter import NO_FILTER
 
 ZERO = Decimal(0)
 CURRENCY_NOTE = gettext_lazy('EUR. Each payment is converted at the rate stored on it '
@@ -45,13 +46,16 @@ class Report:
     totals: dict | None = None
     notes: list = field(default_factory=list)
     generated_at: object = None
+    no_match: bool = False         # a filter is active and matched no payment (Phase 30)
 
 
 # ---------------------------------------------------------------- shared helpers
 
-def _payments(year=None):
+def _payments(year=None, flt=None):
+    """The one place where the payment set of a report is chosen: year, then the organisation/category filter."""
     qs = Payment.objects.select_related('organisation', 'category', 'month__year', 'import_batch')
-    return qs.filter(month__year__year=year) if year else qs
+    qs = qs.filter(month__year__year=year) if year else qs
+    return (flt or NO_FILTER).apply(qs)
 
 
 def _period(year):
@@ -92,8 +96,9 @@ def _exclusions(payments):
     return ' '.join(items) if items else _('None.')
 
 
-def _basis(payments, year, mode, gross_net, extra=()):
-    return [(_('Period'), _period(year)), (_('Currency'), CURRENCY_NOTE), (_('Basis'), mode), (_('Gross/net'), gross_net),
+def _basis(payments, year, mode, gross_net, extra=(), flt=None):
+    filter_row = [(_('Filter'), flt.describe())] if flt is not None and flt.is_active else []
+    return [(_('Period'), _period(year)), *filter_row, (_('Currency'), CURRENCY_NOTE), (_('Basis'), mode), (_('Gross/net'), gross_net),
             (_('Exchange-rate basis'), _rate_basis(payments)), (_('Excluded / missing'), _exclusions(payments)),
             (_('Rounding'), ROUNDING_NOTE), *extra]
 
@@ -129,9 +134,14 @@ def _breakdown(t):
     return {'withholding_eur': t.withholding_eur, 'expenses_eur': t.expenses_eur, 'unallocated_eur': t.unallocated_eur}
 
 
-def _make(key, title, year, mode, columns, rows, payments, totals=None, notes=(), extra=(), gross_net=GROSS_NET_SEPARATE):
-    return Report(key, title, _period(year), mode, columns, rows, _basis(payments, year, mode, gross_net, extra),
-                  totals, list(notes), timezone.now())
+def _make(key, title, year, mode, columns, rows, payments, totals=None, notes=(), extra=(), gross_net=GROSS_NET_SEPARATE,
+          flt=None):
+    notes = list(notes)
+    no_match = bool(flt is not None and flt.is_active and not payments)
+    if no_match:
+        notes.append(NO_MATCH)
+    return Report(key, title, _period(year), mode, columns, rows, _basis(payments, year, mode, gross_net, extra, flt),
+                  totals, notes, timezone.now(), no_match)
 
 
 def _group(payments, keyfunc):
@@ -143,12 +153,13 @@ def _group(payments, keyfunc):
 
 # ---------------------------------------------------------------- reports
 
+NO_MATCH = gettext_lazy('No payments match this filter')
 ACTUAL = gettext_lazy('Actual payments received (not normalised)')
 
 
-def annual_summary(year=None):
+def annual_summary(year=None, flt=None):
     """One row per reporting year: EUR gross and net totals and annual total / 12."""
-    payments = list(_payments(year))
+    payments = list(_payments(year, flt))
     rows = []
     for key, group in sorted(_group(payments, lambda p: p.month.year.year).items()):
         t = actual_totals(group)
@@ -164,12 +175,12 @@ def annual_summary(year=None):
     return _make('annual', _('Annual summary'), year, ACTUAL, cols, rows, payments,
                  notes=[GAIN_LOSS_NOTE,
                         _('"/ 12" is the annual actual total divided by 12 (always 12, even for a partial year). '
-                          'It is an average of actuals, not a recurring monthly figure, and not an official SBK or tax calculation.')])
+                          'It is an average of actuals, not a recurring monthly figure, and not an official SBK or tax calculation.')], flt=flt)
 
 
-def monthly_breakdown(year):
+def monthly_breakdown(year, flt=None):
     """All 12 months of a year, including empty ones: actual gross and net EUR."""
-    payments = list(_payments(year))
+    payments = list(_payments(year, flt))
     by_month = _group(payments, lambda p: p.month.month)
     rows, all_totals = [], actual_totals(payments)
     for m in range(1, 13):
@@ -183,11 +194,11 @@ def monthly_breakdown(year):
     totals = {'month': _('Year total'), 'payments': all_totals.payment_count, 'gross_eur': all_totals.gross_eur,
               'net_eur': all_totals.net_eur, 'net_missing': all_totals.net_missing_count,
               'unconverted': all_totals.unconverted_count, **_breakdown(all_totals)}
-    return _make('monthly', _('Monthly breakdown'), year, ACTUAL, cols, rows, payments, totals)
+    return _make('monthly', _('Monthly breakdown'), year, ACTUAL, cols, rows, payments, totals, flt=flt)
 
 
-def _group_report(key, title, year, label, keyfunc, name_label):
-    payments = list(_payments(year))
+def _group_report(key, title, year, label, keyfunc, name_label, flt=None):
+    payments = list(_payments(year, flt))
     groups = _group(payments, keyfunc)
     total = actual_totals(payments)
     rows = []
@@ -206,20 +217,22 @@ def _group_report(key, title, year, label, keyfunc, name_label):
               'share': Decimal(1) if total.gross_eur else None, 'net_missing': total.net_missing_count,
               'unconverted': total.unconverted_count, **_breakdown(total), **_gain_loss(total)}
     return _make(key, title, year, ACTUAL, cols, rows, payments, totals,
-                 notes=[_('Share of gross = group gross EUR / total gross EUR (converted payments only).'), GAIN_LOSS_NOTE])
+                 notes=[_('Share of gross = group gross EUR / total gross EUR (converted payments only).'), GAIN_LOSS_NOTE,
+                        *([_('A filter is active: shares are relative to the filtered total, so they add up to 100 % within the filter.')]
+                          if flt is not None and flt.is_active else [])], flt=flt)
 
 
-def by_organisation(year=None):
-    return _group_report('organisation', _('By organisation'), year, 'organisation', lambda p: p.organisation.name, _('Organisation'))
+def by_organisation(year=None, flt=None):
+    return _group_report('organisation', _('By organisation'), year, 'organisation', lambda p: p.organisation.name, _('Organisation'), flt)
 
 
-def by_category(year=None):
-    return _group_report('category', _('By category'), year, 'category', lambda p: p.category.name, _('Category'))
+def by_category(year=None, flt=None):
+    return _group_report('category', _('By category'), year, 'category', lambda p: p.category.name, _('Category'), flt)
 
 
-def original_currency_summary(year=None):
+def original_currency_summary(year=None, flt=None):
     """Totals in each original currency (no conversion), next to their EUR equivalents."""
-    payments = list(_payments(year))
+    payments = list(_payments(year, flt))
     rows = []
     for ccy, group in sorted(_group(payments, lambda p: p.currency).items()):
         t = actual_totals(group)
@@ -247,12 +260,12 @@ def original_currency_summary(year=None):
     return _make('currency', _('Original-currency summary'), year,
                  _('Actual payments received; original-currency columns include every payment'), cols, rows, payments,
                  notes=[_('Original-currency columns are as reported and include unconverted payments; '
-                          'EUR columns include converted payments only. Different currencies are never added together.')])
+                          'EUR columns include converted payments only. Different currencies are never added together.')], flt=flt)
 
 
-def normalised_monthly(year):
+def normalised_monthly(year, flt=None):
     """Per month: sum of monthly equivalents of recurring payments. One-off items are excluded."""
-    payments = list(_payments(year))
+    payments = list(_payments(year, flt))
     by_month = _group(payments, lambda p: p.month.month)
     rows = []
     for m in range(1, 13):
@@ -270,11 +283,11 @@ def normalised_monthly(year):
                  cols, rows, payments,
                  notes=[_('One-off/irregular items are never treated as recurring and are excluded here (counted per month).'),
                         _('No year total is given: adding months of equivalents would count some payments repeatedly. '
-                          'For an annual figure use the annual summary (actual total / 12).')])
+                          'For an annual figure use the annual summary (actual total / 12).')], flt=flt)
 
 
-def payment_level(year=None):
-    payments = list(_payments(year).order_by('payment_date', 'id'))
+def payment_level(year=None, flt=None):
+    payments = list(_payments(year, flt).order_by('payment_date', 'id'))
     rows = []
     for p in payments:
         conv = p.conversion_status == Payment.ConversionStatus.CONVERTED
@@ -309,12 +322,39 @@ def payment_level(year=None):
     totals = {'organisation': _('Total (converted payments)'), 'gross_eur': total.gross_eur, 'net_eur': total.net_eur,
               **_breakdown(total)}
     return _make('payments', _('Payment-level detail'), year, ACTUAL, cols, rows, payments, totals,
-                 notes=[_('Unconverted payments are listed (original amounts only) but contribute nothing to EUR columns or totals.')])
+                 notes=[_('Unconverted payments are listed (original amounts only) but contribute nothing to EUR columns or totals.')], flt=flt)
 
 
-def reconciliation(year=None):
-    r = build_report(year)
-    payments = list(_payments(year))
+def cross_table(year=None, flt=None):
+    """Organisation x category: signed gross EUR of the converted payments per pairing (blank = no payment)."""
+    payments = list(_payments(year, flt))
+    cats = sorted({(p.category_id, p.category.name) for p in payments}, key=lambda c: (c[1].lower(), c[0]))
+    orgs = sorted({(p.organisation_id, p.organisation.name) for p in payments}, key=lambda o: (o[1].lower(), o[0]))
+    cells = _group(payments, lambda p: (p.organisation_id, p.category_id))
+    rows = []
+    for oid, oname in orgs:
+        row = {'organisation': oname}
+        for cid, _cname in cats:
+            group = cells.get((oid, cid))
+            row[f'cat_{cid}'] = actual_totals(group).gross_eur if group else None
+        t = actual_totals([p for p in payments if p.organisation_id == oid])
+        row.update({'payments': t.payment_count, 'gross_eur': t.gross_eur})
+        rows.append(row)
+    total = actual_totals(payments)
+    totals = {'organisation': _('Total'), 'payments': total.payment_count, 'gross_eur': total.gross_eur}
+    for cid, _cname in cats:
+        totals[f'cat_{cid}'] = actual_totals([p for p in payments if p.category_id == cid]).gross_eur
+    cols = [Column('organisation', _('Organisation')), *[Column(f'cat_{cid}', cname, 'money') for cid, cname in cats],
+            Column('payments', _('Payments'), 'int'), Column('gross_eur', _('Gross EUR (signed sum)'), 'money')]
+    return _make('cross', _('Organisation by category'), year, ACTUAL, cols, rows, payments, totals,
+                 notes=[_('Each cell is the signed gross EUR of the converted payments of that organisation in that category; '
+                          'a blank cell means no payment (a zero means payments that add up to zero). Row and column totals '
+                          'are over the same payments, so every pairing adds up to the total.')], flt=flt)
+
+
+def reconciliation(year=None, flt=None):
+    r = build_report(year, flt)
+    payments = list(_payments(year, flt))
     sections = [(_('Not converted'), r.pending), (_('Manually entered rate'), r.manual_rates),
                 (_('Rate date differs from payment date'), r.date_differs), (_('No net amount'), r.missing_net),
                 (_('Inconsistent stored values'), r.inconsistent),
@@ -334,7 +374,7 @@ def reconciliation(year=None):
                  _('Data-quality checks over stored data (no financial totals)'), cols, rows, payments,
                  notes=[_('A payment can appear under several issues. Counts: ') +
                         '; '.join(f'{k}: {v}' for k, v in summary.items()) + '.'],
-                 gross_net=_('Not applicable.'))
+                 gross_net=_('Not applicable.'), flt=flt)
 
 
 # ---------------------------------------------------------------- registry
@@ -346,6 +386,7 @@ class ReportSpec:
     description: str
     build: object
     needs_year: bool = False
+    supports_filter: bool = True        # False: a whole-person assessment that cannot be computed over part of the income
 
 
 REPORTS = {s.key: s for s in [
@@ -354,6 +395,7 @@ REPORTS = {s.key: s for s in [
     ReportSpec('payments', gettext_lazy('Payment-level detail'), gettext_lazy('Every payment with original amount, rate and EUR amounts.'), payment_level),
     ReportSpec('organisation', gettext_lazy('By organisation'), gettext_lazy('Gross and net EUR per organisation.'), by_organisation),
     ReportSpec('category', gettext_lazy('By category'), gettext_lazy('Gross and net EUR per income category.'), by_category),
+    ReportSpec('cross', gettext_lazy('Organisation by category'), gettext_lazy('Gross EUR for every organisation and category pairing at once.'), cross_table),
     ReportSpec('currency', gettext_lazy('Original-currency summary'), gettext_lazy('Totals in each original currency beside their EUR equivalents.'), original_currency_summary),
     ReportSpec('normalised', gettext_lazy('Normalised monthly recurring income'), gettext_lazy('Monthly equivalents of recurring payments (one-offs excluded).'), normalised_monthly, True),
     ReportSpec('reconciliation', gettext_lazy('Missing data and reconciliation'), gettext_lazy('Unconverted, manual-rate, date-differs, no-net and inconsistent payments.'), reconciliation),

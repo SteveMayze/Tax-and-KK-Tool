@@ -2,17 +2,20 @@
 {% load i18n icons %}
 {% block title %}{{ report.title }}{% endblock %}
 {% block content %}
-<p><a href="{% url 'report_index' %}">{% icon "arrow-left" %}{% trans "Reports" %}</a></p>
+<p><a href="{% url 'report_index' %}?{{ index_query }}">{% icon "arrow-left" %}{% trans "Reports" %}</a></p>
 <h1>{{ report.title }}</h1>
-<form method="get" class="inline no-print">
+<form method="get" class="no-print">
   <label for="year" class="inline">{% trans "Period" %}</label>
   <select name="year" id="year">
     {% if not spec.needs_year %}<option value="all" {% if not year %}selected{% endif %}>{% trans "All years" %}</option>{% endif %}
     {% for y in years %}<option value="{{ y|stringformat:"d" }}" {% if y == year %}selected{% endif %}>{{ y|stringformat:"d" }}</option>{% endfor %}
   </select>
+  {% if options %}{% include "core/_report_filter.html" %}{% endif %}
   <button type="submit" class="btn-secondary">{% trans "Show" %}</button>
+  {% if filter.is_active and options %}<a href="{% url 'report_view' report.key %}?year={{ year|default:'all'|stringformat:"s" }}" class="btn btn-secondary">{% trans "Clear filters" %}</a>{% endif %}
 </form>
-<a href="{% url 'report_csv' report.key %}?year={{ year|default:'all'|stringformat:"s" }}" class="btn btn-secondary" title="{% trans "Download CSV" %}">{% icon "code" %}CSV</a>
+{% if not spec.supports_filter %}<p class="note no-print">{% trans "The organisation and category filter does not apply to this report: it is a whole-person assessment and is always computed from all income." %}</p>{% endif %}
+<a href="{% url 'report_csv' report.key %}?{{ csv_query }}" class="btn btn-secondary" title="{% trans "Download CSV" %}">{% icon "code" %}CSV</a>
 
 {% if report.key == 'sbk' or report.key == 'tax_checks' %}<p class="no-print"><a href="{% url 'assessment_settings' %}">{% icon "sliders" %}{% trans "Assessment settings" %}</a>{% if year %} &middot; <a href="{% url 'annual_inputs' year %}">{% trans "Annual costs and months earned" %} {{ year|stringformat:"d" }}</a>{% endif %} &middot; <a href="{% url 'category_list' %}">{% trans "Map categories" %}</a></p>{% endif %}
 <section class="report-basis" aria-labelledby="basis-heading">
@@ -22,7 +25,7 @@
 </dl>
 </section>
 
-{% if rows %}
+{% if report.no_match %}<p class="msg warning" role="status">{% trans "No payments match this filter" %}</p>{% endif %}{% if rows %}
 <table class="report-table">
   <thead><tr>{% for label, cls, info in headers %}<th class="{{ cls }}">{{ label }}{% if info %}<button type="button" class="info-btn" popovertarget="info-{{ info.key }}" aria-label="{% blocktrans with label=info.label %}Information: {{ label }}{% endblocktrans %}">i</button>{% endif %}</th>{% endfor %}</tr></thead>
   <tbody>
@@ -30,7 +33,7 @@
   {% if totals %}<tr class="total-row">{% for text, cls in totals %}<td class="{{ cls }}">{{ text }}</td>{% endfor %}</tr>{% endif %}
   </tbody>
 </table>
-{% else %}<p>{% trans "No data for this period." %}</p>{% endif %}
+{% elif not report.no_match %}<p>{% trans "No data for this period." %}</p>{% endif %}
 
 {% for info in popups %}
 <div id="info-{{ info.key }}" popover class="info-pop" role="dialog" aria-label="{{ info.label }}">

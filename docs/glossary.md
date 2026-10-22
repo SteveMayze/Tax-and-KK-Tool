@@ -124,6 +124,7 @@ Generated from the reports themselves and checked by a test (`core/test_i18n.py`
 | Share of gross | Anteil am Brutto |
 | By organisation | Nach Organisation |
 | By category | Nach Kategorie |
+| Organisation by category | Organisation nach Kategorie |
 | Original currency | Originalwährung |
 | Gross (original currency) | Brutto (Originalwährung) |
 | Net (original currency) | Netto (Originalwährung) |

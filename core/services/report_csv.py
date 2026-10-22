@@ -49,7 +49,7 @@ def render(report) -> str:
     for note in report.notes:
         w.writerow(['Note', safe_text(note)])
     w.writerow([])
-    w.writerow([c.label for c in report.columns])
+    w.writerow([safe_text(c.label) for c in report.columns])
     for row in report.rows:
         w.writerow([fmt(row.get(c.key), c.kind) for c in report.columns])
     if report.totals:

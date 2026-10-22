@@ -10,6 +10,7 @@ Reports are general financial summaries from saved data. They are **not** an off
 | `payments` | Payment-level detail | every payment: original amount and currency, rate, rate date and source, gross/net EUR, monthly equivalent (recurring only), income period, import batch, comment | Actual |
 | `organisation` | By organisation | payments, gross, net, share of gross; largest first | Actual |
 | `category` | By category | same | Actual |
+| `cross` | Organisation by category (Phase 30) | one row per organisation, one column per category: signed gross EUR per pairing (blank = no payment), row and column totals | Actual |
 | `currency` | Original-currency summary | per currency: original gross/net (all payments) next to EUR gross/net (converted payments) | Actual |
 | `normalised` | Normalised monthly recurring income (needs a year) | per month: sum of monthly equivalents of recurring payments, recurring count, one-offs excluded | Normalised |
 | `sbk` | SBK contribution estimate (needs a year; 2026 only) | month by month: base per SBK income type, assessed base, health, care, total | Estimate (docs/rules) |
@@ -18,6 +19,16 @@ Reports are general financial summaries from saved data. They are **not** an off
 | `reconciliation` | Missing data and reconciliation | one row per flagged payment and issue (same checks as the Reconciliation page) | Data quality |
 
 Period: a specific calendar year or all years (reports marked "needs a year" require one). Year is the reporting year of the payment (its payment date's year).
+
+## Filters (Phase 30, ADR 0031)
+Reports can be limited by **organisation** and by **category** as well as by year, with two groups of check boxes (any number ticked) on every report page and on the reports index.
+- **Semantics:** within a group the ticked items are combined with OR, the two groups with AND; a group with nothing ticked does not restrict. Ticking everything equals ticking nothing (the basis row still states the filter).
+- **Which reports:** annual, monthly, payment-level, by organisation, by category, organisation by category, original-currency, normalised, reconciliation and the tax information summary. **Not** the SBK contribution estimate and the tax checks: they are whole-person assessments computed from all income, so an estimate over part of it would look right and be wrong. On those pages the form is replaced by a note; a filter in the URL is ignored, the page shows a message and a `Filter: Not applied to this report` basis row, and the CSV has the same row.
+- **URL parameters:** `year`, and repeated `organisation=<id>` and `category=<id>` (primary keys, sorted; duplicates collapse). Non-numeric, unknown or wrongly cased parameters give the same error and redirect as an unknown year (at most 10 characters of the input are echoed).
+- **Basis:** an active filter adds one `Filter` row after `Period`, naming the ticked organisations and categories as stored and the AND/OR rule. It is also in the CSV's `label,value` block and prints. Unfiltered reports have no such row. Every count, exclusion, share and total is computed over the same filtered payment set (`reports._payments`); shares are relative to the filtered total.
+- **Empty result:** the message "No payments match this filter" and a CSV with header, basis and no data rows (monthly and normalised still list their 12 empty months).
+- **CSV:** same file name unless a filter is active (`report-<key>-<year or all>-filtered.csv`). The format version stays **2**: an unfiltered file is byte-for-byte unchanged and a filtered file only adds one labelled row. Column headings and filter names that start with `=`, `+`, `-`, `@` are protected like other text cells.
+- **Options listed:** every organisation and category with at least one payment in any year (inactive ones marked), each with its payment count for the selected period.
 
 ## Basis block (on every report page and at the top of every CSV)
 Period; currency; basis (actual vs normalised); gross/net treatment; exchange-rate basis (counts of EUR, ECB and manual rates, and how many used the nearest earlier ECB rate); excluded/missing items; rounding. Exclusions state the number of unconverted payments with their original gross per currency, converted payments without a net amount, and the number of correction/reversal entries included.

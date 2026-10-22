@@ -6,7 +6,7 @@ from core.models import Payment, SbkTreatment
 
 from .policies import sbk, tax
 from .i18n import month_name, number, plain_decimal
-from .reports import REPORTS, Column, Report, ReportSpec, _basis, _payments
+from .reports import NO_MATCH, REPORTS, Column, Report, ReportSpec, _basis, _payments
 
 TREATMENTS = [SbkTreatment.EMPLOYMENT, SbkTreatment.PENSION, SbkTreatment.SELF_EMPLOYED, SbkTreatment.RENTAL,
               SbkTreatment.CAPITAL, SbkTreatment.ONE_OFF]
@@ -72,8 +72,8 @@ def sbk_estimate(year):
     return Report('sbk', _('SBK contribution estimate'), _('Calendar year %(year)s') % {'year': year}, _('SBK-style estimate'), cols, rows, basis, totals, notes, timezone.now())
 
 
-def tax_info_summary(year=None):
-    rows, qs = tax.tax_summary_rows(year)
+def tax_info_summary(year=None, flt=None):
+    rows, qs = tax.tax_summary_rows(year, flt)
     cols = [Column('income_type', _('Income type')), Column('country', _('Organisation country')), Column('payments', _('Payments'), 'int'),
             Column('gross_eur', _('Gross EUR (converted, signed sum)'), 'money'),
             Column('losses_eur', _('of which losses EUR (shown separately, not netted across categories)'), 'money'),
@@ -83,12 +83,16 @@ def tax_info_summary(year=None):
             Column('flags', _('Flags'))]
     payments = list(qs)
     basis = _basis(payments, year, _('Actual payments received, grouped by tax income type and country'),
-                   _('Gross amounts as recorded; net amounts and costs are not used.'))
+                   _('Gross amounts as recorded; net amounts and costs are not used.'), flt=flt)
     basis.insert(1, (_('Policy'), _('%(version)s. Rules: docs/rules/income-tax-rules.md') % {'version': tax.POLICY_VERSION}))
     basis += [(_('Not applied'), t) for t in tax.NOT_APPLIED]
+    notes = [_('Information for you or your adviser; not a tax calculation.')]
+    no_match = bool(flt is not None and flt.is_active and not payments)
+    if no_match:
+        notes.append(NO_MATCH)
     return Report('tax_summary', _('Tax information summary'),
                   _('Calendar year %(year)s') % {'year': year} if year else _('All years'), _('Information only'),
-                  cols, rows, basis, None, [_('Information for you or your adviser; not a tax calculation.')], timezone.now())
+                  cols, rows, basis, None, notes, timezone.now(), no_match)
 
 
 def tax_check_report(year):
@@ -106,8 +110,8 @@ def tax_check_report(year):
 
 
 SPECS = {s.key: s for s in [
-    ReportSpec('sbk', gettext_lazy('SBK contribution estimate'), gettext_lazy('Estimated monthly SBK contributions by income type (planning estimate, not an assessment).'), sbk_estimate, True),
+    ReportSpec('sbk', gettext_lazy('SBK contribution estimate'), gettext_lazy('Estimated monthly SBK contributions by income type (planning estimate, not an assessment).'), sbk_estimate, True, supports_filter=False),
     ReportSpec('tax_summary', gettext_lazy('Tax information summary'), gettext_lazy('Income by tax income type and country, with flags (no tax calculation).'), tax_info_summary),
-    ReportSpec('tax_checks', gettext_lazy('Tax checks (verified rules)'), gettext_lazy('Sparer-Pauschbetrag usage and private-sale Freigrenze; no tax amount.'), tax_check_report, True),
+    ReportSpec('tax_checks', gettext_lazy('Tax checks (verified rules)'), gettext_lazy('Sparer-Pauschbetrag usage and private-sale Freigrenze; no tax amount.'), tax_check_report, True, supports_filter=False),
 ]}
 REPORTS.update(SPECS)

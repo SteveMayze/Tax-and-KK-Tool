@@ -1,0 +1,10 @@
+{% load i18n static %}{% trans "Organisations" as org_legend %}{% trans "Categories" as cat_legend %}
+<details class="filter"{% if filter.is_active %} open{% endif %}>
+  <summary>{% trans "Filter by organisation and category" %}{% if filter.is_active %} <strong>({% trans "active" %})</strong>{% endif %}</summary>
+  <p class="note">{% trans "Tick any number of boxes. Within a group the ticked items are combined with OR, the two groups with AND; a group with nothing ticked does not restrict. The number is the payments in the selected period." %}</p>
+  <div class="filter-groups">
+    {% include "core/_filter_group.html" with name="organisation" legend=org_legend items=options.organisation %}
+    {% include "core/_filter_group.html" with name="category" legend=cat_legend items=options.category %}
+  </div>
+</details>
+<script src="{% static 'core/report_filter.js' %}" data-all="{% trans 'All' %}" data-none="{% trans 'None' %}"></script>

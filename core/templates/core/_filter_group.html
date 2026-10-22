@@ -1,0 +1,7 @@
+{% load i18n %}<fieldset class="filter-group" data-filter-group>
+  <legend>{{ legend }}</legend>
+  <div class="filter-options">
+  {% for o in items %}<div class="check"><input type="checkbox" id="f-{{ name }}-{{ o.id }}" name="{{ name }}" value="{{ o.id }}"{% if o.checked %} checked{% endif %}> <label for="f-{{ name }}-{{ o.id }}">{{ o.name }}{% if not o.active %} <span class="note">({% trans "inactive" %})</span>{% endif %} <span class="note">({{ o.count }})</span></label></div>
+  {% empty %}<p class="note">{% trans "No payments yet." %}</p>{% endfor %}
+  </div>
+</fieldset>

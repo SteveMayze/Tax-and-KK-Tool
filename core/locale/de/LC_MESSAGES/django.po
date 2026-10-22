@@ -3000,3 +3000,68 @@ msgstr "Die gespeicherte Datei wurde gelöscht (bereits nicht mehr auf dem Daten
 #, python-format
 msgid "Import deleted completely. %(p)s payment(s) it created were kept."
 msgstr "Import vollständig gelöscht. %(p)s von ihm angelegte Zahlung(en) blieben erhalten."
+
+# Phase 30: report filter
+
+msgid "Unknown filter parameter \"%(name)s\"."
+msgstr "Unbekannter Filterparameter „%(name)s“."
+
+msgid "Unknown %(kind)s \"%(value)s\"."
+msgstr "Unbekannt: %(kind)s „%(value)s“."
+
+msgid "no restriction"
+msgstr "keine Einschränkung"
+
+msgid "Organisations: %(orgs)s. Categories: %(cats)s. Combined as: any of the ticked organisations AND any of the ticked categories (a group with nothing ticked does not restrict)."
+msgstr "Organisationen: %(orgs)s. Kategorien: %(cats)s. Verknüpfung: eine der angekreuzten Organisationen UND eine der angekreuzten Kategorien (eine Gruppe ohne Häkchen schränkt nicht ein)."
+
+msgid "No payments match this filter"
+msgstr "Keine Zahlungen entsprechen diesem Filter"
+
+msgid "A filter is active: shares are relative to the filtered total, so they add up to 100 % within the filter."
+msgstr "Ein Filter ist aktiv: Die Anteile beziehen sich auf die gefilterte Summe und ergeben innerhalb des Filters 100 %."
+
+msgid "Organisation by category"
+msgstr "Organisation nach Kategorie"
+
+msgid "Gross EUR for every organisation and category pairing at once."
+msgstr "Brutto in EUR für jede Kombination aus Organisation und Kategorie auf einen Blick."
+
+msgid "Each cell is the signed gross EUR of the converted payments of that organisation in that category; a blank cell means no payment (a zero means payments that add up to zero). Row and column totals are over the same payments, so every pairing adds up to the total."
+msgstr "Jede Zelle ist der Brutto-Betrag in EUR (mit Vorzeichen) der umgerechneten Zahlungen dieser Organisation in dieser Kategorie; eine leere Zelle bedeutet keine Zahlung (eine Null bedeutet Zahlungen, die sich zu null summieren). Zeilen- und Spaltensummen beziehen sich auf dieselben Zahlungen, sodass jede Kombination zur Gesamtsumme passt."
+
+msgid "Not applied to this report: it is a whole-person assessment and cannot be computed over part of the income. The figures are the unfiltered ones."
+msgstr "Auf diesen Bericht nicht angewendet: Er ist eine Gesamtbetrachtung der Person und kann nicht für einen Teil der Einkünfte berechnet werden. Die Zahlen sind die ungefilterten."
+
+msgid "The organisation and category filter does not apply to \"%(title)s\": the figures below are unfiltered."
+msgstr "Der Filter nach Organisation und Kategorie gilt nicht für „%(title)s“: Die Zahlen unten sind ungefiltert."
+
+msgid "Filter by organisation and category"
+msgstr "Nach Organisation und Kategorie filtern"
+
+msgid "active"
+msgstr "aktiv"
+
+msgid "inactive"
+msgstr "inaktiv"
+
+msgid "No payments yet."
+msgstr "Noch keine Zahlungen."
+
+msgid "Tick any number of boxes. Within a group the ticked items are combined with OR, the two groups with AND; a group with nothing ticked does not restrict. The number is the payments in the selected period."
+msgstr "Beliebig viele Felder ankreuzen. Innerhalb einer Gruppe werden die angekreuzten Einträge mit ODER verknüpft, die beiden Gruppen mit UND; eine Gruppe ohne Häkchen schränkt nicht ein. Die Zahl nennt die Zahlungen im gewählten Zeitraum."
+
+msgid "None"
+msgstr "Keine"
+
+msgid "Clear filters"
+msgstr "Filter zurücksetzen"
+
+msgid "The organisation and category filter does not apply to this report: it is a whole-person assessment and is always computed from all income."
+msgstr "Der Filter nach Organisation und Kategorie gilt nicht für diesen Bericht: Er ist eine Gesamtbetrachtung der Person und wird immer aus allen Einkünften berechnet."
+
+msgid "The filter applies to every report except the SBK contribution estimate and the tax checks, which always use all income."
+msgstr "Der Filter gilt für alle Berichte außer der Schätzung des SBK-Beitrags und den Steuerprüfungen, die immer alle Einkünfte verwenden."
+
+msgid "Links open with the period and filter chosen above."
+msgstr "Die Links öffnen sich mit dem oben gewählten Zeitraum und Filter."

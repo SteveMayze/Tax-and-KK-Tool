@@ -100,12 +100,14 @@ def effective_country(payment):
     return inferred, bool(inferred)
 
 
-def tax_summary_rows(year=None):
+def tax_summary_rows(year=None, flt=None):
     """One row per income type and country (information only)."""
     cats = {c.pk: c.tax_income_type for c in IncomeCategory.objects.all()}
     qs = Payment.objects.select_related('organisation')
     if year:
         qs = qs.filter(month__year__year=year)
+    if flt is not None:
+        qs = flt.apply(qs)
     groups = defaultdict(list)
     inferred_in = defaultdict(int)
     for p in qs:

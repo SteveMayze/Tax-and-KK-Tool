@@ -144,6 +144,8 @@ class ReportLanguageTests(LoggedInTestCase):
             with translation.override('de'):
                 report = spec.build(2026)
             for column in report.columns:
+                if column.key.startswith('cat_'):         # the organisation-by-category columns are category names (data)
+                    continue
                 label = str(column.label)
                 stripped = label[:-4] if label.endswith(' EUR') else label      # the 14 SBK columns are the glossary label + " EUR"
                 self.assertTrue(label in self.glossary_cells or stripped in self.glossary_cells, (key, label))
@@ -172,7 +174,7 @@ class ReportLanguageTests(LoggedInTestCase):
             english_texts = set()
             for spec in reports.REPORTS.values():
                 rep = spec.build(2026)
-                english_texts |= {str(c.label) for c in rep.columns} | {str(rep.title)}
+                english_texts |= {str(c.label) for c in rep.columns if not c.key.startswith('cat_')} | {str(rep.title)}
                 english_texts |= {str(l) for l, _t in rep.basis} | {str(n) for n in rep.notes}
         english_texts = {t for t in english_texts if len(t) > 3}
         for key in reports.REPORTS:

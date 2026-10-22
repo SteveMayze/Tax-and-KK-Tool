@@ -21,10 +21,12 @@ class Report:
                                     self.missing_net, self.inconsistent, self.unallocated))
 
 
-def build_report(year=None) -> Report:
+def build_report(year=None, flt=None) -> Report:
     qs = Payment.objects.select_related('organisation', 'category', 'month__year', 'rate_record')
     if year is not None:
         qs = qs.filter(month__year__year=year)
+    if flt is not None:
+        qs = flt.apply(qs)
     r = Report()
     for p in qs:
         if p.net_amount is None:
