@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n icons %}
 {% block title %}{% trans "Assessment settings" %}{% endblock %}
 {% block content %}
 <h1>{% trans "Assessment settings" %}</h1>
@@ -9,7 +9,7 @@
 {% endif %}
 <form method="post" novalidate>{% csrf_token %}
   {% for field in form %}<div class="field">{{ field.label_tag }}{{ field }}{% if field.help_text %}<span class="note">{{ field.help_text }}</span>{% endif %}{{ field.errors }}</div>{% endfor %}
-  <button type="submit">{% trans "Save" %}</button>
+  <button type="submit">{% icon "check" %}{% trans "Save" %}</button>
 </form>
 <h2>{% trans "Parameters in use" %}</h2>
 <table>

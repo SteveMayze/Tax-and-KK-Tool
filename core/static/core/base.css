@@ -95,6 +95,19 @@ button:disabled { opacity: .7; cursor: default; }
 header button { padding: .2rem .6rem; min-height: 2rem; }
 .actions { margin: .75rem 0; }
 
+/* Icons (Phase 29, ADR 0030): inline SVG from core/icons.py, drawn with currentColor so they follow the button's tokens.
+   .btn-icon is a square 32 px target for an icon-only control; with visible text the icon sits before the text. */
+.icon { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75;
+  stroke-linecap: round; stroke-linejoin: round; vertical-align: -.25em; }
+.btn .icon, button .icon { margin-right: .4rem; }
+.btn-icon { display: inline-flex; align-items: center; justify-content: center; width: 2rem; min-width: 2rem; height: 2rem;
+  min-height: 2rem; padding: 0; }
+.btn-icon .icon, nav a .icon { margin-right: 0; }
+nav a .icon { margin-right: .3rem; color: var(--color-primary); }
+nav a { white-space: nowrap; }
+.row-actions { white-space: nowrap; }
+.row-actions form { display: inline; }
+
 /* Information popups on report headings (Popover API: a real button, keyboard reachable, closes with Escape). */
 .info-btn { padding: 0 .45rem; min-height: 1.5rem; margin-left: .35rem; border-radius: 50%; font-weight: 700;
   font-size: .8rem; background: var(--color-surface); color: var(--color-heading); border-color: var(--color-border-strong); }

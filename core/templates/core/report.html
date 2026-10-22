@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n icons %}
 {% block title %}{{ report.title }}{% endblock %}
 {% block content %}
-<p><a href="{% url 'report_index' %}">&larr; {% trans "Reports" %}</a></p>
+<p><a href="{% url 'report_index' %}">{% icon "arrow-left" %}{% trans "Reports" %}</a></p>
 <h1>{{ report.title }}</h1>
 <form method="get" class="inline no-print">
   <label for="year" class="inline">{% trans "Period" %}</label>
@@ -12,9 +12,9 @@
   </select>
   <button type="submit" class="btn-secondary">{% trans "Show" %}</button>
 </form>
-<a href="{% url 'report_csv' report.key %}?year={{ year|default:'all'|stringformat:"s" }}" class="btn btn-secondary">{% trans "Download CSV" %}</a>
+<a href="{% url 'report_csv' report.key %}?year={{ year|default:'all'|stringformat:"s" }}" class="btn btn-secondary" title="{% trans "Download CSV" %}">{% icon "code" %}CSV</a>
 
-{% if report.key == 'sbk' or report.key == 'tax_checks' %}<p class="no-print"><a href="{% url 'assessment_settings' %}">{% trans "Assessment settings" %}</a>{% if year %} &middot; <a href="{% url 'annual_inputs' year %}">{% trans "Annual costs and months earned" %} {{ year|stringformat:"d" }}</a>{% endif %} &middot; <a href="{% url 'category_list' %}">{% trans "Map categories" %}</a></p>{% endif %}
+{% if report.key == 'sbk' or report.key == 'tax_checks' %}<p class="no-print"><a href="{% url 'assessment_settings' %}">{% icon "sliders" %}{% trans "Assessment settings" %}</a>{% if year %} &middot; <a href="{% url 'annual_inputs' year %}">{% trans "Annual costs and months earned" %} {{ year|stringformat:"d" }}</a>{% endif %} &middot; <a href="{% url 'category_list' %}">{% trans "Map categories" %}</a></p>{% endif %}
 <section class="report-basis" aria-labelledby="basis-heading">
 <h2 id="basis-heading">{% trans "Basis" %}</h2>
 <dl>

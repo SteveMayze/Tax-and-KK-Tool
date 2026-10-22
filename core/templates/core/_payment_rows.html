@@ -1,4 +1,4 @@
-{% load money i18n %}
+{% load money i18n icons %}
 <table>
   <thead><tr><th>{% trans "Date" %}</th><th>{% trans "Organisation" %}</th><th class="num">{% trans "Original" %}</th><th>{% trans "Rate" %}</th><th>{% trans "Rate date" %}</th><th></th></tr></thead>
   <tbody>
@@ -8,7 +8,7 @@
     <td class="num">{{ p.gross_amount|money }} {{ p.currency }}</td>
     <td>{% if p.conversion_status == 'converted' %}{{ p.rate|rate }} ({{ p.rate_source }}){% else %}&mdash;{% endif %}</td>
     <td>{{ p.rate_date|date:"DATE_FORMAT" }}</td>
-    <td><a href="{% url 'payment_detail' p.pk %}">{% trans "Open" %}</a></td>
+    <td><a href="{% url 'payment_detail' p.pk %}" class="btn btn-secondary btn-icon" aria-label="{% trans "Open" %}" title="{% trans "Open" %}">{% icon "eye" %}</a></td>
   </tr>
   {% endfor %}
   </tbody>

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n icons %}
 {% block title %}{% trans "Original removed" %}{% endblock %}
 {% block content %}
 <h1>{% trans "The original file was removed" %}</h1>
 <p>{% blocktrans trimmed with n=batch.pk when=batch.original_removed_at|date:"DATETIME_FORMAT" %}The stored copy of the file of import #{{ n }} was deleted on {{ when }} UTC. The history and the row data are still available.{% endblocktrans %}</p>
-<p><a href="{% url 'import_preview' batch.pk %}" class="btn btn-secondary">{% trans "View import" %}</a> <a href="{% url 'import_list' %}">{% trans "Back to imports" %}</a></p>
+<p><a href="{% url 'import_preview' batch.pk %}" class="btn btn-secondary">{% icon "eye" %}{% trans "View import" %}</a> <a href="{% url 'import_list' %}">{% icon "arrow-left" %}{% trans "Back to imports" %}</a></p>
 {% endblock %}

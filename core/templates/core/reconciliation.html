@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load money i18n %}
+{% load money i18n icons %}
 {% block title %}{% trans "Reconciliation" %}{% endblock %}
 {% block content %}
 <h1>{% trans "Missing rates and incomplete records" %}</h1>
@@ -15,7 +15,7 @@
 <p class="note">{% trans "Excluded from every EUR total." %}</p>
 {% if report.pending %}
 <form method="post" action="{% url 'convert_pending' %}">{% csrf_token %}{% if year %}<input type="hidden" name="year" value="{{ year|stringformat:"d" }}">{% endif %}
-  <button type="submit">{% trans "Try automatic conversion for all of these" %}</button>
+  <button type="submit">{% icon "refresh" %}{% trans "Try automatic conversion for all of these" %}</button>
   <span class="note">{% trans "Foreign payments are looked up at the exchange-rate source; failures stay unconverted." %}</span></form>
 {% include "core/_payment_rows.html" with rows=report.pending %}
 {% else %}<p>{% trans "None." %}</p>{% endif %}

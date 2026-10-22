@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load money i18n %}
+{% load money i18n icons %}
 {% block title %}{% trans "Years" %}{% endblock %}
 {% block content %}
 <h1>{% trans "Years" %}</h1>
@@ -21,7 +21,7 @@
       {% if s.totals.unconverted_count %}<br>{% blocktrans trimmed with n=s.totals.unconverted_count %}Excluded: {{ n }} unconverted payment(s).{% endblocktrans %}{% endif %}
       {% if s.totals.net_missing_count %}<br>{% blocktrans trimmed with n=s.totals.net_missing_count %}{{ n }} payment(s) without net amount (not in net total).{% endblocktrans %}{% endif %}
     </td>
-    <td><a href="{% url 'year_delete' s.year.year %}" class="btn btn-danger">{% trans "Delete" %}</a></td>
+    <td><a href="{% url 'year_delete' s.year.year %}" class="btn btn-danger btn-icon" aria-label="{% trans "Delete" %}" title="{% trans "Delete" %}">{% icon "trash" %}</a></td>
   </tr>
   {% endfor %}
   </tbody>
@@ -31,6 +31,6 @@
 <h2>{% trans "Add year" %}</h2>
 <form method="post" action="{% url 'year_add' %}">{% csrf_token %}
   {{ form.as_p }}
-  <button type="submit">{% trans "Add year" %}</button>
+  <button type="submit">{% icon "plus" %}{% trans "Add year" %}</button>
 </form>
 {% endblock %}

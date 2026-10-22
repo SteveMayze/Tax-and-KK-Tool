@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n icons %}
 {% block title %}{% trans "Annual inputs" %} {{ year.year|stringformat:"d" }}{% endblock %}
 {% block content %}
-<p><a href="{% url 'assessment_settings' %}">&larr; {% trans "Assessment settings" %}</a> &middot; <a href="{% url 'report_view' 'sbk' %}?year={{ year.year|stringformat:"d" }}">{% trans "SBK estimate" %} {{ year.year|stringformat:"d" }}</a></p>
+<p><a href="{% url 'assessment_settings' %}">{% icon "arrow-left" %}{% trans "Assessment settings" %}</a> &middot; <a href="{% url 'report_view' 'sbk' %}?year={{ year.year|stringformat:"d" }}">{% trans "SBK estimate" %} {{ year.year|stringformat:"d" }}</a></p>
 <h1>{% trans "Annual inputs" %} {{ year.year|stringformat:"d" }}</h1>
 <p class="note">{% trans "Used only for the SBK estimate. Costs: Werbungskosten (rental, capital) or Betriebsausgaben (self-employed), in EUR. Months earned: first to last month in which the income was earned (default January to December). Capital income uses the flat 51 EUR unless your costs are higher. Saving an existing treatment replaces it." %}</p>
 {% if inputs %}
@@ -10,7 +10,7 @@
   <thead><tr><th>{% trans "Treatment" %}</th><th class="num">{% trans "Costs EUR" %}</th><th>{% trans "Months" %}</th><th>{% trans "Note" %}</th><th></th></tr></thead>
   <tbody>
   {% for i in inputs %}<tr><td>{{ i.get_treatment_display }}</td><td class="num">{{ i.costs_eur }}</td><td>{% blocktrans trimmed with a=i.first_month b=i.last_month n=i.months_earned %}{{ a }} to {{ b }} ({{ n }}){% endblocktrans %}</td><td>{{ i.note }}</td>
-    <td><form method="post" action="{% url 'annual_input_delete' year.year i.pk %}" class="inline">{% csrf_token %}<button type="submit" class="btn-danger">{% trans "Remove" %}</button></form></td></tr>{% endfor %}
+    <td><form method="post" action="{% url 'annual_input_delete' year.year i.pk %}" class="inline">{% csrf_token %}<button type="submit" class="btn-danger btn-icon" aria-label="{% trans "Remove" %}" title="{% trans "Remove" %}">{% icon "trash" %}</button></form></td></tr>{% endfor %}
   </tbody>
 </table>
 {% else %}<p>{% trans "None entered: defaults apply (January to December, no costs)." %}</p>{% endif %}
@@ -18,6 +18,6 @@
 <form method="post" novalidate>{% csrf_token %}
   {% for field in form %}<div class="field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
   {{ form.non_field_errors }}
-  <button type="submit">{% trans "Save" %}</button>
+  <button type="submit">{% icon "check" %}{% trans "Save" %}</button>
 </form>
 {% endblock %}

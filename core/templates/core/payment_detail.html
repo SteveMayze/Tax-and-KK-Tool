@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load money i18n %}
+{% load money i18n icons %}
 {% block title %}{% trans "Payment" %}{% endblock %}
 {% block content %}
-<p><a href="{% url 'month_detail' p.month.year.year p.month.month %}">&larr; {{ month_name }} {{ p.month.year.year|stringformat:"d" }}</a></p>
+<p><a href="{% url 'month_detail' p.month.year.year p.month.month %}">{% icon "arrow-left" %}{{ month_name }} {{ p.month.year.year|stringformat:"d" }}</a></p>
 <h1>{% trans "Payment" %}</h1>
 <table>
   <tr><th>{% trans "Payment date" %}</th><td>{{ p.payment_date|date:"DATE_FORMAT" }} ({% trans "reporting month" %} {{ p.month }})</td></tr>
@@ -25,10 +25,10 @@
   {% if p.comment %}<tr><th>{% trans "Comment" %}</th><td>{{ p.comment }}</td></tr>{% endif %}
 </table>
 <p class="actions">
-  <a href="{% url 'payment_edit' p.pk %}" class="btn btn-secondary">{% trans "Edit" %}</a>
-  {% if p.currency != 'EUR' %}<a href="{% url 'payment_recalculate' p.pk %}" class="btn btn-secondary">{% if p.conversion_status == 'converted' %}{% trans "Recalculate from source" %}{% else %}{% trans "Convert" %}{% endif %}</a>
+  <a href="{% url 'payment_edit' p.pk %}" class="btn btn-secondary btn-icon" aria-label="{% trans "Edit" %}" title="{% trans "Edit" %}">{% icon "pencil" %}</a>
+  {% if p.currency != 'EUR' %}<a href="{% url 'payment_recalculate' p.pk %}" class="btn btn-secondary">{% icon "refresh" %}{% if p.conversion_status == 'converted' %}{% trans "Recalculate from source" %}{% else %}{% trans "Convert" %}{% endif %}</a>
   <a href="{% url 'payment_correct_rate' p.pk %}" class="btn btn-secondary">{% if p.conversion_status == 'converted' %}{% trans "Correct rate manually" %}{% else %}{% trans "Enter rate manually" %}{% endif %}</a>{% endif %}
-  <a href="{% url 'payment_delete' p.pk %}" class="btn btn-danger">{% trans "Delete" %}</a>
+  <a href="{% url 'payment_delete' p.pk %}" class="btn btn-danger btn-icon" aria-label="{% trans "Delete" %}" title="{% trans "Delete" %}">{% icon "trash" %}</a>
 </p>
 <h2>{% trans "Conversion history" %}</h2>
 {% if p.conversion_events.all %}

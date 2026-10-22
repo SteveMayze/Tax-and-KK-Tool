@@ -63,7 +63,7 @@ class YearMonthTests(AuthedTestCase):
         r = self.client.get(reverse('year_detail', args=[2024]))
         for name in ('January', 'June', 'December'):
             self.assertContains(r, name)
-        self.assertEqual(r.content.decode().count('Add month'), 12)
+        self.assertEqual(r.content.decode().count('aria-label="Add month"'), 12)
 
     def test_add_and_delete_month_with_confirmation(self):
         ReportingYear.objects.create(year=2024)

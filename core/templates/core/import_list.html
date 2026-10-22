@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n privacy %}
+{% load i18n privacy icons %}
 {% block title %}{% trans "Imports" %}{% endblock %}
 {% block content %}
 <h1>{% trans "CSV imports" %}</h1>
@@ -26,7 +26,7 @@
     <li>{% blocktrans trimmed %}<code>exchange_rate</code> (optional, EUR per 1 unit of the currency): stored as a manual rate; <code>rate_date</code> optional. Leave empty to have the ECB rate for the payment date looked up. EUR rows never need a rate.{% endblocktrans %}</li>
     <li>{% blocktrans trimmed %}Organisations and categories are matched ignoring case; unknown names are flagged as <em>new</em> in the preview.{% endblocktrans %}</li>
   </ul>
-  <p><a href="{% url 'import_template' %}">{% trans "Download a template with synthetic example rows" %}</a>.</p>
+  <p><a href="{% url 'import_template' %}">{% icon "download" %}{% trans "Download a template with synthetic example rows" %}</a>.</p>
 </details>
 
 <h2>{% trans "History" %}</h2>
@@ -40,7 +40,7 @@
     <td class="num">{% if b.status == 'committed' %}{{ b.skipped_count }}{% endif %}</td>
     <td class="num">{% if b.status == 'committed' %}{{ b.unconverted_count }}{% endif %}</td>
     <td class="num">{% if b.status == 'committed' %}{% if b.payment_total %}{{ b.payment_total }}{% else %}<span class="note">{% trans "unattributed" %}</span>{% endif %}{% endif %}</td>
-    <td><a href="{% url 'import_preview' b.pk %}" class="btn btn-secondary">{% if b.status == 'preview' %}{% trans "Review" %}{% else %}{% trans "View" %}{% endif %}</a>{% if b.stored_path %} &middot; <a href="{% url 'import_file' b.pk %}">{% trans "Original file" %}</a> &middot; <a href="{% url 'import_delete_file' b.pk %}" class="btn btn-secondary">{% trans "Delete stored file" %}</a>{% endif %} <a href="{% url 'import_delete' b.pk %}" class="btn btn-secondary">{% trans "Delete batch completely" %}</a></td></tr>
+    <td><a href="{% url 'import_preview' b.pk %}" class="btn btn-secondary btn-icon" {% if b.status == 'preview' %}aria-label="{% trans "Review" %}" title="{% trans "Review" %}"{% else %}aria-label="{% trans "View" %}" title="{% trans "View" %}"{% endif %}>{% icon "eye" %}</a>{% if b.stored_path %} &middot; <a href="{% url 'import_file' b.pk %}">{% icon "paperclip" %}{% trans "Original file" %}</a> &middot; <a href="{% url 'import_delete_file' b.pk %}" class="btn btn-secondary">{% trans "Delete stored file" %}</a>{% endif %} <a href="{% url 'import_delete' b.pk %}" class="btn btn-secondary">{% trans "Delete batch completely" %}</a></td></tr>
   {% endfor %}
   </tbody>
 </table>

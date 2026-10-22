@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% load money i18n %}
+{% load money i18n icons %}
 {% block title %}{{ month_name }} {{ month.year.year|stringformat:"d" }}{% endblock %}
 {% block content %}
-<p><a href="{% url 'year_detail' month.year.year %}">&larr; {{ month.year.year|stringformat:"d" }}</a></p>
+<p><a href="{% url 'year_detail' month.year.year %}">{% icon "arrow-left" %}{{ month.year.year|stringformat:"d" }}</a></p>
 <h1>{{ month_name }} {{ month.year.year|stringformat:"d" }}</h1>
-<p class="actions"><a href="{% url 'payment_add' month.year.year month.month %}" class="btn btn-primary">{% trans "Add payment" %}</a></p>
+<p class="actions"><a href="{% url 'payment_add' month.year.year month.month %}" class="btn btn-primary btn-icon" aria-label="{% trans "Add payment" %}" title="{% trans "Add payment" %}">{% icon "plus" %}</a></p>
 {% if rows %}
 <table>
   <thead><tr>
@@ -23,7 +23,7 @@
     <td>{{ p.get_frequency_display }}</td>
     <td class="num">{% if r.normalised is not None %}{{ r.normalised|money }}{% elif not r.recurring %}<span class="note">{% trans "n/a (one-off)" %}</span>{% else %}&mdash;{% endif %}</td>
     <td>{{ p.comment }}</td>
-    <td><a href="{% url 'payment_edit' p.pk %}" class="btn btn-secondary">{% trans "Edit" %}</a> <a href="{% url 'payment_delete' p.pk %}" class="btn btn-danger">{% trans "Delete" %}</a></td>
+    <td><span class="row-actions"><a href="{% url 'payment_detail' p.pk %}" class="btn btn-secondary btn-icon" aria-label="{% trans "View" %}" title="{% trans "View" %}">{% icon "eye" %}</a> <a href="{% url 'payment_edit' p.pk %}" class="btn btn-secondary btn-icon" aria-label="{% trans "Edit" %}" title="{% trans "Edit" %}">{% icon "pencil" %}</a> <a href="{% url 'payment_delete' p.pk %}" class="btn btn-danger btn-icon" aria-label="{% trans "Delete" %}" title="{% trans "Delete" %}">{% icon "trash" %}</a></span></td>
   </tr>
   {% endwith %}{% endfor %}
   </tbody>
@@ -34,5 +34,5 @@
 {% if actual.unconverted_count %}<p class="warn">{% blocktrans trimmed with n=actual.unconverted_count %}{{ n }} payment(s) not converted are excluded from totals.{% endblocktrans %}</p>{% endif %}
 {% if actual.net_missing_count %}<p class="warn">{% blocktrans trimmed with n=actual.net_missing_count %}{{ n }} payment(s) have no net amount and are not in the net totals.{% endblocktrans %}</p>{% endif %}
 {% else %}<p>{% trans "No payments in this month." %}</p>{% endif %}
-<p class="actions"><a href="{% url 'month_delete' month.year.year month.month %}" class="btn btn-danger">{% trans "Delete this month" %}&hellip;</a></p>
+<p class="actions"><a href="{% url 'month_delete' month.year.year month.month %}" class="btn btn-danger">{% icon "trash" %}{% trans "Delete this month" %}&hellip;</a></p>
 {% endblock %}

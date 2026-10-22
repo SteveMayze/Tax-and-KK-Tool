@@ -295,14 +295,16 @@ class ButtonStyleTests(LoggedIn):
         build_data()
         p = Payment.objects.get(payment_date__month=5)
         month = self.client.get(reverse('month_detail', args=[2026, 5])).content.decode()
-        self.assertIn('class="btn btn-primary">Add payment', month)
-        self.assertIn('class="btn btn-secondary">Edit', month)
-        self.assertIn('class="btn btn-danger">Delete', month)
+        self.assertIn('class="btn btn-primary btn-icon" aria-label="Add payment"', month)       # icon-only (Phase 29)
+        self.assertIn('class="btn btn-secondary btn-icon" aria-label="Edit"', month)
+        self.assertIn('class="btn btn-danger btn-icon" aria-label="Delete"', month)
         detail = self.client.get(reverse('payment_detail', args=[p.pk])).content.decode()
-        for text in ('Edit', 'Recalculate from source', 'Correct rate manually'):
-            self.assertRegex(detail, r'class="btn btn-secondary">\s*' + text)
+        self.assertIn('class="btn btn-secondary btn-icon" aria-label="Edit"', detail)
+        for text in ('Recalculate from source', 'Correct rate manually'):
+            self.assertRegex(detail, r'class="btn btn-secondary">(<svg.*?</svg>)?\s*' + text)
         report = self.client.get(reverse('report_view', args=['annual'])).content.decode()
-        self.assertIn('class="btn btn-secondary">Download CSV', report)
+        self.assertIn('title="Download CSV"', report)                         # visible text stays "CSV"
+        self.assertRegex(report, r'title="Download CSV"><svg.*?</svg>CSV</a>')
         form = self.client.get(reverse('payment_edit', args=[p.pk])).content.decode()
         self.assertIn('class="btn btn-secondary">Cancel', form)
-        self.assertRegex(form, r'<button type="submit">Save payment</button>')            # styled primary by the stylesheet
+        self.assertRegex(form, r'<button type="submit">(<svg.*?</svg>)?Save payment</button>')            # styled primary by the stylesheet

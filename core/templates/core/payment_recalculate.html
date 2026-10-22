@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load money i18n %}
+{% load money i18n icons %}
 {% block title %}{% trans "Recalculate payment" %}{% endblock %}
 {% block content %}
-<p><a href="{% url 'payment_detail' p.pk %}">&larr; {% trans "Payment" %}</a></p>
+<p><a href="{% url 'payment_detail' p.pk %}">{% icon "arrow-left" %}{% trans "Payment" %}</a></p>
 <h1>{% if p.conversion_status == 'converted' %}{% trans "Recalculate from exchange-rate source" %}{% else %}{% trans "Convert payment" %}{% endif %}</h1>
 <p>{% blocktrans trimmed with d=p.payment_date|date:"DATE_FORMAT" org=p.organisation gross=p.gross_amount|money ccy=p.currency %}{{ d }}, {{ org }}: gross {{ gross }} {{ ccy }}.{% endblocktrans %}</p>
 {% if p.conversion_status == 'converted' %}
@@ -13,5 +13,5 @@
   <div class="field"><label for="reason">{% trans "Reason (optional)" %}</label><input type="text" name="reason" id="reason" maxlength="300"></div>
   <button type="submit">{% if p.conversion_status == 'converted' %}{% trans "Recalculate" %}{% else %}{% trans "Convert" %}{% endif %}</button>
 </form>
-<p><a href="{% url 'payment_correct_rate' p.pk %}">{% trans "Enter a rate manually instead" %}</a></p>
+<p><a href="{% url 'payment_correct_rate' p.pk %}">{% icon "pencil" %}{% trans "Enter a rate manually instead" %}</a></p>
 {% endblock %}

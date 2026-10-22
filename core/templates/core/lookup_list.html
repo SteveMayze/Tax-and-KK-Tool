@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n icons %}
 {% block title %}{{ cfg.title }}{% endblock %}
 {% block content %}
 <h1>{{ cfg.title }}</h1>
-<p class="actions"><a href="{% url kind|add:'_add' %}" class="btn btn-primary">{% trans "Add" %} {{ cfg.singular }}</a></p>
+<p class="actions"><a href="{% url kind|add:'_add' %}" class="btn btn-primary btn-icon" aria-label="{% trans "Add" %} {{ cfg.singular }}" title="{% trans "Add" %} {{ cfg.singular }}">{% icon "plus" %}</a></p>
 <p class="note">{% trans "Items used by payments cannot be deleted; deactivate them instead (inactive items are not offered when entering payments)." %}</p>
 <table>
   <thead><tr><th>{% trans "Name" %}</th>{% if kind == 'organisation' %}<th>{% trans "Country" %}</th>{% else %}<th>{% trans "SBK treatment" %}</th><th>{% trans "Tax income type" %}</th><th>{% trans "May be negative" %}</th>{% endif %}<th>{% trans "Active" %}</th><th class="num">{% trans "Payments" %}</th><th></th></tr></thead>
@@ -11,7 +11,7 @@
   {% for r in rows %}
   <tr><td>{{ r.name }}</td>{% if kind == 'organisation' %}<td>{{ r.country }}</td>{% else %}<td>{{ r.get_sbk_treatment_display|default:'<em>not mapped</em>' }}</td><td>{{ r.get_tax_income_type_display|default:'<em>not mapped</em>' }}</td><td>{{ r.may_be_negative|yesno:_("yes,no") }}</td>{% endif %}
     <td>{{ r.active|yesno:_("yes,no") }}</td><td class="num">{{ r.payment_count }}</td>
-    <td><a href="{% url kind|add:'_edit' r.pk %}" class="btn btn-secondary">{% trans "Edit" %}</a> <a href="{% url kind|add:'_delete' r.pk %}" class="btn btn-danger">{% trans "Delete" %}</a></td></tr>
+    <td><span class="row-actions"><a href="{% url kind|add:'_edit' r.pk %}" class="btn btn-secondary btn-icon" aria-label="{% trans "Edit" %}" title="{% trans "Edit" %}">{% icon "pencil" %}</a> <a href="{% url kind|add:'_delete' r.pk %}" class="btn btn-danger btn-icon" aria-label="{% trans "Delete" %}" title="{% trans "Delete" %}">{% icon "trash" %}</a></span></td></tr>
   {% empty %}<tr><td colspan="7">{% trans "None yet." %}</td></tr>
   {% endfor %}
   </tbody>

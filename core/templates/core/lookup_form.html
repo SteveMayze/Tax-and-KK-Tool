@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n icons %}
 {% block title %}{{ cfg.title }}{% endblock %}
 {% block content %}
-<p><a href="{% url kind|add:'_list' %}">&larr; {{ cfg.title }}</a></p>
+<p><a href="{% url kind|add:'_list' %}">{% icon "arrow-left" %}{{ cfg.title }}</a></p>
 <h1>{% if obj %}{% trans "Edit" %}{% else %}{% trans "Add" %}{% endif %} {{ cfg.singular }}</h1>
-<form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<p class="actions"><button type="submit">{% trans "Save" %}</button> <a href="{% url kind|add:'_list' %}" class="btn btn-secondary">{% trans "Cancel" %}</a></p></form>
+<form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<p class="actions"><button type="submit">{% icon "check" %}{% trans "Save" %}</button> <a href="{% url kind|add:'_list' %}" class="btn btn-secondary">{% trans "Cancel" %}</a></p></form>
 {% endblock %}

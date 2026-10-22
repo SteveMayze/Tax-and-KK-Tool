@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load money i18n %}
+{% load money i18n icons %}
 {% block title %}{{ year.year|stringformat:"d" }}{% endblock %}
 {% block content %}
-<p><a href="{% url 'home' %}">&larr; {% trans "All years" %}</a></p>
+<p><a href="{% url 'home' %}">{% icon "arrow-left" %}{% trans "All years" %}</a></p>
 <h1>{{ year.year|stringformat:"d" }}</h1>
 <p class="note">{% trans "Basis: actual payments received, EUR, stored rates. Gross and net are separate; payments without a stored conversion are excluded and counted." %}</p>
 <p>
@@ -23,8 +23,8 @@
     <td class="num">{{ r.totals.gross_eur|money }}</td>
     <td class="num">{{ r.totals.net_eur|money }}</td>
     <td>
-      {% if r.obj %}<a href="{% url 'month_delete' year.year r.number %}" class="btn btn-danger">{% trans "Delete month" %}</a>
-      {% else %}<form method="post" action="{% url 'month_add' year.year r.number %}" class="inline">{% csrf_token %}<button type="submit">{% trans "Add month" %}</button></form>{% endif %}
+      {% if r.obj %}<a href="{% url 'month_delete' year.year r.number %}" class="btn btn-danger btn-icon" aria-label="{% trans "Delete month" %}" title="{% trans "Delete month" %}">{% icon "trash" %}</a>
+      {% else %}<form method="post" action="{% url 'month_add' year.year r.number %}" class="inline">{% csrf_token %}<button type="submit" class="btn-icon" aria-label="{% trans "Add month" %}" title="{% trans "Add month" %}">{% icon "plus" %}</button></form>{% endif %}
     </td>
   </tr>
   {% endfor %}
@@ -33,7 +33,7 @@
 
 <h2>{% trans "Notes" %}</h2>
 <form method="post" action="{% url 'year_notes' year.year %}">{% csrf_token %}
-  {{ notes_form.as_p }}<button type="submit">{% trans "Save notes" %}</button>
+  {{ notes_form.as_p }}<button type="submit">{% icon "check" %}{% trans "Save notes" %}</button>
 </form>
-<p class="actions"><a href="{% url 'year_delete' year.year %}" class="btn btn-danger">{% trans "Delete this year" %}&hellip;</a></p>
+<p class="actions"><a href="{% url 'year_delete' year.year %}" class="btn btn-danger">{% icon "trash" %}{% trans "Delete this year" %}&hellip;</a></p>
 {% endblock %}

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load money lookups static i18n %}
+{% load money lookups static i18n icons %}
 {% block title %}{% if editing %}{% trans "Edit payment" %}{% else %}{% trans "Add payment" %}{% endif %}{% endblock %}
 {% block content %}
-<p><a href="{% url 'month_detail' month.year.year month.month %}">&larr; {{ month_name }} {{ month.year.year|stringformat:"d" }}</a></p>
+<p><a href="{% url 'month_detail' month.year.year month.month %}">{% icon "arrow-left" %}{{ month_name }} {{ month.year.year|stringformat:"d" }}</a></p>
 <h1>{% if editing %}{% trans "Edit payment" %}{% else %}{% trans "Add payment" %}{% endif %}</h1>
 <p class="note">{% trans "The payment date decides the reporting month. Organisation and category: pick an existing name or type a new one." %}</p>
 
@@ -43,7 +43,7 @@
     {% endfor %}
   </details>
   <p id="unallocated" class="note" aria-live="polite" data-empty="{% trans 'Unallocated: enter gross and net to see it.' %}" data-label="{% trans 'Unallocated (gross - net - withholding tax - expenses):' %}" data-ok="{% trans '(OK)' %}" data-bad="{% trans '(must be 0.00 to save)' %}">{% trans "Unallocated: enter gross and net to see it." %}</p>
-  <p class="actions"><button type="submit">{% trans "Save payment" %}</button> <a href="{% if editing %}{% url 'payment_detail' payment.pk %}{% else %}{% url 'month_detail' month.year.year month.month %}{% endif %}" class="btn btn-secondary">{% trans "Cancel" %}</a></p>
+  <p class="actions"><button type="submit">{% icon "check" %}{% trans "Save payment" %}</button> <a href="{% if editing %}{% url 'payment_detail' payment.pk %}{% else %}{% url 'month_detail' month.year.year month.month %}{% endif %}" class="btn btn-secondary">{% trans "Cancel" %}</a></p>
 </form>
 <script src="{% static 'core/unallocated.js' %}"></script>
 {% endblock %}
