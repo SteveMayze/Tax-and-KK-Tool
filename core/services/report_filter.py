@@ -80,10 +80,12 @@ def parse(get):
     return ReportFilter(chosen[ORGANISATION], chosen[CATEGORY]), None
 
 
-def options(year=None, flt=NO_FILTER):
+def options(year=None, flt=NO_FILTER, month=None):
     """Check-box options: every organisation and category with at least one payment in any year (active or not),
-    each with its payment count for the selected period. One query per list."""
+    each with its payment count for the selected period (a month only narrows a year). One query per list."""
     in_period = Q(payments__month__year__year=year) if year else Q()
+    if year and month:
+        in_period &= Q(payments__month__month=month)
     result = {}
     for key, model, ticked in ((ORGANISATION, Organisation, flt.organisation_ids), (CATEGORY, IncomeCategory, flt.category_ids)):
         rows = (model.objects.annotate(total=Count('payments'), n=Count('payments', filter=in_period))

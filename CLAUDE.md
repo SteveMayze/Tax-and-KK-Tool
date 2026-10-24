@@ -44,6 +44,7 @@ Deleting a year deletes its months and payments; deleting a month deletes its pa
 - Year page: all 12 months (including empty), gross/net, payment count, add/delete month, link back.
 - Month page: payments table (date, organisation, category, original amount+currency, gross/net EUR, frequency, normalised monthly where meaningful, comment) with add/edit/delete (confirm). Organisation and category are combo-style: pick existing or add new.
 - Payment form flow: validate → get rate → show error or manual-rate option → compute and save → confirmation showing original amount, rate, EUR amount. Editing never silently replaces a stored rate; recalculation is an explicit action.
+- Payments page (Phase 31, ADR 0032, spike on `spike/payments-page`, not merged): `payments/` lists the payments of a year (default: current) and month filtered by organisation and category (Phase 30 filter), with per-currency and EUR totals; edit/delete started there return to it via a safe `next`.
 - No dashboards or charts in the first version.
 
 ## Imports (built in Phase 5)

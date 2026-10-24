@@ -3065,3 +3065,58 @@ msgstr "Der Filter gilt für alle Berichte außer der Schätzung des SBK-Beitrag
 
 msgid "Links open with the period and filter chosen above."
 msgstr "Die Links öffnen sich mit dem oben gewählten Zeitraum und Filter."
+
+msgid "All months"
+msgstr "Alle Monate"
+
+msgid "The payments of one year or month with the same filter as the reports, with the edit controls of the month page. Nothing here changes data; the edit and delete controls open their own pages."
+msgstr "Die Zahlungen eines Jahres oder Monats mit demselben Filter wie die Berichte und den Bearbeitungs-Schaltflächen der Monatsseite. Hier wird nichts geändert; Bearbeiten und Löschen öffnen eigene Seiten."
+
+#, python-format
+msgid "%(month)s %(year)s (reporting month of the payment date)"
+msgstr "%(month)s %(year)s (Berichtsmonat des Zahlungsdatums)"
+
+#, python-format
+msgid "%(year)s, all months (reporting year of the payment date)"
+msgstr "%(year)s, alle Monate (Berichtsjahr des Zahlungsdatums)"
+
+#, python-format
+msgid "There is no reporting year %(y)s yet, so there are no payments to list."
+msgstr "Es gibt noch kein Berichtsjahr %(y)s, daher gibt es keine Zahlungen zum Anzeigen."
+
+msgid "Original currency, as reported (never added across currencies)"
+msgstr "Originalwährung, wie gemeldet (nie über Währungen hinweg addiert)"
+
+msgid "Sorted by payment date, then organisation. The page is a view of stored data; recalculating a rate is a separate action on the payment."
+msgstr "Sortiert nach Zahlungsdatum, dann Organisation. Die Seite zeigt gespeicherte Daten; eine Kursneuberechnung ist eine eigene Aktion an der Zahlung."
+
+msgid "All payments of a year or month, with filters"
+msgstr "Alle Zahlungen eines Jahres oder Monats, mit Filtern"
+
+#, python-format
+msgid "Unknown month \"%(month)s\"."
+msgstr "Unbekannter Monat „%(month)s“."
+
+msgid "No payments in this period."
+msgstr "Keine Zahlungen in diesem Zeitraum."
+
+msgid "(the month is ignored: a month without a year is meaningless)"
+msgstr "(der Monat wird ignoriert: ein Monat ohne Jahr ist bedeutungslos)"
+
+#, python-format
+msgid "<strong>EUR at stored rates:</strong> gross %(gross)s, net %(net)s from %(n)s payment(s)."
+msgstr "<strong>EUR zu gespeicherten Kursen:</strong> brutto %(gross)s, netto %(net)s aus %(n)s Zahlung(en)."
+
+#, python-format
+msgid "%(n)s payment(s) not converted are excluded from the EUR totals."
+msgstr "%(n)s nicht umgerechnete Zahlung(en) sind in den EUR-Summen nicht enthalten."
+
+#, python-format
+msgid "%(n)s without net"
+msgstr "%(n)s ohne Netto"
+
+msgid "Amounts"
+msgstr "Beträge"
+
+msgid "Original amounts in each payment's own currency, never added across currencies; EUR totals at each payment's stored rate, payments not converted are left out and counted. Actual payments, gross and net as stored; withholding tax in the original currency."
+msgstr "Originalbeträge in der Währung der jeweiligen Zahlung, nie über Währungen hinweg addiert; EUR-Summen zum gespeicherten Kurs jeder Zahlung, nicht umgerechnete Zahlungen werden weggelassen und gezählt. Tatsächlich erhaltene Zahlungen, brutto und netto wie gespeichert; einbehaltene Steuer (Quellensteuer) in der Originalwährung."
