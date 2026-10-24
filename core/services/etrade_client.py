@@ -27,7 +27,7 @@ from . import statement_types as st
 from .amounts import parse_amount_us, squeeze_spaces
 from .dividend_statements import UnsupportedStatement
 from .imports import COLUMNS
-from .organisations import tidy_security_name
+from .organisations import ETRADE, broker_category, broker_organisation, tidy_security_name
 
 READER_ID = 'etrade_client'
 AMT = r'\(?\$?\d[\d,]*\.\d{2}\)?|—'
@@ -215,7 +215,8 @@ def parse(pages: list[str]) -> st.StatementResult:
         if event['prior']:
             comment += ' ' + gettext('The statement marks this transaction as reportable for the prior year.')
         data = {c: '' for c in COLUMNS}
-        data.update(payment_date=event['date'].isoformat(), organisation=tidy_security_name(event['description']), category='Dividends',
+        data.update(payment_date=event['date'].isoformat(), organisation=broker_organisation(ETRADE, tidy_security_name(event['description'])),
+                    category=broker_category(fund),
                     currency='USD', gross_amount=format(event['amount'], 'f'), net_amount=format(event['amount'] - withholding, 'f'),
                     withholding_tax=format(withholding, 'f'), expenses='0', frequency='monthly' if fund else 'quarterly', comment=comment)
         evidence = (event['page'], event['line'])

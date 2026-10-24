@@ -1,5 +1,7 @@
 # ADR 0018: E*TRADE client statements
 
+> Superseded in part by ADR 0033: fund income is category Interest and the organisation has the prefix `E*Trade `.
+
 Status: accepted (Phase 18, 2026-10-20; owner answers: money-market-fund income is category Dividends; January items "reportable for the prior year" keep the printed payment date with a comment; sales are only a notice).
 
 ## Context

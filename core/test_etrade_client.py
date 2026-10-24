@@ -52,13 +52,13 @@ class EtradeReaderTests(SimpleTestCase):
         fund, stock = outcome.result.rows
         self.assertEqual((fund.data['payment_date'], fund.data['gross_amount'], fund.data['withholding_tax'], fund.data['net_amount'],
                           fund.data['frequency'], fund.data['organisation']),
-                         ('2025-02-03', '2.50', '0', '2.50', 'monthly', 'Example Liquidity Fund'))
+                         ('2025-02-03', '2.50', '0', '2.50', 'monthly', 'E*Trade Example Liquidity Fund'))
         self.assertEqual((stock.data['payment_date'], stock.data['gross_amount'], stock.data['withholding_tax'], stock.data['net_amount'],
                           stock.data['frequency'], stock.data['organisation']),
-                         ('2025-02-14', '100.00', '15.00', '85.00', 'quarterly', 'Example Corp'))      # 100.00 - 15.00
-        for r in (fund, stock):
+                         ('2025-02-14', '100.00', '15.00', '85.00', 'quarterly', 'E*Trade Example Corp'))      # 100.00 - 15.00
+        for r, category in ((fund, 'Interest'), (stock, 'Dividends')):      # Phase 32: fund income is Interest
             d = r.data
-            self.assertEqual((d['currency'], d['category'], d['expenses']), ('USD', 'Dividends', '0'))
+            self.assertEqual((d['currency'], d['category'], d['expenses']), ('USD', category, '0'))
         self.assertEqual(fund.data['comment'], 'Fund dividend via E*TRADE.')
         self.assertEqual(stock.data['comment'], 'Qualified dividend via E*TRADE.')
         self.assertEqual(outcome.result.notices, [])                       # sweep and tax checks both ran and closed
@@ -85,7 +85,7 @@ class EtradeReaderTests(SimpleTestCase):
                                  total='50.00', tax='(7.50)', summary_other=False))
         self.assertEqual(outcome.error, '')
         fund, stock = outcome.result.rows
-        self.assertEqual((fund.data['payment_date'], fund.data['gross_amount'], fund.data['organisation']), ('2025-01-02', '5.00', 'Example Liquidity Fund'))
+        self.assertEqual((fund.data['payment_date'], fund.data['gross_amount'], fund.data['organisation']), ('2025-01-02', '5.00', 'E*Trade Example Liquidity Fund'))
         self.assertEqual(fund.data['comment'], 'Fund dividend via E*TRADE. The statement marks this transaction as reportable for the prior year.')
         self.assertEqual(stock.data['withholding_tax'], '7.50')
 
@@ -188,7 +188,7 @@ class EtradeStagingTests(UploadDirMixin, TestCase):
         for printed in ('EXAMPLE CORP', 'Example Corp'):
             self.assertEqual(organisations.tidy_security_name(printed), 'Example Corp')
         row = read(statement(rows=DEFAULT_ROWS)).result.rows[1].data
-        self.assertEqual(row['organisation'], organisations.tidy_security_name('EXAMPLE CORP'))
+        self.assertEqual(row['organisation'], 'E*Trade ' + organisations.tidy_security_name('EXAMPLE CORP'))
 
 
 SAMPLES = Path(__file__).resolve().parent.parent / 'local' / 'samples'

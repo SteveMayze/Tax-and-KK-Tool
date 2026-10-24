@@ -23,7 +23,7 @@ from . import statement_types as st
 from .amounts import parse_amount_us, squeeze_spaces
 from .dividend_statements import UnsupportedStatement
 from .imports import COLUMNS
-from .organisations import tidy_security_name
+from .organisations import FIDELITY, broker_category, broker_organisation, tidy_security_name
 
 READER_ID = 'fidelity_stock_plan'
 AMOUNT = r'-?\$?-?[\d,]+\.\d{2}'
@@ -172,7 +172,10 @@ def parse(pages: list[str]) -> st.StatementResult:
     summary_total = None
     for i, (_p, l) in enumerate(lines):
         if l.endswith('Income Summary'):
-            summary_total = next((_amount(m.group(1)) for _q, x in lines[i:i + 12] if (m := re.match(r'^Total (' + AMOUNT + r')(?: |$)', x))), None)
+            window = [x for _q, x in lines[i:i + 12]]
+            summary_total = next((_amount(m.group(1)) for x in window if (m := re.match(r'^Total (' + AMOUNT + r')(?: |$)', x))), None)
+            if summary_total is None:       # B14: the heading shares a printed line with other text, so the "Total" line is interleaved too
+                summary_total = next((_amount(m.group(1)) for x in window if (m := re.search(r'\sTotal (' + AMOUNT + r') ' + AMOUNT + r'$', x))), None)
             break
     if summary_total is not None and summary_total != income_total:
         raise UnsupportedStatement(gettext('The income summary does not agree with the income lines.'))
@@ -237,7 +240,8 @@ def parse(pages: list[str]) -> st.StatementResult:
         withholding = max(Decimal(0) - sum((p.amount for p in attached), Decimal(0)), Decimal(0))
         comment = (gettext('Fund dividend') if is_fund else gettext('Dividend')) + ' ' + gettext('via Fidelity.')
         data = {c: '' for c in COLUMNS}
-        data.update(payment_date=e['date'].isoformat(), organisation=tidy_security_name(' '.join(e['name'])), category='Dividends', currency='USD',
+        data.update(payment_date=e['date'].isoformat(), organisation=broker_organisation(FIDELITY, tidy_security_name(' '.join(e['name']))),
+                    category=broker_category(is_fund), currency='USD',
                     gross_amount=format(e['amount'], 'f'), net_amount=format(e['amount'] - withholding, 'f'),
                     withholding_tax=format(withholding, 'f'), expenses='0', frequency='monthly' if is_fund else 'quarterly', comment=comment)
         evidence = (e['page'], ' / '.join([e['line'], *e['continuation']]))

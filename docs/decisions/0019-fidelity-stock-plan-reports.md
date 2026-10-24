@@ -1,5 +1,7 @@
 # ADR 0019: Fidelity Stock Plan Services reports and withholding settlement
 
+> Superseded in part by ADR 0033: fund income is category Interest and the organisation has the prefix `Fidelity `.
+
 Status: accepted (Phase 19, 2026-10-20; owner answers: fund income is category Dividends; January remark as in Phase 18; withholding settled by summing every posting for an event across the upload; stock deliveries and sales stay out of scope).
 
 ## Context

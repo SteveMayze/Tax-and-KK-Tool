@@ -68,12 +68,12 @@ class FidelityReaderTests(SimpleTestCase):
         stock, fund = outcome.result.rows
         self.assertEqual((stock.data['payment_date'], stock.data['gross_amount'], stock.data['withholding_tax'], stock.data['net_amount'],
                           stock.data['frequency'], stock.data['organisation']),
-                         ('2025-01-23', '40.00', '6.00', '34.00', 'quarterly', 'Example Corp'))
+                         ('2025-01-23', '40.00', '6.00', '34.00', 'quarterly', 'Fidelity Example Corp'))
         self.assertEqual((fund.data['payment_date'], fund.data['gross_amount'], fund.data['withholding_tax'], fund.data['net_amount'],
                           fund.data['frequency'], fund.data['organisation']),
-                         ('2025-01-31', '3.00', '0', '3.00', 'monthly', 'Example Cash Reserves Portfolio'))      # the wrapped name is rejoined (F1)
-        for r in (stock, fund):
-            self.assertEqual((r.data['currency'], r.data['category'], r.data['expenses']), ('USD', 'Dividends', '0'))
+                         ('2025-01-31', '3.00', '0', '3.00', 'monthly', 'Fidelity Example Cash Reserves Portfolio'))      # the wrapped name is rejoined (F1)
+        for r, category in ((stock, 'Dividends'), (fund, 'Interest')):      # Phase 32: fund income is Interest
+            self.assertEqual((r.data['currency'], r.data['category'], r.data['expenses']), ('USD', category, '0'))
         self.assertEqual((stock.data['comment'], fund.data['comment']), ('Dividend via Fidelity.', 'Fund dividend via Fidelity.'))
         self.assertEqual(outcome.result.period, (datetime.date(2025, 1, 1), datetime.date(2025, 1, 31)))
 
@@ -136,12 +136,13 @@ class FidelityReaderTests(SimpleTestCase):
         self.assertIsNone(read([['A letter about nothing']]).reader_id)
 
     def test_the_same_company_gets_the_identical_organisation_string_as_from_e_trade(self):
-        """Both brokers print the company in capitals; the shared function gives one string. (The E*TRADE reader's own test uses
-        the same invented company.)"""
+        """Both brokers print the company in capitals; the shared function gives one company string, and the broker is the
+        prefix (Phase 32), so the two organisations differ. (The E*TRADE reader's own test uses the same invented company.)"""
         from .test_etrade_client import DEFAULT_ROWS, statement as etrade_statement
         etrade_rows = read(etrade_statement(rows=DEFAULT_ROWS)).result.rows
         fidelity_rows = read(basic()).result.rows
-        self.assertEqual(etrade_rows[1].data['organisation'], fidelity_rows[0].data['organisation'])
+        self.assertEqual(etrade_rows[1].data['organisation'], 'E*Trade Example Corp')
+        self.assertEqual(fidelity_rows[0].data['organisation'], 'Fidelity Example Corp')
         self.assertEqual(organisations.tidy_security_name('EXAMPLE CORP'), 'Example Corp')
         self.assertIn('via E*TRADE', etrade_rows[1].data['comment'])
         self.assertIn('via Fidelity', fidelity_rows[0].data['comment'])

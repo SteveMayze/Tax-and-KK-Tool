@@ -24,3 +24,24 @@ def tidy_security_name(name: str) -> str:
     if name.isupper():
         name = ' '.join(SMALL_WORDS.get(w, w if len(w) <= 3 or re.search(r'\d', w) else w.capitalize()) for w in name.split())
     return name
+
+
+# Broker income (Phase 32, ADR 0033): the broker is part of the organisation, and money-market fund income is recorded as
+# Interest (a recording choice only; how tax and SBK treat it stays open). Only the two broker readers use these.
+ETRADE, FIDELITY = 'E*Trade', 'Fidelity'
+FIDELITY_ABBREVIATION = 'FID'
+FUND_INCOME_CATEGORY, STOCK_DIVIDEND_CATEGORY = 'Interest', 'Dividends'
+
+
+def broker_organisation(broker: str, security_name: str) -> str:
+    """`broker` + the tidied security name, single spaces. A leading broker name (any case) is not doubled and takes the
+    owner's spelling; Fidelity's printed abbreviation `FID` (a whole first word) is replaced by the broker name."""
+    words = security_name.split()
+    first = words[0].casefold() if words else ''
+    if first == broker.casefold() or (broker == FIDELITY and first == FIDELITY_ABBREVIATION.casefold()):
+        words = words[1:]
+    return ' '.join([broker, *words])
+
+
+def broker_category(is_fund: bool) -> str:
+    return FUND_INCOME_CATEGORY if is_fund else STOCK_DIVIDEND_CATEGORY
