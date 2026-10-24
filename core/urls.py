@@ -17,6 +17,7 @@ urlpatterns = [
     path('years/<int:year>/months/<int:month>/delete/', views.month_delete, name='month_delete'),
     path('years/<int:year>/months/<int:month>/payments/new/', views_payments.payment_add, name='payment_add'),
 
+    path('payments/', views_payments.payment_list, name='payment_list'),
     path('payments/<int:pk>/', views_payments.payment_detail, name='payment_detail'),
     path('payments/<int:pk>/edit/', views_payments.payment_edit, name='payment_edit'),
     path('payments/<int:pk>/delete/', views_payments.payment_delete, name='payment_delete'),

@@ -4,6 +4,7 @@
 {% block content %}
 <h1>{% trans "Years" %}</h1>
 <p class="note">{% url 'report_view' 'sbk' as sbk_url %}{% blocktrans trimmed %}Totals: actual payments received, EUR, using each payment's stored exchange rate. Estimated monthly = annual total ÷ 12 (an average of actuals, not a recurring figure; always ÷ 12 even for partial years). It is <strong>not</strong> the figure SBK assesses: see the <a href="{{ sbk_url }}?year=2026">SBK contribution estimate</a>, which follows SBK's allocation rules per income type.{% endblocktrans %}</p>
+<p><a href="{% url 'payment_list' %}">{% trans "All payments of a year or month, with filters" %}</a></p>
 {% if summaries %}
 <table>
   <thead><tr><th>{% trans "Year" %}</th><th class="num">{% trans "Payments" %}</th><th class="num">{% trans "Gross EUR" %}</th><th class="num">{% trans "Net EUR" %}</th><th class="num">{% trans "Est. monthly gross ÷ 12" %}</th><th class="num">{% trans "Est. monthly net ÷ 12" %}</th><th>{% trans "Notes" %}</th><th></th></tr></thead>

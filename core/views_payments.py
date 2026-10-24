@@ -6,16 +6,28 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import ProtectedError
+from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_GET
 
 from .forms import ManualCorrectionForm, PaymentForm
-from .models import ConversionEvent, Payment, ReportingMonth
-from .services import lookups
+from .models import ConversionEvent, Payment, ReportingMonth, ReportingYear
+from .services import lookups, payment_list as payments_page, report_filter
 from .services.i18n import date_text, month_name, number
 from .services.conversion import ConversionError, convert_payment, correct_rate_manually, reapply_stored_rate
 from .services.rates import get_provider
 from .templatetags.money import rate
+
+
+def _next_url(request):
+    """Where an edit or delete started from the payments page returns to: only that page's own path (with its query
+    string), never an arbitrary URL. Empty when absent or anything else."""
+    target = request.GET.get('next', '')
+    path = target.split('?', 1)[0]
+    if path == reverse('payment_list') and url_has_allowed_host_and_scheme(target, allowed_hosts=None):
+        return target
+    return ''
 
 
 def _persist(form, payment, keep_stored_rate):
@@ -53,8 +65,8 @@ def _handle_save(request, form, payment, keep_stored_rate, template, ctx):
             form.add_error(None, e)
         else:
             messages.success(request, _('Payment saved.'))
-            return redirect('payment_detail', pk=payment.pk)
-    return render(request, template, {'form': form, 'show_manual': True, **ctx})
+            return redirect(_next_url(request) or reverse('payment_detail', args=[payment.pk]))
+    return render(request, template, {'form': form, 'show_manual': True, 'next_url': _next_url(request), **ctx})
 
 
 @login_required
@@ -74,7 +86,7 @@ def payment_add(request, year, month):
 def payment_edit(request, pk):
     payment = get_object_or_404(Payment.objects.select_related('month__year', 'organisation', 'category'), pk=pk)
     ctx = {'month': payment.month, 'month_name': month_name(payment.month.month),
-           'editing': True, 'payment': payment}
+           'editing': True, 'payment': payment, 'next_url': _next_url(request)}
     if request.method == 'POST':
         was_converted = payment.conversion_status == Payment.ConversionStatus.CONVERTED
         form = PaymentForm(request.POST, instance=payment)
@@ -107,13 +119,13 @@ def payment_delete(request, pk):
             messages.error(request, _('This payment has corrections/reversals and cannot be deleted.'))
             return redirect('payment_detail', pk=pk)
         messages.success(request, _('Payment deleted.'))
-        return redirect('month_detail', year=month.year.year, month=month.month)
+        return redirect(_next_url(request) or reverse('month_detail', args=[month.year.year, month.month]))
     return render(request, 'core/confirm_delete.html', {
         'what': _('the payment of %(amount)s %(ccy)s from %(org)s on %(date)s') % {
             'amount': number(payment.gross_amount), 'ccy': payment.currency, 'org': payment.organisation,
             'date': date_text(payment.payment_date)},
         'consequence': _('This cannot be undone.'),
-        'cancel_href': reverse('payment_detail', args=[pk])})
+        'cancel_href': _next_url(request) or reverse('payment_detail', args=[pk])})
 
 
 @login_required
@@ -165,3 +177,24 @@ def payment_correct_rate(request, pk):
             messages.success(request, _('Rate saved. The change is recorded in the payment history.'))
             return redirect('payment_detail', pk=pk)
     return render(request, 'core/payment_correct_rate.html', {'p': payment, 'form': form, 'converted': converted})
+
+
+@login_required
+@require_GET
+def payment_list(request):
+    """Phase 31 (ADR 0032, spike): payments of a year and month, limited by the report filter. Read only."""
+    year, month, error = payments_page.parse_period(request.GET)
+    flt, filter_error = report_filter.parse(request.GET)
+    if error or filter_error:
+        messages.error(request, error or filter_error)
+        return redirect('payment_list')
+    payments, by_currency, eur, options = payments_page.build(year, month, flt)
+    known = set(ReportingYear.objects.values_list('year', flat=True))
+    years = sorted(known | ({year} if year else set()), reverse=True)
+    return render(request, 'core/payment_list.html', {
+        'year': year, 'month': month, 'years': years, 'months': [(n, month_name(n)) for n in range(1, 13)],
+        'filter': flt, 'options': options, 'payments': payments, 'by_currency': by_currency, 'eur': eur,
+        'basis': payments_page.basis(year, month, flt, ignored_month=year is None and month is not None),
+        'year_missing': bool(year) and year not in known,
+        'clear_query': urlencode({'year': year or 'all', **({'month': month} if month else {})}),
+        'next_query': urlencode({'next': request.get_full_path()})})
