@@ -47,7 +47,7 @@ Foreign-currency payments are converted with the ECB reference rate for the paym
 Upload a CSV on the Imports page, review and fix rows, then confirm. The format is described in `docs/imports.md` and a synthetic template can be downloaded from the page.
 
 ## Reports
-The Reports page offers annual, monthly, payment-level, by-organisation, by-category, original-currency, normalised-monthly and reconciliation reports, each with a stated basis and a CSV download. See `docs/reporting.md`. Downloads are generated on demand and not stored on the server; keep saved files out of the repository.
+The Reports page offers annual, monthly, payment-level, by-organisation, by-category, original-currency, normalised-monthly and reconciliation reports, each with a stated basis, a CSV download and a landscape PDF (the tax information summary's PDF has a notice and a signature block). See `docs/reporting.md`. Downloads are generated on demand and not stored on the server; keep saved files out of the repository.
 
 ## SBK estimate and tax information
 Map your categories (Categories page), set your circumstances (Assessment settings), enter annual costs/months earned where relevant, then open the SBK estimate (2026) and tax reports under Reports. These are planning aids, not an SBK assessment or a tax calculation; rule sources and open points are in `docs/rules/`.

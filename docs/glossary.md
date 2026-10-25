@@ -72,6 +72,12 @@ All are **approved by owner 2026-10-19 (wording proposed)** unless stated. Where
 | Basis / Period / Currency / Rounding / Excluded or missing | Grundlage / Zeitraum / Währung / Rundung / Ausgeschlossen oder fehlend | basis-block labels |
 | Actual payments received / Normalised monthly | Tatsächlich erhaltene Zahlungen / Normalisiert pro Monat | |
 | Information only, not credited | Nur zur Information, nicht angerechnet | withholding tax on the tax summary |
+| Important notice | Wichtiger Hinweis | PDF of the tax information summary (Phase 33, wording proposed, awaiting owner review) |
+| Place / Date / Signature | Ort / Datum / Unterschrift | PDF signature block; English mode shows "Place (Ort)", "Date (Datum)", "Signature (Unterschrift)" |
+| Tax assessment / Tax return | Steuerbescheid / Steuererklärung | PDF notice |
+| Page x of y | Seite x von y | PDF footer |
+| General financial summary, not an official assessment or tax calculation | Allgemeine Finanzübersicht, keine amtliche Festsetzung oder Steuerberechnung | PDF footer (proposed, awaiting owner review) |
+| Notice text (PDF, tax summary) | Dieser Bericht darf nicht für sich allein verwendet werden. Er ist zusammen mit dem jeweiligen Steuerbescheid bzw. der Steuererklärung zu lesen. Er zeigt die in diesem Programm erfassten Bruttoeinnahmen; Steuern, Abzüge, Quellensteuern, Kosten und persönliche Verhältnisse sind nicht vollständig berücksichtigt, die Zahlen können daher von den festgesetzten abweichen. Er ist eine allgemeine Informationszusammenstellung, keine Steuerberechnung, keine Steuerberatung und kein amtlicher Bescheid. | proposed 2026-10-25, awaiting owner review; English source text in `core/services/report_pdf.py` |
 
 ## D. Every other report heading and title (derived)
 

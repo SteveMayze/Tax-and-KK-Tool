@@ -1,5 +1,5 @@
 from django.contrib import messages
-from django.utils import translation
+from django.utils import timezone, translation
 from django.utils.translation import get_language
 from django.utils.translation import gettext as _
 from django.contrib.auth.decorators import login_required
@@ -8,7 +8,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET
 
 from .models import ReportingYear
-from .services import report_csv, report_filter
+from .services import report_csv, report_filter, report_pdf
 from . import glossary
 from .services import i18n
 from .services.policies.sbk import PolicyUnavailable
@@ -127,6 +127,30 @@ def report_csv_download(request, key):
         return redirect('report_index')
     response = HttpResponse(csv_text, content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="report-{key}-{year or "all"}{"-filtered" if spec.supports_filter and flt.is_active else ""}.csv"'
+    response['Cache-Control'] = 'no-store'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+@login_required
+@require_GET
+def report_pdf_download(request, key):
+    """Landscape A4 PDF of the same report as the page, in the interface language. Generated on demand, nothing stored."""
+    spec = _spec(key)
+    report, year, flt, error = _build(request, spec)
+    if error:
+        messages.error(request, error)
+        return redirect('report_index')
+    align = {'int': 'num', 'money': 'num', 'rate': 'num', 'pct': 'num'}
+    rows = [[(_display(r.get(c.key), c.kind), align.get(c.kind, '')) for c in report.columns] for r in report.rows]
+    totals = ([(_display(report.totals.get(c.key), c.kind), align.get(c.kind, '')) for c in report.columns]
+              if report.totals else None)
+    generated = _('Generated %(when)s') % {'when': i18n.date_text(timezone.localdate())}
+    pdf = report_pdf.render(report, [c.label for c in report.columns], rows, totals,
+                            language=(get_language() or 'en')[:2], with_signature=(key == 'tax_summary'),
+                            generated_text=generated)
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="report-{key}-{year or "all"}{"-filtered" if spec.supports_filter and flt.is_active else ""}.pdf"'
     response['Cache-Control'] = 'no-store'
     response['X-Content-Type-Options'] = 'nosniff'
     return response

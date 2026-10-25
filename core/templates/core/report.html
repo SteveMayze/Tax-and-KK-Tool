@@ -16,6 +16,7 @@
 </form>
 {% if not spec.supports_filter %}<p class="note no-print">{% trans "The organisation and category filter does not apply to this report: it is a whole-person assessment and is always computed from all income." %}</p>{% endif %}
 <a href="{% url 'report_csv' report.key %}?{{ csv_query }}" class="btn btn-secondary" title="{% trans "Download CSV" %}">{% icon "code" %}CSV</a>
+<a href="{% url 'report_pdf' report.key %}?{{ csv_query }}" class="btn btn-secondary" title="{% trans "Download PDF" %}">{% icon "download" %}PDF</a>
 
 {% if report.key == 'sbk' or report.key == 'tax_checks' %}<p class="no-print"><a href="{% url 'assessment_settings' %}">{% icon "sliders" %}{% trans "Assessment settings" %}</a>{% if year %} &middot; <a href="{% url 'annual_inputs' year %}">{% trans "Annual costs and months earned" %} {{ year|stringformat:"d" }}</a>{% endif %} &middot; <a href="{% url 'category_list' %}">{% trans "Map categories" %}</a></p>{% endif %}
 <section class="report-basis" aria-labelledby="basis-heading">

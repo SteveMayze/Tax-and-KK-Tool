@@ -22,7 +22,8 @@
     <td>{{ s.title }}{% if s.needs_year %} <span class="note">({% trans "needs a year" %})</span>{% endif %}</td>
     <td>{{ s.description }}</td>
     <td><a href="{% url 'report_view' s.key %}" class="report-link btn btn-secondary" data-needs-year="{{ s.needs_year|yesno:'1,0' }}">{% icon "report" %}{% trans "View" %}</a>
-        <a href="{% url 'report_csv' s.key %}" class="report-link btn btn-secondary" title="{% trans "Download CSV" %}">{% icon "code" %}CSV</a></td>
+        <a href="{% url 'report_csv' s.key %}" class="report-link btn btn-secondary" title="{% trans "Download CSV" %}">{% icon "code" %}CSV</a>
+        <a href="{% url 'report_pdf' s.key %}" class="report-link btn btn-secondary" title="{% trans "Download PDF" %}">{% icon "download" %}PDF</a></td>
   </tr>
   {% endfor %}
   </tbody>

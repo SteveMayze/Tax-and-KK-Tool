@@ -47,6 +47,7 @@ urlpatterns = [
     path('reports/', views_reports.report_index, name='report_index'),
     path('reports/<str:key>/', views_reports.report_view, name='report_view'),
     path('reports/<str:key>.csv', views_reports.report_csv_download, name='report_csv'),
+    path('reports/<str:key>.pdf', views_reports.report_pdf_download, name='report_pdf'),
 
     path('organisations/', views_lookups.lookup_list, {'kind': 'organisation'}, name='organisation_list'),
     path('organisations/new/', views_lookups.lookup_edit, {'kind': 'organisation'}, name='organisation_add'),

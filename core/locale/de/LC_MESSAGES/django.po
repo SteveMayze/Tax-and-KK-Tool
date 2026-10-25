@@ -3120,3 +3120,36 @@ msgstr "Beträge"
 
 msgid "Original amounts in each payment's own currency, never added across currencies; EUR totals at each payment's stored rate, payments not converted are left out and counted. Actual payments, gross and net as stored; withholding tax in the original currency."
 msgstr "Originalbeträge in der Währung der jeweiligen Zahlung, nie über Währungen hinweg addiert; EUR-Summen zum gespeicherten Kurs jeder Zahlung, nicht umgerechnete Zahlungen werden weggelassen und gezählt. Tatsächlich erhaltene Zahlungen, brutto und netto wie gespeichert; einbehaltene Steuer (Quellensteuer) in der Originalwährung."
+
+msgid "Download PDF"
+msgstr "PDF herunterladen"
+
+msgid "Generated %(when)s"
+msgstr "Erstellt am %(when)s"
+
+msgid "Page %(n)s of %(total)s"
+msgstr "Seite %(n)s von %(total)s"
+
+msgid "General financial summary, not an official assessment or tax calculation"
+msgstr "Allgemeine Finanzübersicht, keine amtliche Festsetzung oder Steuerberechnung"
+
+msgid "Important notice"
+msgstr "Wichtiger Hinweis"
+
+msgid "This report must not be used on its own. It must be read together with the respective tax assessment (Steuerbescheid) or tax return (Steuererklärung)."
+msgstr "Dieser Bericht darf nicht für sich allein verwendet werden. Er ist zusammen mit dem jeweiligen Steuerbescheid bzw. der Steuererklärung zu lesen."
+
+msgid "It shows the gross income as recorded in this tool. It does not take into account all taxes, deductions, withholding, costs or individual circumstances, so the figures can differ from the assessed ones."
+msgstr "Er zeigt die in diesem Programm erfassten Bruttoeinnahmen; Steuern, Abzüge, Quellensteuern, Kosten und persönliche Verhältnisse sind nicht vollständig berücksichtigt, die Zahlen können daher von den festgesetzten abweichen."
+
+msgid "It is a general information summary, not a tax calculation, tax advice or an official assessment."
+msgstr "Er ist eine allgemeine Informationszusammenstellung, keine Steuerberechnung, keine Steuerberatung und kein amtlicher Bescheid."
+
+msgid "Place (Ort)"
+msgstr "Ort"
+
+msgid "Date (Datum)"
+msgstr "Datum"
+
+msgid "Signature (Unterschrift)"
+msgstr "Unterschrift"

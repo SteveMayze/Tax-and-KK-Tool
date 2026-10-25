@@ -1,6 +1,6 @@
 # Reporting (Phase 6)
 
-Reports are general financial summaries from saved data. They are **not** an official SBK assessment or tax calculation (legal rules are Phase 7). Code: `core/services/reports.py` (data), `core/services/report_csv.py` (CSV), `core/views_reports.py` (pages). Pages: `/reports/`, `/reports/<key>/?year=`, `/reports/<key>.csv?year=`.
+Reports are general financial summaries from saved data. They are **not** an official SBK assessment or tax calculation (legal rules are Phase 7). Code: `core/services/reports.py` (data), `core/services/report_csv.py` (CSV), `core/views_reports.py` (pages). Pages: `/reports/`, `/reports/<key>/?year=`, `/reports/<key>.csv?year=`, `/reports/<key>.pdf?year=` (Phase 33). PDF code: `core/services/report_pdf.py`.
 
 ## Reports
 | Key | Report | Rows | Mode |
@@ -63,3 +63,10 @@ Exports contain personal financial data: they are generated on demand for the lo
 
 ## Tests
 `core/test_reports.py` checks every report against figures worked out by hand from a fixed synthetic dataset (documented at the top of the file, including a reversal, a one-off, quarterly and half-yearly items, an unconverted payment, a payment without net, and another year). It also covers the basis text, CSV structure and formatting, single rounding of totals, formula-injection handling, login/method/year validation, reproducibility and read-only behaviour.
+
+## PDF export (Phase 33, ADR 0034)
+`/reports/<key>.pdf` takes the same parameters as the CSV (`year`, `organisation`, `category`) and gives the same errors and redirects. It is the page's report in **landscape A4**: title, generated date, the basis block, the table (header row repeated on every page, totals row), the notes, and on every page a footer with "Page x of y" and "General financial summary, not an official assessment or tax calculation". Unlike the CSV it follows the **interface language** (English or German); the file name `report-<key>-<year or all>[-filtered].pdf` does not. The figures are the page's display text: nothing is calculated in the PDF layer. Built in memory, `login_required`, GET only, `Cache-Control: no-store`, `nosniff`, never written to disk or served as static. A "PDF" button sits beside CSV on each report page and on the reports index (the index script adds year and filters to it).
+
+**Tax information summary only:** a boxed *Important notice* near the title and again above the signature block says the report must be read together with the Steuerbescheid / Steuererklärung, shows gross income as recorded in this tool without all taxes, deductions, withholding, costs or individual circumstances, and is a general information summary, not a tax calculation, tax advice or an official assessment. At the end (the second notice and the fields are one group: they follow the table when they fit on its last page, otherwise they move to the next page together, never split): one left-aligned column of at most a third of the usable width, with shared left and right edges: **Name** (full column width); **Place (Ort)** and **Date (Datum)** side by side under it, equal in width, together as wide as Name; **Signature (Unterschrift)** under them, full column width and 14 mm tall (constants `COLUMN_FRACTION`, `GAP`, `SIGN_H` in `core/services/report_pdf.py`). In German mode the labels are Name, Ort, Datum, Unterschrift. Name, Place and Date are fillable single-line text fields, the signature is a real PDF signature field in a blank 14 mm box; tab order is Name, Place, Date, Signature. All are empty, and no name or address is ever added (Phase 34). The notice text is in `core/locale/de` and `docs/glossary.md` section B.
+
+The skipped extra: no `@page` print stylesheet for the HTML report page.

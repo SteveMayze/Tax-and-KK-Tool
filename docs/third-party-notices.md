@@ -21,3 +21,7 @@ Some Lucide icons derive from **Feather** (used here: `calendar`, `check`, `code
 > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 The licence text was read from the Lucide repository's `LICENSE` file on 2026-10-22. The icons are served inline in the HTML; nothing is fetched from the project at run time.
+
+## PDF export (Phase 33, ADR 0034)
+
+**reportlab 5.1.0** (https://www.reportlab.com) builds the report PDFs. It is licensed under the BSD licence (Copyright (c) 2000-2025, ReportLab Inc.; the full text is in the package's `license.txt`, read from the installed 5.1.0 distribution). Its dependencies are **Pillow 13.0.0** (HPND licence) and **charset-normalizer 3.5.2** (MIT licence). The built-in Helvetica font is used, so no font files are bundled.

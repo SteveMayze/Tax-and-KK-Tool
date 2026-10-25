@@ -1,9 +1,12 @@
 asgiref==3.12.1
 cffi==2.1.1
+charset-normalizer==3.5.2
 cryptography==50.0.2
 Django==5.2.18
 gunicorn==26.2.0
+pillow==13.0.0
 pycparser==3.11
 pypdf==6.21.1
+reportlab==5.1.0
 sqlparse==0.6.0
 whitenoise==6.12.0
