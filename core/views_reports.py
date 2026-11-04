@@ -70,6 +70,8 @@ def _display(value, kind):
         return i18n.plain_decimal(value)
     if kind == 'date':
         return i18n.date_text(value)
+    if kind == 'hash':
+        return str(value)[:12]
     return str(value)
 
 

@@ -189,3 +189,7 @@ Headings, table titles and labels of the reworked tax information summary. Statu
 | Categories without payments | Kategorien ohne Zahlungen |
 | Stored values | Gespeicherte Werte |
 | Show only the ticked currencies / Hide the ticked currencies | Nur die angekreuzten Währungen zeigen / Die angekreuzten Währungen ausblenden |
+| Source documents / Documents / Reference | Quellbelege / Belege / Referenz |
+| Stored original (stored / not found / not stored / removed on) | Gespeichertes Original (gespeichert / nicht gefunden / nicht gespeichert / entfernt am) |
+| none: entered by hand / batch deleted | keine: von Hand erfasst / Importvorgang gelöscht |
+| PDF statement / CSV file (your own import file) | PDF-Abrechnung / CSV-Datei (Ihre eigene Importdatei) |

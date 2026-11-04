@@ -3254,3 +3254,81 @@ msgstr "Nur die angekreuzten Währungen zeigen"
 
 msgid "Hide the ticked currencies"
 msgstr "Die angekreuzten Währungen ausblenden"
+
+# Phase 41 (ADR 0037): source documents. Terms proposed, awaiting the owner's review.
+
+#, python-format
+msgid "none: %(reason)s"
+msgstr "keine: %(reason)s"
+
+#, python-format
+msgid "removed on %(date)s"
+msgstr "entfernt am %(date)s"
+
+msgid "not stored"
+msgstr "nicht gespeichert"
+
+msgid "stored"
+msgstr "gespeichert"
+
+msgid "not found"
+msgstr "nicht gefunden"
+
+msgid "batch deleted"
+msgstr "Importvorgang gelöscht"
+
+msgid "entered by hand"
+msgstr "von Hand erfasst"
+
+msgid "no import row"
+msgstr "keine Importzeile"
+
+msgid "ambiguous (two files with the same shown name)"
+msgstr "nicht eindeutig (zwei Dateien mit gleichem angezeigtem Namen)"
+
+#, python-format
+msgid "none (%(n)s)"
+msgstr "keine (%(n)s)"
+
+msgid "Documents"
+msgstr "Belege"
+
+msgid "* The withholding of this payment may be settled from another statement of the same upload."
+msgstr "* Die einbehaltene Steuer dieser Zahlung kann aus einer anderen Abrechnung desselben Uploads verrechnet sein."
+
+msgid "PDF statement"
+msgstr "PDF-Abrechnung"
+
+msgid "CSV file (your own import file)"
+msgstr "CSV-Datei (Ihre eigene Importdatei)"
+
+msgid "Source documents"
+msgstr "Quellbelege"
+
+msgid "Reference"
+msgstr "Referenz"
+
+msgid "Organisation(s)"
+msgstr "Organisation(en)"
+
+msgid "File name (as shown)"
+msgstr "Dateiname (wie angezeigt)"
+
+msgid "First uploaded"
+msgstr "Erstmals hochgeladen"
+
+msgid "SHA-256"
+msgstr "SHA-256"
+
+msgid "Stored original"
+msgstr "Gespeichertes Original"
+
+msgid "Payments in this report"
+msgstr "Zahlungen in diesem Bericht"
+
+msgid "A document is one file, identified by the SHA-256 of its bytes; the same statement uploaded twice is one document. File names are shown with long digit runs masked. A CSV file is your own import file and may hold more than this report shows."
+msgstr "Ein Beleg ist eine Datei, erkannt am SHA-256 ihrer Bytes; dieselbe Abrechnung, zweimal hochgeladen, ist ein Beleg. Dateinamen werden mit maskierten langen Ziffernfolgen gezeigt. Eine CSV-Datei ist Ihre eigene Importdatei und kann mehr enthalten, als dieser Bericht zeigt."
+
+#, python-format
+msgid "%(docs)s document(s) referenced; %(n)s of %(total)s payment(s) have no source document"
+msgstr "%(docs)s Beleg(e) referenziert; %(n)s von %(total)s Zahlung(en) ohne Quellbeleg"

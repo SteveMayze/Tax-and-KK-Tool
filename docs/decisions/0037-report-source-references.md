@@ -1,0 +1,14 @@
+# ADR 0037: Source references in the tax information summary
+
+Status: accepted (Phase 41, 2026-11-04). Reporting change only: no model, migration, import or stored payment, batch or file changed; the report only reads. German wording is proposed, awaiting the owner's review (`docs/glossary.md` section E).
+
+## Decision
+- **Chain used:** payment -> `ImportRow.created_payment` -> `ImportBatch` -> stored original (reached only through `import_files.locate`). A single-PDF batch is one document, identified by the recorded SHA-256 of the file. A zip batch holds `NNN-<name>` members; the row's `source_name` is the masked member name, so the member is the one whose masked name matches, and its hash is computed by streaming the stored member (no text is read or kept). Two members with the same masked name cannot be told apart from the data, so their payments show `none: ambiguous` rather than a guess. A CSV batch is a document of kind "CSV file (your own import file)": listed, never a supporting statement.
+- **Identity and numbering (Q41.1):** a document is its SHA-256, so the same statement in two batches is one document. References `D01`, `D02`, ... are assigned per report in the order earliest payment date in the selection, masked file name, hash; the index lists only documents used by the selected payments, so a changed filter renumbers through that order only. A document whose original is removed or missing (or whose zip member cannot be hashed) keeps a reference (keyed by batch and masked name) with the state `removed on <date>`, `not found` or `not stored`.
+- **Where it shows:** Table 4 `Source` (`D03 p.2`, or `none: entered by hand | batch deleted | no import row | ambiguous ...`); Tables 2 and 3 `Documents`; a final `Source documents` table (reference, organisations, kind, masked file name, first upload date, SHA-256, state, payments); a basis line with the counts and reasons. The CSV carries the references and the full hash; the page and PDF show the first 12 hex characters.
+- **Page only (Q41.3):** the page comes from the row's provenance; the source line text is never printed. File names are always passed through `mask_digit_runs`.
+- **Several files (Q41.4):** the data records no file for a withholding posting, only the page of the first one. A payment whose withholding provenance lists several postings (the Fidelity sum of original, reversal and re-booking) is marked `*` and the table note says the withholding may be settled from another statement of the same upload. Nothing is guessed.
+- **Deletion states:** import_batch null with a source_document still set is "batch deleted"; both null is "entered by hand".
+
+## Consequences
+Hashing the members of the zips used by a report costs one read of each stored zip per report build (about a quarter of a second for 70 payments on the development data). Ord Minnett pairings across statements are not flagged, because nothing in the stored data shows them.

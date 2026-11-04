@@ -13,6 +13,7 @@ from django.utils.translation import gettext as _
 
 from core.models import IncomeCategory, Payment
 
+from . import report_sources
 from .reports import ROUNDING_NOTE, Column, Table, _period, _rate_basis
 
 ZERO = Decimal(0)
@@ -56,8 +57,16 @@ def _amount_cols():
             Column('unconverted', _('Unconverted payments'), 'int')]
 
 
-def tables(payments):
-    """The four tables for an already filtered, ordered payment list."""
+def _documents(group, sources):
+    """References behind a group of payments, and 'none (n)' for payments without a source document."""
+    refs = sorted({sources.per_payment[p.pk].ref for p in group if sources.per_payment[p.pk].ref})
+    lacking = sum(1 for p in group if not sources.per_payment[p.pk].ref)
+    return ', '.join(refs + ([_('none (%(n)s)') % {'n': lacking}] if lacking else []))
+
+
+def tables(payments, sources=None):
+    """The tables for an already filtered, ordered payment list."""
+    sources = sources or report_sources.resolve(payments)
     by_cc = defaultdict(list)
     by_cac = defaultdict(list)
     for p in payments:
@@ -78,10 +87,12 @@ def tables(payments):
                rows1, {'category': _('Total (EUR only)'), **_eur_only(payments)})
 
     # Table 2: category x organisation x currency.
-    rows2 = [{'category': c, 'organisation': o, 'currency': ccy, **_sums(group)} for (c, o, ccy), group in sorted(by_cac.items())]
+    rows2 = [{'category': c, 'organisation': o, 'currency': ccy, **_sums(group), 'documents': _documents(group, sources)}
+             for (c, o, ccy), group in sorted(by_cac.items())]
     t2 = Table('organisation', _('Income by organisation'),
                [Column('category', _('Category')), Column('organisation', _('Organisation')), Column('currency', _('Currency'))]
-               + _amount_cols(), rows2, {'category': _('Total (EUR only)'), **_eur_only(payments)})
+               + _amount_cols() + [Column('documents', _('Documents'))], rows2,
+               {'category': _('Total (EUR only)'), **_eur_only(payments)})
 
     # Table 3: only payments with a recorded withholding, same grouping as table 2, a total per currency and in EUR.
     withheld = [p for p in payments if p.withholding_tax != 0]
@@ -92,18 +103,21 @@ def tables(payments):
     for (c, o, ccy), group in sorted(groups3.items()):
         s = _sums(group)
         rows3.append({'category': c, 'organisation': o, 'currency': ccy, 'payments': s['payments'],
-                      'withholding': s['withholding'], 'withholding_eur': s['withholding_eur'], 'unconverted': s['unconverted']})
+                      'withholding': s['withholding'], 'withholding_eur': s['withholding_eur'], 'unconverted': s['unconverted'],
+                      'documents': _documents(group, sources)})
     for ccy in sorted({p.currency for p in withheld}):
         group = [p for p in withheld if p.currency == ccy]
         s = _sums(group)
         rows3.append({'category': _('Total %(currency)s') % {'currency': ccy}, '_total': True, 'currency': ccy,
                       'payments': s['payments'], 'withholding': s['withholding'],
-                      'withholding_eur': s['withholding_eur'], 'unconverted': s['unconverted']})
+                      'withholding_eur': s['withholding_eur'], 'unconverted': s['unconverted'],
+                      'documents': _documents(group, sources)})
     s = _sums(withheld)
     t3 = Table('withholding', _('Taxes withheld'),
                [Column('category', _('Category')), Column('organisation', _('Organisation')), Column('currency', _('Currency')),
                 Column('payments', _('Payments'), 'int'), Column('withholding', _('Withholding tax (original currency)'), 'money'),
-                Column('withholding_eur', _('Withholding tax EUR'), 'money'), Column('unconverted', _('Unconverted payments'), 'int')],
+                Column('withholding_eur', _('Withholding tax EUR'), 'money'), Column('unconverted', _('Unconverted payments'), 'int'),
+                Column('documents', _('Documents'))],
                rows3, {'category': _('Total EUR'), 'payments': s['payments'], 'withholding_eur': s['withholding_eur'],
                        'unconverted': s['unconverted']},
                _('Withholding tax as recorded from the statement. A zero or a missing row means none is recorded, not that '
@@ -120,7 +134,8 @@ def tables(payments):
               'rate_source': _rate_source_text(p),
               'gross_eur': p.gross_eur if p.conversion_status == CONVERTED else None,
               'withholding_eur': (p.withholding_tax_eur or ZERO) if p.conversion_status == CONVERTED else None,
-              'kind': str(kinds.get(p.kind, p.kind)), 'comment': p.comment}
+              'kind': str(kinds.get(p.kind, p.kind)), 'comment': p.comment,
+              'source': sources.per_payment[p.pk].text()}
              for p in payments]
     s = _sums(payments)
     t4 = Table('payments', _('Payments'),
@@ -129,10 +144,25 @@ def tables(payments):
                 Column('withholding', _('Withholding tax'), 'money'), Column('rate', _('Rate'), 'rate'),
                 Column('rate_date', _('Rate date'), 'date'), Column('rate_source', _('Rate source')),
                 Column('gross_eur', _('Gross EUR'), 'money'), Column('withholding_eur', _('Withholding tax EUR'), 'money'),
-                Column('kind', _('Kind')), Column('comment', _('Comment'))],
+                Column('kind', _('Kind')), Column('source', _('Source')), Column('comment', _('Comment'))],
                rows4, {'date': None, 'category': _('Total (EUR only)'), 'gross_eur': s['gross_eur'],
-                       'withholding_eur': s['withholding_eur']})
-    return [t1, t2, t3, t4]
+                       'withholding_eur': s['withholding_eur']},
+               _('* The withholding of this payment may be settled from another statement of the same upload.')
+               if sources.any_settled_elsewhere else '')
+
+    rows5 = [{'ref': d.ref, 'organisations': '; '.join(sorted(d.organisations)),
+              'kind': _('PDF statement') if d.kind == 'pdf' else _('CSV file (your own import file)'),
+              'name': d.name, 'uploaded': d.uploaded, 'sha256': d.sha256, 'state': d.state, 'payments': d.payments}
+             for d in sources.documents]
+    t5 = Table('sources', _('Source documents'),
+               [Column('ref', _('Reference')), Column('organisations', _('Organisation(s)')), Column('kind', _('Kind')),
+                Column('name', _('File name (as shown)')), Column('uploaded', _('First uploaded'), 'date'),
+                Column('sha256', _('SHA-256'), 'hash'), Column('state', _('Stored original')),
+                Column('payments', _('Payments in this report'), 'int')], rows5, None,
+               _('A document is one file, identified by the SHA-256 of its bytes; the same statement uploaded twice is one '
+                 'document. File names are shown with long digit runs masked. A CSV file is your own import file and may '
+                 'hold more than this report shows.'))
+    return [t1, t2, t3, t4, t5]
 
 
 def ordered(qs):
@@ -140,7 +170,18 @@ def ordered(qs):
     return list(qs.select_related('organisation', 'category').order_by('payment_date', 'organisation__name', 'id'))
 
 
-def basis_rows(payments, year, flt):
+def _source_line(payments, sources):
+    if not payments:
+        return _('None.')
+    sources = sources or report_sources.resolve(payments)
+    text = _('%(docs)s document(s) referenced; %(n)s of %(total)s payment(s) have no source document') % {
+        'docs': len(sources.documents), 'n': sum(sources.without.values()), 'total': len(payments)}
+    if sources.without:
+        text += ' (' + '; '.join(f'{r}: {n}' for r, n in sorted(sources.without.items())) + ')'
+    return text + '.'
+
+
+def basis_rows(payments, year, flt, sources=None):
     """The basis block above the tables."""
     rows = [(_('Period'), _period(year))]
     if flt is not None and flt.is_active:
@@ -158,6 +199,7 @@ def basis_rows(payments, year, flt):
         (_('Exchange-rate basis'), _rate_basis(payments)),
         (_('Excluded / missing'), unconverted),
         (_('Categories without payments'), '; '.join(empty) + '.' if empty else _('None.')),
+        (_('Source documents'), _source_line(payments, sources)),
         (_('Stored values'), _('Amounts are the stored values. A payment edited after its import may differ from its statement.')),
         (_('Rounding'), ROUNDING_NOTE),
     ]

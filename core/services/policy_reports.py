@@ -4,7 +4,7 @@ from django.utils.translation import gettext as _, gettext_lazy
 
 from core.models import Payment, SbkTreatment
 
-from . import tax_income_report
+from . import report_sources, tax_income_report
 from .policies import sbk, tax
 from .i18n import month_name, number, plain_decimal
 from .reports import NO_MATCH, REPORTS, Column, Report, ReportSpec, _basis, _payments
@@ -77,14 +77,15 @@ def tax_info_summary(year=None, flt=None):
     """Income as recorded (Phase 40, ADR 0036): stored category, organisation and original currency; no tax rule."""
     payments = tax_income_report.ordered(_payments(year, flt))
     no_match = bool(flt is not None and flt.is_active and not payments)
-    tables = [] if not payments else tax_income_report.tables(payments)
+    sources = report_sources.resolve(payments)
+    tables = [] if not payments else tax_income_report.tables(payments, sources)
     notes = tax_income_report.notes()
     if no_match:
         notes.insert(0, NO_MATCH)
     return Report('tax_summary', _('Tax information summary'),
                   _('Calendar year %(year)s') % {'year': year} if year else _('All years'), _('Information only'),
-                  [], [], tax_income_report.basis_rows(payments, year, flt), None, notes, timezone.now(), no_match,
-                  tables=tables, csv_tables=('payments', 'category_currency'))
+                  [], [], tax_income_report.basis_rows(payments, year, flt, sources), None, notes, timezone.now(), no_match,
+                  tables=tables, csv_tables=('payments', 'category_currency', 'sources'))
 
 
 def tax_check_report(year):

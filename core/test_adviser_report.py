@@ -338,7 +338,7 @@ class OutputTests(Base):
     def test_csv_blocks(self):
         rows = list(csv.reader(io.StringIO(self.csv_text())))
         titles = [r for r in rows if r[:1] == ['Table']]
-        self.assertEqual([r[1] for r in titles], ['Payments', 'Income by category and currency'])
+        self.assertEqual([r[1] for r in titles], ['Payments', 'Income by category and currency', 'Source documents'])
         header = [r for r in rows if r[:1] == ['Date']][0]
         self.assertEqual(header[:4], ['Date', 'Category', 'Organisation', 'Currency'])
         self.assertIn(['Language', 'English (CSV headings are always English)'], rows)
