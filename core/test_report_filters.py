@@ -195,9 +195,10 @@ class SemanticsTests(FilterBase):
         # the one GBP payment has no rate yet and no net amount: two issues, both organisation C
         self.assertEqual([r['organisation'] for r in reports.reconciliation(2026, self.flt('C')).rows], ['EXAMPLE ORG C'] * 2)
         self.assertEqual(len(reports.reconciliation(2026, self.flt('A')).rows), 0)
-        rows = reports.REPORTS['tax_summary'].build(2026, flt=self.flt('B')).rows
-        self.assertEqual(sum(r['payments'] for r in rows), 2)
-        self.assertEqual(sum(r['gross_eur'] for r in rows), D(1200))
+        # Phase 40: the tax summary has tables; table 4 lists the payments, its total is the EUR gross
+        table = {t.key: t for t in reports.REPORTS['tax_summary'].build(2026, flt=self.flt('B')).tables}['payments']
+        self.assertEqual(len(table.rows), 2)
+        self.assertEqual(table.totals['gross_eur'], D(1200))
 
     def test_cross_table_shows_every_pairing(self):
         report = reports.cross_table(2026)
@@ -263,6 +264,8 @@ class OptionsTests(FilterBase):
     def test_options_use_one_query_per_list(self):
         with self.assertNumQueries(2):
             report_filter.options(2026, self.flt('A'))
+        with self.assertNumQueries(3):      # Phase 40: the currency list is one more query, only where it is shown
+            report_filter.options(2026, self.flt('A'), currencies=True)
 
     def test_F6_inactive_is_listed_marked_and_filterable(self):
         Organisation.objects.filter(pk=self.org['C']).update(active=False)

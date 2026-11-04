@@ -4,6 +4,7 @@ from django.utils.translation import gettext as _, gettext_lazy
 
 from core.models import Payment, SbkTreatment
 
+from . import tax_income_report
 from .policies import sbk, tax
 from .i18n import month_name, number, plain_decimal
 from .reports import NO_MATCH, REPORTS, Column, Report, ReportSpec, _basis, _payments
@@ -73,26 +74,17 @@ def sbk_estimate(year):
 
 
 def tax_info_summary(year=None, flt=None):
-    rows, qs = tax.tax_summary_rows(year, flt)
-    cols = [Column('income_type', _('Income type')), Column('country', _('Organisation country')), Column('payments', _('Payments'), 'int'),
-            Column('gross_eur', _('Gross EUR (converted, signed sum)'), 'money'),
-            Column('losses_eur', _('of which losses EUR (shown separately, not netted across categories)'), 'money'),
-            Column('original', _('Original gross by currency')),
-            Column('withholding_eur', _('Withholding tax EUR (information, not credited)'), 'money'),
-            Column('unconverted', _('Unconverted payments'), 'int'), Column('manual_rates', _('Manual-rate payments'), 'int'),
-            Column('flags', _('Flags'))]
-    payments = list(qs)
-    basis = _basis(payments, year, _('Actual payments received, grouped by tax income type and country'),
-                   _('Gross amounts as recorded; net amounts and costs are not used.'), flt=flt)
-    basis.insert(1, (_('Policy'), _('%(version)s. Rules: docs/rules/income-tax-rules.md') % {'version': tax.POLICY_VERSION}))
-    basis += [(_('Not applied'), t) for t in tax.NOT_APPLIED]
-    notes = [_('Information for you or your adviser; not a tax calculation.')]
+    """Income as recorded (Phase 40, ADR 0036): stored category, organisation and original currency; no tax rule."""
+    payments = tax_income_report.ordered(_payments(year, flt))
     no_match = bool(flt is not None and flt.is_active and not payments)
+    tables = [] if not payments else tax_income_report.tables(payments)
+    notes = tax_income_report.notes()
     if no_match:
-        notes.append(NO_MATCH)
+        notes.insert(0, NO_MATCH)
     return Report('tax_summary', _('Tax information summary'),
                   _('Calendar year %(year)s') % {'year': year} if year else _('All years'), _('Information only'),
-                  cols, rows, basis, None, notes, timezone.now(), no_match)
+                  [], [], tax_income_report.basis_rows(payments, year, flt), None, notes, timezone.now(), no_match,
+                  tables=tables, csv_tables=('payments', 'category_currency'))
 
 
 def tax_check_report(year):
@@ -111,7 +103,7 @@ def tax_check_report(year):
 
 SPECS = {s.key: s for s in [
     ReportSpec('sbk', gettext_lazy('SBK contribution estimate'), gettext_lazy('Estimated monthly SBK contributions by income type (planning estimate, not an assessment).'), sbk_estimate, True, supports_filter=False),
-    ReportSpec('tax_summary', gettext_lazy('Tax information summary'), gettext_lazy('Income by tax income type and country, with flags (no tax calculation).'), tax_info_summary),
+    ReportSpec('tax_summary', gettext_lazy('Tax information summary'), gettext_lazy('Income as recorded by category, organisation and original currency, with taxes withheld (no tax calculation).'), tax_info_summary, currency_filter=True),
     ReportSpec('tax_checks', gettext_lazy('Tax checks (verified rules)'), gettext_lazy('Sparer-Pauschbetrag usage and private-sale Freigrenze; no tax amount.'), tax_check_report, True, supports_filter=False),
 ]}
 REPORTS.update(SPECS)

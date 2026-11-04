@@ -73,6 +73,29 @@ def _display(value, kind):
     return str(value)
 
 
+ALIGN = {'int': 'num', 'money': 'num', 'rate': 'num', 'pct': 'num'}
+
+
+def _cells(columns, rows, totals):
+    """(rows, totals) as lists of (display text, css class) cells; a row marked `_total` is a total line."""
+    def cls(c, r):
+        return (ALIGN.get(c.kind, '') + (' total' if r.get('_total') else '')).strip()
+    body = [[(_display(r.get(c.key), c.kind), cls(c, r)) for c in columns] for r in rows]
+    foot = [(_display(totals.get(c.key), c.kind), ALIGN.get(c.kind, '')) for c in columns] if totals else None
+    return body, foot
+
+
+def _tables(report):
+    """The tables of a multi-table report as display dictionaries (shared by the page and the PDF)."""
+    out = []
+    for t in report.tables:
+        rows, totals = _cells(t.columns, t.rows, t.totals)
+        out.append({'key': t.key, 'title': t.title, 'note': t.note, 'rows': rows, 'totals': totals,
+                    'headers': [(c.label, ALIGN.get(c.kind, ''), None) for c in t.columns], 'labels': [c.label for c in t.columns],
+                    'empty': _('No payments match this filter') if report.no_match else _('No data for this period.')})
+    return out
+
+
 @login_required
 @require_GET
 def report_index(request):
@@ -97,10 +120,8 @@ def report_view(request, key):
     if flt.is_active and not spec.supports_filter:
         messages.warning(request, _('The organisation and category filter does not apply to "%(title)s": the figures below '
                                     'are unfiltered.') % {'title': spec.title})
-    align = {'int': 'num', 'money': 'num', 'rate': 'num', 'pct': 'num'}
-    rows = [[(_display(r.get(c.key), c.kind), align.get(c.kind, '')) for c in report.columns] for r in report.rows]
-    totals = ([(_display(report.totals.get(c.key), c.kind), align.get(c.kind, '')) for c in report.columns]
-              if report.totals else None)
+    align = ALIGN
+    rows, totals = _cells(report.columns, report.rows, report.totals)
     # The SBK estimate's 14 column headings get an information popup whose text is the glossary entry (Phase 13).
     language = (get_language() or 'en')[:2]
     infos = [glossary.entry(c.key, language) if report.key == 'sbk' else None for c in report.columns]
@@ -108,7 +129,8 @@ def report_view(request, key):
     return render(request, 'core/report.html', {
         'report': report, 'rows': rows, 'totals': totals, 'year': year, 'spec': spec,
         'years': available_years(), 'headers': headers, 'popups': [i for i in infos if i],
-        'filter': flt, 'options': report_filter.options(year, flt) if spec.supports_filter else None,
+        'tables': _tables(report), 'show_currency': spec.currency_filter,
+        'filter': flt, 'options': report_filter.options(year, flt, currencies=spec.currency_filter) if spec.supports_filter else None,
         'csv_query': flt.querystring(year), 'index_query': flt.querystring(year)})
 
 
@@ -141,14 +163,11 @@ def report_pdf_download(request, key):
     if error:
         messages.error(request, error)
         return redirect('report_index')
-    align = {'int': 'num', 'money': 'num', 'rate': 'num', 'pct': 'num'}
-    rows = [[(_display(r.get(c.key), c.kind), align.get(c.kind, '')) for c in report.columns] for r in report.rows]
-    totals = ([(_display(report.totals.get(c.key), c.kind), align.get(c.kind, '')) for c in report.columns]
-              if report.totals else None)
+    rows, totals = _cells(report.columns, report.rows, report.totals)
     generated = _('Generated %(when)s') % {'when': i18n.date_text(timezone.localdate())}
     pdf = report_pdf.render(report, [c.label for c in report.columns], rows, totals,
                             language=(get_language() or 'en')[:2], with_signature=(key == 'tax_summary'),
-                            generated_text=generated)
+                            generated_text=generated, tables=_tables(report) or None)
     response = HttpResponse(pdf, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="report-{key}-{year or "all"}{"-filtered" if spec.supports_filter and flt.is_active else ""}.pdf"'
     response['Cache-Control'] = 'no-store'

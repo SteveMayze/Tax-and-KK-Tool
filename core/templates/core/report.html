@@ -26,7 +26,21 @@
 </dl>
 </section>
 
-{% if report.no_match %}<p class="msg warning" role="status">{% trans "No payments match this filter" %}</p>{% endif %}{% if rows %}
+{% if report.no_match %}<p class="msg warning" role="status">{% trans "No payments match this filter" %}</p>{% endif %}{% if tables %}
+{% for t in tables %}
+<section class="report-table-section" aria-labelledby="table-{{ t.key }}">
+<h2 id="table-{{ t.key }}">{{ t.title }}</h2>
+{% if t.rows %}<table class="report-table">
+  <thead><tr>{% for label, cls, info in t.headers %}<th class="{{ cls }}">{{ label }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for row in t.rows %}<tr{% if row.0.1 and 'total' in row.0.1 %} class="total-row"{% endif %}>{% for text, cls in row %}<td class="{{ cls }}">{{ text }}</td>{% endfor %}</tr>{% endfor %}
+  {% if t.totals %}<tr class="total-row">{% for text, cls in t.totals %}<td class="{{ cls }}">{{ text }}</td>{% endfor %}</tr>{% endif %}
+  </tbody>
+</table>{% elif not report.no_match %}<p>{% trans "No data for this period." %}</p>{% endif %}
+{% if t.note %}<p class="note">{{ t.note }}</p>{% endif %}
+</section>
+{% endfor %}
+{% elif rows %}
 <table class="report-table">
   <thead><tr>{% for label, cls, info in headers %}<th class="{{ cls }}">{{ label }}{% if info %}<button type="button" class="info-btn" popovertarget="info-{{ info.key }}" aria-label="{% blocktrans with label=info.label %}Information: {{ label }}{% endblocktrans %}">i</button>{% endif %}</th>{% endfor %}</tr></thead>
   <tbody>
