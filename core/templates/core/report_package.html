@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load i18n icons %}
+{% block title %}{% trans "PDF with source documents" %}{% endblock %}
+{% block content %}
+<p><a href="{% url 'report_view' report.key %}?{{ query }}">{% icon "arrow-left" %}{{ report.title }}</a></p>
+<h1>{% trans "PDF with source documents" %}</h1>
+<p class="warn" role="note"><strong>{% trans "Personal data." %}</strong> {% trans "The statements in this package contain account numbers and other personal data. Once downloaded, the package is not protected by this tool: handle, send and store it with care." %}</p>
+<dl>
+  <dt><strong>{% trans "Period" %}</strong></dt><dd>{{ report.period }}</dd>
+  <dt><strong>{% trans "Filter" %}</strong></dt><dd>{{ filter_text }}</dd>
+  <dt><strong>{% trans "Statements included" %}</strong></dt><dd>{{ included }}</dd>
+  <dt><strong>{% trans "Size of the statements" %}</strong></dt><dd>{{ size_mb }} MB ({% blocktrans %}limit {{ limit_mb }} MB{% endblocktrans %})</dd>
+</dl>
+{% if problems %}
+<h2>{% trans "Not included" %}</h2>
+<ul>{% for i in problems %}<li>{{ i.ref }} {{ i.name }}: {{ i.state }}</li>{% endfor %}</ul>
+<p class="note">{% trans "These are listed in index.csv. The package is still built without them." %}</p>
+{% endif %}
+{% if nothing %}
+<p class="msg warning" role="status">{% trans "No original statement is available for this selection, so there is nothing to package. You can still download the report without source documents." %}</p>
+{% elif too_big %}
+<p class="msg warning" role="status">{% blocktrans %}The statements are larger than the limit of {{ limit_mb }} MB, so no package is offered. You can still download the report without source documents.{% endblocktrans %}</p>
+{% else %}
+<a href="{% url 'report_package_zip' report.key %}?{{ query }}" class="btn">{% icon "download" %}{% trans "Download package" %}</a>
+{% endif %}
+<a href="{% url 'report_pdf' report.key %}?{{ query }}" class="btn btn-secondary">{% icon "download" %}{% trans "Report PDF only" %}</a>
+<a href="{% url 'report_view' report.key %}?{{ query }}" class="btn btn-secondary">{% trans "Cancel" %}</a>
+{% endblock %}

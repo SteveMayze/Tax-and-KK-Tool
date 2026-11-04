@@ -171,3 +171,27 @@ Generated from the reports themselves and checked by a test (`core/test_i18n.py`
 ## C. Number, date and CSV formats (decided 2026-10-19)
 - **Screen and printed reports** follow the selected language: German `1.234,50` and `19.10.2026`; English `1,234.50` and `2026-10-19` as today. Amounts show their ISO currency code after the number, in their own currency.
 - **CSV exports** are **language-independent in format**: comma separator, dot decimal, no thousands separator, ISO dates, 2 decimals (the same as the stored values, rounded for export only). CSV headings and labels are **always English** (owner decision 2026-10-19: the CSV is mainly for bulk data input), so exports from either language can be mixed. A `Language` and a `Format` row in each CSV states this.
+
+## E. Tax information summary as recorded (Phase 40, ADR 0036)
+
+Headings, table titles and labels of the reworked tax information summary. Status for every row: **proposed, awaiting the owner's review** (combined from the approved terms above). The old income-type rows ("Income type", "Organisation country", "Flags" and the section labels) are no longer used by this report; they stay in section D because the SBK estimate and tax checks code still uses the same words elsewhere.
+
+| English | German |
+|---|---|
+| Income by category and currency | Einkommen nach Kategorie und Währung |
+| Income by organisation | Einkommen nach Organisation |
+| Taxes withheld | Einbehaltene Steuern |
+| Of which negative payments (original currency) | Davon negative Zahlungen (Originalwährung) |
+| Subtotal (name) (EUR only) | Zwischensumme (Name) (nur EUR) |
+| Total (EUR only) / Total EUR / Total (currency) | Summe (nur EUR) / Summe EUR / Summe (Währung) |
+| Kind (normal, correction, reversal) | Art (Normal, Korrektur, Stornierung) |
+| manual rate | manueller Kurs |
+| Categories without payments | Kategorien ohne Zahlungen |
+| Stored values | Gespeicherte Werte |
+| Show only the ticked currencies / Hide the ticked currencies | Nur die angekreuzten Währungen zeigen / Die angekreuzten Währungen ausblenden |
+| Source documents / Documents / Reference | Quellbelege / Belege / Referenz |
+| Stored original (stored / not found / not stored / removed on) | Gespeichertes Original (gespeichert / nicht gefunden / nicht gespeichert / entfernt am) |
+| none: entered by hand / batch deleted | keine: von Hand erfasst / Importvorgang gelöscht |
+| PDF statement / CSV file (your own import file) | PDF-Abrechnung / CSV-Datei (Ihre eigene Importdatei) |
+| PDF with source documents / Download package / Report PDF only | PDF mit Quellbelegen / Paket herunterladen / Nur Bericht als PDF |
+| Personal data | Personenbezogene Daten |

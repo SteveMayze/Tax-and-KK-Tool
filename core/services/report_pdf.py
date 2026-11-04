@@ -167,17 +167,46 @@ def _widths(headers, body, total_width, font_size):
     return [w * scale for w in natural]
 
 
-def render(report, headers, rows, totals, *, language, with_signature, generated_text, filtered_note=None):
-    """headers: [label]; rows/totals: lists of (text, css-class) cells as on the HTML page. Returns PDF bytes."""
-    width = PAGE[0] - 2 * MARGIN
-    n = len(headers)
-    font = 8 if n <= 8 else 7 if n <= 12 else 6
+def _grid(headers, rows, totals, width, title=None, note=None):
+    """The flowables of one table: optional title, the grid with a repeating header row, optional note."""
+    font = 8 if len(headers) <= 8 else 7 if len(headers) <= 12 else 6
     cell = _style('cell', font, leading=font * 1.2)
     cell_r = _style('cell_r', font, leading=font * 1.2, alignment=2)
     head = _style('head', font, fontName=BOLD, leading=font * 1.2)
     head_r = _style('head_r', font, fontName=BOLD, leading=font * 1.2, alignment=2)
     total = _style('total', font, fontName=BOLD, leading=font * 1.2)
     total_r = _style('total_r', font, fontName=BOLD, leading=font * 1.2, alignment=2)
+    aligns = [a.split()[0] == 'num' if a else False for _t, a in rows[0]]
+    data = [[Paragraph(escape(str(h)), head_r if aligns[i] else head) for i, h in enumerate(headers)]]
+    total_lines = []
+    for r in rows:
+        is_total = 'total' in r[0][1].split()
+        if is_total:
+            total_lines.append(len(data))
+        style_l, style_r = (total, total_r) if is_total else (cell, cell_r)
+        data.append([Paragraph(escape(t), style_r if aligns[i] else style_l) for i, (t, _a) in enumerate(r)])
+    if totals:
+        data.append([Paragraph(escape(t), total_r if aligns[i] else total) for i, (t, _a) in enumerate(totals)])
+    body = [[t for t, _a in r] for r in rows] + ([[t for t, _a in totals]] if totals else [])
+    table = Table(data, colWidths=_widths(headers, body, width, font), repeatRows=1)
+    style = [('GRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#999999')), ('BACKGROUND', (0, 0), (-1, 0), HEADER_BG),
+             ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 2), ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+             ('TOPPADDING', (0, 0), (-1, -1), 1.5), ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5)]
+    style += [('BACKGROUND', (0, n), (-1, n), TOTAL_BG) for n in total_lines]
+    if totals:
+        style.append(('BACKGROUND', (0, -1), (-1, -1), TOTAL_BG))
+    table.setStyle(TableStyle(style))
+    out = [KeepTogether([Paragraph(escape(title), STYLES['h2']), Spacer(1, 1 * mm)])] if title else []
+    out.append(table)
+    if note:
+        out += [Spacer(1, 1 * mm), Paragraph(escape(note), STYLES['note'])]
+    return out
+
+
+def render(report, headers, rows, totals, *, language, with_signature, generated_text, filtered_note=None, tables=None):
+    """headers: [label]; rows/totals: lists of (text, css-class) cells as on the HTML page. Returns PDF bytes.
+    `tables` (Phase 40): [{'title', 'note', 'labels', 'rows', 'totals', 'empty'}] for a report with several tables."""
+    width = PAGE[0] - 2 * MARGIN
 
     story = [Paragraph(escape(report.title), STYLES['title']),
              Paragraph(escape(generated_text), STYLES['meta'])]
@@ -191,22 +220,17 @@ def render(report, headers, rows, totals, *, language, with_signature, generated
                                ('BOTTOMPADDING', (0, 0), (-1, -1), 0.6), ('LEFTPADDING', (0, 0), (-1, -1), 0)]))
     story += [basis, Spacer(1, 3 * mm)]
 
-    if rows:
-        aligns = [a == 'num' for _t, a in rows[0]]
-        data = [[Paragraph(escape(str(h)), head_r if aligns[i] else head) for i, h in enumerate(headers)]]
-        for r in rows:
-            data.append([Paragraph(escape(t), cell_r if aligns[i] else cell) for i, (t, _a) in enumerate(r)])
-        if totals:
-            data.append([Paragraph(escape(t), total_r if aligns[i] else total) for i, (t, _a) in enumerate(totals)])
-        body = [[t for t, _a in r] for r in rows] + ([[t for t, _a in totals]] if totals else [])
-        table = Table(data, colWidths=_widths(headers, body, width, font), repeatRows=1)
-        style = [('GRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#999999')), ('BACKGROUND', (0, 0), (-1, 0), HEADER_BG),
-                 ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 2), ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-                 ('TOPPADDING', (0, 0), (-1, -1), 1.5), ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5)]
-        if totals:
-            style.append(('BACKGROUND', (0, -1), (-1, -1), TOTAL_BG))
-        table.setStyle(TableStyle(style))
-        story.append(table)
+    if tables:
+        for t in tables:
+            if t['rows']:
+                story += _grid(t['labels'], t['rows'], t['totals'], width, t['title'], t['note'])
+            else:
+                story += [Paragraph(escape(t['title']), STYLES['h2']), Paragraph(escape(t['empty']), STYLES['basis'])]
+                if t['note']:
+                    story.append(Paragraph(escape(t['note']), STYLES['note']))
+            story.append(Spacer(1, 3 * mm))
+    elif rows:
+        story += _grid(headers, rows, totals, width)
     else:
         story.append(Paragraph(escape(_('No payments match this filter') if report.no_match else _('No data for this period.')),
                                STYLES['basis']))

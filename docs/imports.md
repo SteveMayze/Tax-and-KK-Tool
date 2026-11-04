@@ -185,3 +185,6 @@ Backups: existing backup archives still contain the removed files. They are not 
 - Only the currency and payment date are sent to the exchange-rate service (see exchange-rates.md).
 - Tests and the template use synthetic data only. PDF tests build their own PDFs (`core/test_pdf_support.py`); the owner's real statements stay in the git-ignored `local/samples/` and are only read by an optional local test that prints nothing.
 - PDFs are read inside the app (pypdf); no document or text is sent to any external service.
+
+## How a payment is tied to its file (Phase 41)
+A committed row keeps `created_payment`, and the payment keeps `import_batch`. A single-PDF batch stores the file itself (its `sha256` is the file's hash); a zip batch stores `NNN-<name>` members, and a row names its member by the masked `source_name` and the page in `provenance`. If a batch is deleted completely the payment keeps its `source_document` but loses the batch, so the link to the file is gone. The tax information summary resolves all this read only (`core/services/report_sources.py`, ADR 0037).

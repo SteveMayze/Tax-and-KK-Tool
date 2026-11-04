@@ -48,10 +48,21 @@ def render(report) -> str:
         w.writerow([label, safe_text(text)])
     for note in report.notes:
         w.writerow(['Note', safe_text(note)])
+    if report.tables or report.csv_tables:
+        wanted = [t for k in report.csv_tables for t in report.tables if t.key == k] if report.csv_tables else report.tables
+        for t in wanted:
+            w.writerow([])
+            w.writerow(['Table', safe_text(t.title)])
+            _table(w, t.columns, t.rows, t.totals)
+        return out.getvalue()
     w.writerow([])
-    w.writerow([safe_text(c.label) for c in report.columns])
-    for row in report.rows:
-        w.writerow([fmt(row.get(c.key), c.kind) for c in report.columns])
-    if report.totals:
-        w.writerow([fmt(report.totals.get(c.key), c.kind) for c in report.columns])
+    _table(w, report.columns, report.rows, report.totals)
     return out.getvalue()
+
+
+def _table(w, columns, rows, totals):
+    w.writerow([safe_text(c.label) for c in columns])
+    for row in rows:
+        w.writerow([fmt(row.get(c.key), c.kind) for c in columns])
+    if totals:
+        w.writerow([fmt(totals.get(c.key), c.kind) for c in columns])

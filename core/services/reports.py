@@ -35,6 +35,17 @@ class Column:
 
 
 @dataclass
+class Table:
+    """One titled table of a multi-table report (Phase 40). A row with `_total` true is drawn as a total line."""
+    key: str
+    title: str
+    columns: list
+    rows: list
+    totals: dict | None = None
+    note: str = ''
+
+
+@dataclass
 class Report:
     key: str
     title: str
@@ -47,6 +58,9 @@ class Report:
     notes: list = field(default_factory=list)
     generated_at: object = None
     no_match: bool = False         # a filter is active and matched no payment (Phase 30)
+    tables: list = field(default_factory=list)      # Phase 40: when set, these replace columns/rows/totals
+    sources: object = None         # Phase 41/42: the resolved source documents, when the report has them
+    csv_tables: tuple = ()         # keys of the tables the CSV carries, in order (all of them if empty)
 
 
 # ---------------------------------------------------------------- shared helpers
@@ -387,6 +401,7 @@ class ReportSpec:
     build: object
     needs_year: bool = False
     supports_filter: bool = True        # False: a whole-person assessment that cannot be computed over part of the income
+    currency_filter: bool = False       # True: the form offers the original-currency group (Phase 40)
 
 
 REPORTS = {s.key: s for s in [

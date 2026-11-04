@@ -4,7 +4,16 @@
   <p class="note">{% trans "Tick any number of boxes. Within a group the ticked items are combined with OR, the two groups with AND; a group with nothing ticked does not restrict. The number is the payments in the selected period." %}</p>
   <div class="filter-groups">
     {% include "core/_filter_group.html" with name="organisation" legend=org_legend items=options.organisation %}
-    {% include "core/_filter_group.html" with name="category" legend=cat_legend items=options.category %}
+    {% include "core/_filter_group.html" with name="category" legend=cat_legend items=options.category %}{% if show_currency %}
+    <fieldset class="filter-group">
+      <legend>{% trans "Original currency" %}</legend>
+      <div class="filter-options">
+      {% for o in options.currency %}<div class="check"><input type="checkbox" id="f-currency-{{ o.code }}" name="currency" value="{{ o.code }}"{% if o.checked %} checked{% endif %}> <label for="f-currency-{{ o.code }}">{{ o.code }} <span class="note">({{ o.count }})</span></label></div>
+      {% empty %}<p class="note">{% trans "No payments yet." %}</p>{% endfor %}
+      </div>
+      <div class="check"><input type="radio" id="f-currency-mode-include" name="currency_mode" value="include"{% if filter.currency_mode != 'exclude' %} checked{% endif %}> <label for="f-currency-mode-include">{% trans "Show only the ticked currencies" %}</label></div>
+      <div class="check"><input type="radio" id="f-currency-mode-exclude" name="currency_mode" value="exclude"{% if filter.currency_mode == 'exclude' %} checked{% endif %}> <label for="f-currency-mode-exclude">{% trans "Hide the ticked currencies" %}</label></div>
+    </fieldset>{% endif %}
   </div>
 </details>
 <script src="{% static 'core/report_filter.js' %}" data-all="{% trans 'All' %}" data-none="{% trans 'None' %}"></script>

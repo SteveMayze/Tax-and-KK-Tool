@@ -202,3 +202,6 @@ Files: `infra/bootstrap-rootless.yml` (once, sudo), `infra/deploy.yaml` and the 
 
 ## Legacy rootful setup (Phase 8)
 Until you remove it, the old container keeps its files: unit `/etc/containers/systemd/tax-healthcare-tool.container`, backup units `/etc/systemd/system/tax-healthcare-tool-backup.{service,timer}`, wrapper `/usr/local/sbin/tax-healthcare-tool-manage`, data `/var/lib/tax-healthcare-tool/`, secret `/etc/tax-healthcare-tool/env`, images in root's Podman storage. The Phase 8 playbooks that managed it (`become`, `-K`) are in git history at commit `b7d8e16` and earlier. Cut-over, going back and removal: `docs/podman-explained.md` sections 7 and 8.
+
+## Report package size limit (Phase 42)
+The tax summary's "PDF with source documents" builds its ZIP in an anonymous temporary file under `/tmp`, which the unit mounts as a tmpfs (`Tmpfs=/tmp`), so it uses memory counted against the container's 512 MB. `DJANGO_REPORT_PACKAGE_MAX_MB` (default 100) refuses larger packages and offers the report without sources; raise it only together with the memory limit. The file is removed when the download ends or is interrupted. Nothing is written under the upload directory.

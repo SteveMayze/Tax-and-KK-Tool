@@ -203,8 +203,10 @@ class TaxReportTests(TestCase):
         for needle in ('Not applied', 'Double-taxation treaties', 'WHOLE gain is taxable', 'Allowance used 1,000.00 EUR'):
             self.assertIn(needle, text)
         text = report_csv.render(reports.REPORTS['tax_summary'].build(None))
-        for needle in ('grouped by tax income type and country', 'Capital assets (section 20)', 'Not applied'):
+        # Phase 40: the summary is income as recorded (stored category names, no income type), see test_adviser_report
+        for needle in ('Income as recorded', 'Capital gains', 'Interest', 'Double-taxation treaties'):
             self.assertIn(needle, text)
+        self.assertNotIn('Capital assets (section 20)', text)
 
     def test_no_tax_amount_anywhere(self):
         text = report_csv.render(reports.REPORTS['tax_checks'].build(2026)).lower()

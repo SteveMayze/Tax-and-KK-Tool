@@ -3153,3 +3153,265 @@ msgstr "Datum"
 
 msgid "Signature (Unterschrift)"
 msgstr "Unterschrift"
+
+# Phase 40 (ADR 0036): tax information summary as recorded, currency filter. Terms proposed, awaiting the owner's review.
+
+msgid "Income as recorded by category, organisation and original currency, with taxes withheld (no tax calculation)."
+msgstr "Einkommen wie erfasst nach Kategorie, Organisation und Originalwährung, mit einbehaltenen Steuern (keine Steuerberechnung)."
+
+#, python-format
+msgid "Original currencies: only %(codes)s."
+msgstr "Originalwährungen: nur %(codes)s."
+
+#, python-format
+msgid "Original currencies: %(codes)s hidden."
+msgstr "Originalwährungen: %(codes)s ausgeblendet."
+
+msgid "Filtered by the payment's original currency, not by country or source; a payment in an excluded currency is left out of every table, whatever its source."
+msgstr "Gefiltert nach der Originalwährung der Zahlung, nicht nach Land oder Quelle; eine Zahlung in einer ausgeblendeten Währung fehlt in jeder Tabelle, gleich aus welcher Quelle."
+
+msgid "currency"
+msgstr "Währung"
+
+#, python-format
+msgid "Unknown currency mode \"%(value)s\"."
+msgstr "Unbekannter Währungsmodus „%(value)s“."
+
+msgid "manual rate"
+msgstr "manueller Kurs"
+
+msgid "Of which negative payments (original currency)"
+msgstr "Davon negative Zahlungen (Originalwährung)"
+
+#, python-format
+msgid "Subtotal %(name)s (EUR only)"
+msgstr "Zwischensumme %(name)s (nur EUR)"
+
+msgid "Income by category and currency"
+msgstr "Einkommen nach Kategorie und Währung"
+
+msgid "Total (EUR only)"
+msgstr "Summe (nur EUR)"
+
+msgid "Income by organisation"
+msgstr "Einkommen nach Organisation"
+
+#, python-format
+msgid "Total %(currency)s"
+msgstr "Summe %(currency)s"
+
+msgid "Taxes withheld"
+msgstr "Einbehaltene Steuern"
+
+msgid "Total EUR"
+msgstr "Summe EUR"
+
+msgid "Withholding tax as recorded from the statement. A zero or a missing row means none is recorded, not that none was withheld. Not credited; no treaty or foreign-tax-credit rule is applied."
+msgstr "Einbehaltene Steuer wie in der Abrechnung erfasst. Eine Null oder eine fehlende Zeile bedeutet: nichts erfasst, nicht: nichts einbehalten. Nicht angerechnet; es wird keine Abkommens- oder Anrechnungsregel für ausländische Steuern angewendet."
+
+msgid "No withholding tax is recorded for these payments. A zero or a missing row means none is recorded, not that none was withheld."
+msgstr "Für diese Zahlungen ist keine einbehaltene Steuer erfasst. Eine Null oder eine fehlende Zeile bedeutet: nichts erfasst, nicht: nichts einbehalten."
+
+msgid "Kind"
+msgstr "Art"
+
+#, python-format
+msgid "%(n)s unconverted payment(s) are listed but left out of every EUR figure (their original amounts are shown)."
+msgstr "%(n)s nicht umgerechnete Zahlung(en) sind aufgeführt, fehlen aber in jedem EUR-Betrag (ihre Originalbeträge werden gezeigt)."
+
+msgid "Income as recorded; no tax classification, no country inference, no treaty or credit rules applied."
+msgstr "Einkommen wie erfasst; keine steuerliche Einordnung, keine Ableitung des Landes, keine Abkommens- oder Anrechnungsregeln angewendet."
+
+msgid "Gross amounts as recorded and withholding tax as recorded. Net amounts and expenses are not shown."
+msgstr "Bruttobeträge wie erfasst und einbehaltene Steuer wie erfasst. Nettobeträge und Ausgaben werden nicht gezeigt."
+
+msgid "Original amounts are in the currency of each payment and are never added across currencies. EUR amounts use the rate stored on each payment."
+msgstr "Originalbeträge stehen in der Währung der jeweiligen Zahlung und werden nie über Währungen hinweg addiert. EUR-Beträge verwenden den bei jeder Zahlung gespeicherten Kurs."
+
+msgid "Categories without payments"
+msgstr "Kategorien ohne Zahlungen"
+
+msgid "Stored values"
+msgstr "Gespeicherte Werte"
+
+msgid "Amounts are the stored values. A payment edited after its import may differ from its statement."
+msgstr "Die Beträge sind die gespeicherten Werte. Eine nach dem Import geänderte Zahlung kann von ihrer Abrechnung abweichen."
+
+msgid "Double-taxation treaties and foreign-tax credit are not applied. Withholding tax is shown as recorded and is not credited."
+msgstr "Doppelbesteuerungsabkommen und die Anrechnung ausländischer Steuern werden nicht angewendet. Einbehaltene Steuer wird wie erfasst gezeigt und nicht angerechnet."
+
+msgid "Currency conversion: the stored rate of each payment is used; whether the tax authorities require another rate is not verified."
+msgstr "Währungsumrechnung: Es wird der bei jeder Zahlung gespeicherte Kurs verwendet; ob die Steuerbehörden einen anderen Kurs verlangen, ist nicht geprüft."
+
+msgid "Negative payments are shown as recorded in their own category and are not netted across categories; no loss rule is applied. \"Of which negative\" counts normal payments only; corrections and reversals are listed with their kind."
+msgstr "Negative Zahlungen werden wie erfasst in ihrer eigenen Kategorie gezeigt und nicht zwischen Kategorien verrechnet; es wird keine Verlustregel angewendet. „Davon negative“ zählt nur normale Zahlungen; Korrekturen und Stornierungen sind mit ihrer Art aufgeführt."
+
+msgid "No tax amount is calculated."
+msgstr "Es wird kein Steuerbetrag berechnet."
+
+msgid "Show only the ticked currencies"
+msgstr "Nur die angekreuzten Währungen zeigen"
+
+msgid "Hide the ticked currencies"
+msgstr "Die angekreuzten Währungen ausblenden"
+
+# Phase 41 (ADR 0037): source documents. Terms proposed, awaiting the owner's review.
+
+#, python-format
+msgid "none: %(reason)s"
+msgstr "keine: %(reason)s"
+
+#, python-format
+msgid "removed on %(date)s"
+msgstr "entfernt am %(date)s"
+
+msgid "not stored"
+msgstr "nicht gespeichert"
+
+msgid "stored"
+msgstr "gespeichert"
+
+msgid "not found"
+msgstr "nicht gefunden"
+
+msgid "batch deleted"
+msgstr "Importvorgang gelöscht"
+
+msgid "entered by hand"
+msgstr "von Hand erfasst"
+
+msgid "no import row"
+msgstr "keine Importzeile"
+
+msgid "ambiguous (two files with the same shown name)"
+msgstr "nicht eindeutig (zwei Dateien mit gleichem angezeigtem Namen)"
+
+#, python-format
+msgid "none (%(n)s)"
+msgstr "keine (%(n)s)"
+
+msgid "Documents"
+msgstr "Belege"
+
+msgid "* The withholding of this payment may be settled from another statement of the same upload."
+msgstr "* Die einbehaltene Steuer dieser Zahlung kann aus einer anderen Abrechnung desselben Uploads verrechnet sein."
+
+msgid "PDF statement"
+msgstr "PDF-Abrechnung"
+
+msgid "CSV file (your own import file)"
+msgstr "CSV-Datei (Ihre eigene Importdatei)"
+
+msgid "Source documents"
+msgstr "Quellbelege"
+
+msgid "Reference"
+msgstr "Referenz"
+
+msgid "Organisation(s)"
+msgstr "Organisation(en)"
+
+msgid "File name (as shown)"
+msgstr "Dateiname (wie angezeigt)"
+
+msgid "First uploaded"
+msgstr "Erstmals hochgeladen"
+
+msgid "SHA-256"
+msgstr "SHA-256"
+
+msgid "Stored original"
+msgstr "Gespeichertes Original"
+
+msgid "Payments in this report"
+msgstr "Zahlungen in diesem Bericht"
+
+msgid "A document is one file, identified by the SHA-256 of its bytes; the same statement uploaded twice is one document. File names are shown with long digit runs masked. A CSV file is your own import file and may hold more than this report shows."
+msgstr "Ein Beleg ist eine Datei, erkannt am SHA-256 ihrer Bytes; dieselbe Abrechnung, zweimal hochgeladen, ist ein Beleg. Dateinamen werden mit maskierten langen Ziffernfolgen gezeigt. Eine CSV-Datei ist Ihre eigene Importdatei und kann mehr enthalten, als dieser Bericht zeigt."
+
+#, python-format
+msgid "%(docs)s document(s) referenced; %(n)s of %(total)s payment(s) have no source document"
+msgstr "%(docs)s Beleg(e) referenziert; %(n)s von %(total)s Zahlung(en) ohne Quellbeleg"
+
+# Phase 42 (ADR 0038): report package. Terms proposed, awaiting the owner's review.
+
+msgid "changed on disk, not included"
+msgstr "auf dem Datenträger geändert, nicht enthalten"
+
+msgid "Tax information summary: package for the adviser"
+msgstr "Steuerübersicht (Information): Paket für die Steuerberatung"
+
+msgid "This package holds the report as a PDF, the original statements the report refers to, and an index."
+msgstr "Dieses Paket enthält den Bericht als PDF, die Original-Abrechnungen, auf die der Bericht verweist, und ein Verzeichnis."
+
+msgid "The report is a general information summary of income as recorded. It is not a tax calculation, tax advice or an official assessment."
+msgstr "Der Bericht ist eine allgemeine Informationszusammenstellung der erfassten Einnahmen. Er ist keine Steuerberechnung, keine Steuerberatung und kein amtlicher Bescheid."
+
+msgid "Files:"
+msgstr "Dateien:"
+
+msgid "the report PDF: the same file the tool produces for the same period and filter."
+msgstr "der Bericht als PDF: dieselbe Datei, die das Programm für denselben Zeitraum und Filter erzeugt."
+
+msgid "sources/: the original statement PDFs, unchanged, named with the reference used in the report (D01, D02, ...)."
+msgstr "sources/: die Original-Abrechnungen als PDF, unverändert, benannt mit der Referenz aus dem Bericht (D01, D02, ...)."
+
+msgid "index.csv: reference, file name, SHA-256, size, state and number of payments for each statement."
+msgstr "index.csv: Referenz, Dateiname, SHA-256, Größe, Zustand und Anzahl der Zahlungen je Abrechnung."
+
+msgid "To check a file, compute its SHA-256 and compare it with index.csv, for example \"shasum -a 256 <file>\" on macOS or Linux, or \"certutil -hashfile <file> SHA256\" on Windows."
+msgstr "Zum Prüfen einer Datei den SHA-256 berechnen und mit index.csv vergleichen, zum Beispiel mit „shasum -a 256 <Datei>“ unter macOS oder Linux oder „certutil -hashfile <Datei> SHA256“ unter Windows."
+
+msgid "The statements can contain account numbers and other personal data. Handle this package accordingly."
+msgstr "Die Abrechnungen können Kontonummern und andere personenbezogene Daten enthalten. Bitte gehen Sie mit diesem Paket entsprechend sorgfältig um."
+
+msgid "PDF with source documents"
+msgstr "PDF mit Quellbelegen"
+
+msgid "Personal data."
+msgstr "Personenbezogene Daten."
+
+msgid "The statements in this package contain account numbers and other personal data. Once downloaded, the package is not protected by this tool: handle, send and store it with care."
+msgstr "Die Abrechnungen in diesem Paket enthalten Kontonummern und andere personenbezogene Daten. Nach dem Herunterladen ist das Paket durch dieses Programm nicht mehr geschützt: bitte sorgfältig behandeln, versenden und aufbewahren."
+
+msgid "Statements included"
+msgstr "Enthaltene Abrechnungen"
+
+msgid "Size of the statements"
+msgstr "Größe der Abrechnungen"
+
+#, python-format
+msgid "limit %(limit_mb)s MB"
+msgstr "Grenze %(limit_mb)s MB"
+
+msgid "Not included"
+msgstr "Nicht enthalten"
+
+msgid "These are listed in index.csv. The package is still built without them."
+msgstr "Sie sind in index.csv aufgeführt. Das Paket wird trotzdem ohne sie erstellt."
+
+msgid "No original statement is available for this selection, so there is nothing to package. You can still download the report without source documents."
+msgstr "Für diese Auswahl ist keine Original-Abrechnung verfügbar, daher gibt es nichts zu verpacken. Sie können den Bericht weiterhin ohne Quellbelege herunterladen."
+
+#, python-format
+msgid "The statements are larger than the limit of %(limit_mb)s MB, so no package is offered. You can still download the report without source documents."
+msgstr "Die Abrechnungen sind größer als die Grenze von %(limit_mb)s MB, daher wird kein Paket angeboten. Sie können den Bericht weiterhin ohne Quellbelege herunterladen."
+
+msgid "Download package"
+msgstr "Paket herunterladen"
+
+msgid "Report PDF only"
+msgstr "Nur Bericht als PDF"
+
+msgid "no filter"
+msgstr "kein Filter"
+
+msgid "No original statement is available for this selection, so there is nothing to package."
+msgstr "Für diese Auswahl ist keine Original-Abrechnung verfügbar, daher gibt es nichts zu verpacken."
+
+#, python-format
+msgid "The package would be larger than the limit of %(mb)s MB."
+msgstr "Das Paket wäre größer als die Grenze von %(mb)s MB."
+
+msgid "An original statement could not be read while building the package. Nothing was downloaded."
+msgstr "Eine Original-Abrechnung konnte beim Erstellen des Pakets nicht gelesen werden. Es wurde nichts heruntergeladen."
