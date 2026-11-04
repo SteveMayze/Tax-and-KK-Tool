@@ -3153,3 +3153,104 @@ msgstr "Datum"
 
 msgid "Signature (Unterschrift)"
 msgstr "Unterschrift"
+
+# Phase 40 (ADR 0036): tax information summary as recorded, currency filter. Terms proposed, awaiting the owner's review.
+
+msgid "Income as recorded by category, organisation and original currency, with taxes withheld (no tax calculation)."
+msgstr "Einkommen wie erfasst nach Kategorie, Organisation und Originalwährung, mit einbehaltenen Steuern (keine Steuerberechnung)."
+
+#, python-format
+msgid "Original currencies: only %(codes)s."
+msgstr "Originalwährungen: nur %(codes)s."
+
+#, python-format
+msgid "Original currencies: %(codes)s hidden."
+msgstr "Originalwährungen: %(codes)s ausgeblendet."
+
+msgid "Filtered by the payment's original currency, not by country or source; a payment in an excluded currency is left out of every table, whatever its source."
+msgstr "Gefiltert nach der Originalwährung der Zahlung, nicht nach Land oder Quelle; eine Zahlung in einer ausgeblendeten Währung fehlt in jeder Tabelle, gleich aus welcher Quelle."
+
+msgid "currency"
+msgstr "Währung"
+
+#, python-format
+msgid "Unknown currency mode \"%(value)s\"."
+msgstr "Unbekannter Währungsmodus „%(value)s“."
+
+msgid "manual rate"
+msgstr "manueller Kurs"
+
+msgid "Of which negative payments (original currency)"
+msgstr "Davon negative Zahlungen (Originalwährung)"
+
+#, python-format
+msgid "Subtotal %(name)s (EUR only)"
+msgstr "Zwischensumme %(name)s (nur EUR)"
+
+msgid "Income by category and currency"
+msgstr "Einkommen nach Kategorie und Währung"
+
+msgid "Total (EUR only)"
+msgstr "Summe (nur EUR)"
+
+msgid "Income by organisation"
+msgstr "Einkommen nach Organisation"
+
+#, python-format
+msgid "Total %(currency)s"
+msgstr "Summe %(currency)s"
+
+msgid "Taxes withheld"
+msgstr "Einbehaltene Steuern"
+
+msgid "Total EUR"
+msgstr "Summe EUR"
+
+msgid "Withholding tax as recorded from the statement. A zero or a missing row means none is recorded, not that none was withheld. Not credited; no treaty or foreign-tax-credit rule is applied."
+msgstr "Einbehaltene Steuer wie in der Abrechnung erfasst. Eine Null oder eine fehlende Zeile bedeutet: nichts erfasst, nicht: nichts einbehalten. Nicht angerechnet; es wird keine Abkommens- oder Anrechnungsregel für ausländische Steuern angewendet."
+
+msgid "No withholding tax is recorded for these payments. A zero or a missing row means none is recorded, not that none was withheld."
+msgstr "Für diese Zahlungen ist keine einbehaltene Steuer erfasst. Eine Null oder eine fehlende Zeile bedeutet: nichts erfasst, nicht: nichts einbehalten."
+
+msgid "Kind"
+msgstr "Art"
+
+#, python-format
+msgid "%(n)s unconverted payment(s) are listed but left out of every EUR figure (their original amounts are shown)."
+msgstr "%(n)s nicht umgerechnete Zahlung(en) sind aufgeführt, fehlen aber in jedem EUR-Betrag (ihre Originalbeträge werden gezeigt)."
+
+msgid "Income as recorded; no tax classification, no country inference, no treaty or credit rules applied."
+msgstr "Einkommen wie erfasst; keine steuerliche Einordnung, keine Ableitung des Landes, keine Abkommens- oder Anrechnungsregeln angewendet."
+
+msgid "Gross amounts as recorded and withholding tax as recorded. Net amounts and expenses are not shown."
+msgstr "Bruttobeträge wie erfasst und einbehaltene Steuer wie erfasst. Nettobeträge und Ausgaben werden nicht gezeigt."
+
+msgid "Original amounts are in the currency of each payment and are never added across currencies. EUR amounts use the rate stored on each payment."
+msgstr "Originalbeträge stehen in der Währung der jeweiligen Zahlung und werden nie über Währungen hinweg addiert. EUR-Beträge verwenden den bei jeder Zahlung gespeicherten Kurs."
+
+msgid "Categories without payments"
+msgstr "Kategorien ohne Zahlungen"
+
+msgid "Stored values"
+msgstr "Gespeicherte Werte"
+
+msgid "Amounts are the stored values. A payment edited after its import may differ from its statement."
+msgstr "Die Beträge sind die gespeicherten Werte. Eine nach dem Import geänderte Zahlung kann von ihrer Abrechnung abweichen."
+
+msgid "Double-taxation treaties and foreign-tax credit are not applied. Withholding tax is shown as recorded and is not credited."
+msgstr "Doppelbesteuerungsabkommen und die Anrechnung ausländischer Steuern werden nicht angewendet. Einbehaltene Steuer wird wie erfasst gezeigt und nicht angerechnet."
+
+msgid "Currency conversion: the stored rate of each payment is used; whether the tax authorities require another rate is not verified."
+msgstr "Währungsumrechnung: Es wird der bei jeder Zahlung gespeicherte Kurs verwendet; ob die Steuerbehörden einen anderen Kurs verlangen, ist nicht geprüft."
+
+msgid "Negative payments are shown as recorded in their own category and are not netted across categories; no loss rule is applied. \"Of which negative\" counts normal payments only; corrections and reversals are listed with their kind."
+msgstr "Negative Zahlungen werden wie erfasst in ihrer eigenen Kategorie gezeigt und nicht zwischen Kategorien verrechnet; es wird keine Verlustregel angewendet. „Davon negative“ zählt nur normale Zahlungen; Korrekturen und Stornierungen sind mit ihrer Art aufgeführt."
+
+msgid "No tax amount is calculated."
+msgstr "Es wird kein Steuerbetrag berechnet."
+
+msgid "Show only the ticked currencies"
+msgstr "Nur die angekreuzten Währungen zeigen"
+
+msgid "Hide the ticked currencies"
+msgstr "Die angekreuzten Währungen ausblenden"
