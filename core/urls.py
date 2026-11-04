@@ -45,6 +45,8 @@ urlpatterns = [
     path('assessment/<int:year>/inputs/<int:pk>/delete/', views_assessment.annual_input_delete, name='annual_input_delete'),
 
     path('reports/', views_reports.report_index, name='report_index'),
+    path('reports/<str:key>/package/', views_reports.report_package_confirm, name='report_package'),
+    path('reports/<str:key>/package.zip', views_reports.report_package_download, name='report_package_zip'),
     path('reports/<str:key>/', views_reports.report_view, name='report_view'),
     path('reports/<str:key>.csv', views_reports.report_csv_download, name='report_csv'),
     path('reports/<str:key>.pdf', views_reports.report_pdf_download, name='report_pdf'),

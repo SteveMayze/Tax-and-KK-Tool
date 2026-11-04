@@ -49,6 +49,9 @@ class Document:
     payments: int = 0
     ref: str = ''
     batch_ids: set = field(default_factory=set)
+    stored_path: str = ''     # where the original can be read (relative to UPLOAD_DIR); '' when it cannot
+    member: str = ''          # real member name inside a stored zip, '' for a single PDF
+    zip_sha256: str = ''      # recorded hash of the whole stored file the document is read from
 
 
 @dataclass
@@ -60,7 +63,7 @@ class Sources:
 
 
 def _members(batch):
-    """masked member name -> [(sha256, size)] for a stored zip batch, or None when the file cannot be read."""
+    """masked member name -> [(sha256, size, real name)] for a stored zip batch, or None when the file cannot be read."""
     path, state = import_files.locate(batch.stored_path)
     if state != 'ok':
         return None
@@ -74,7 +77,7 @@ def _members(batch):
                         digest.update(block)
                         size += len(block)
                 name = pdf_text.mask_digit_runs(info.filename.split('-', 1)[-1])
-                out.setdefault(name, []).append((digest.hexdigest(), size))
+                out.setdefault(name, []).append((digest.hexdigest(), size, info.filename))
     except (zipfile.BadZipFile, OSError):
         return None
     return out
@@ -109,12 +112,14 @@ def resolve(payments) -> Sources:
         for r in ImportRow.objects.filter(created_payment_id__in=ids[i:i + CHUNK]).select_related('batch').order_by('-id'):
             rows[r.created_payment_id] = r
     members, docs, assigned, without = {}, {}, {}, {}
+    member = ''
 
     def lack(p, reason):
         assigned[p.pk] = PaymentSource(reason=reason)
         without[reason] = without.get(reason, 0) + 1
 
     for p in payments:
+        member = ''
         if not p.import_batch_id:
             lack(p, _('batch deleted') if p.source_document_id else _('entered by hand'))
             continue
@@ -126,7 +131,7 @@ def resolve(payments) -> Sources:
             lack(p, _('no import row'))
             continue
         elif not batch.stored_path.endswith('.zip'):
-            key, kind, sha, name = ('pdf', batch.sha256), 'pdf', batch.sha256, batch.file_name
+            key, kind, sha, name, member = ('pdf', batch.sha256), 'pdf', batch.sha256, batch.file_name, ''
         else:
             if batch.pk not in members:
                 members[batch.pk] = None if batch.original_removed_at else _members(batch)
@@ -135,13 +140,17 @@ def resolve(payments) -> Sources:
                 lack(p, _('ambiguous (two files with the same shown name)'))
                 continue
             sha = found[0][0] if found else ''
+            member = found[0][2] if found else ''
             key = ('pdf', sha) if sha else ('pdf-unhashed', batch.pk, row.source_name)
             kind, name = 'pdf', row.source_name
         doc = docs.get(key)
         if doc is None:
             doc = docs[key] = Document(key, kind, pdf_text.mask_digit_runs(name or ''), sha)
         doc.batch_ids.add(batch.pk)
-        doc.uploaded = min(filter(None, [doc.uploaded, batch.created_at.date()]))
+        readable = (kind == 'pdf' and sha and not batch.original_removed_at and
+                    import_files.locate(batch.stored_path)[1] == 'ok' and (member or not batch.stored_path.endswith('.zip')))
+        if readable and not doc.stored_path:
+            doc.stored_path, doc.member, doc.zip_sha256 = batch.stored_path, member, batch.sha256
         states = {_file_state(b) for b in [batch]}
         doc.state = doc.state if doc.state == _('stored') else sorted(states)[0]
         doc.organisations.add(p.organisation.name)

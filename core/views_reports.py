@@ -3,12 +3,13 @@ from django.utils import timezone, translation
 from django.utils.translation import get_language
 from django.utils.translation import gettext as _
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_GET
 
 from .models import ReportingYear
-from .services import report_csv, report_filter, report_pdf
+from .services import report_csv, report_filter, report_package, report_pdf
 from . import glossary
 from .services import i18n
 from .services.policies.sbk import PolicyUnavailable
@@ -156,6 +157,25 @@ def report_csv_download(request, key):
     return response
 
 
+def _pdf(report, key):
+    """PDF bytes of a built report, in the interface language (shared by the PDF route and the package)."""
+    rows, totals = _cells(report.columns, report.rows, report.totals)
+    generated = _('Generated %(when)s') % {'when': i18n.date_text(timezone.localdate())}
+    return report_pdf.render(report, [c.label for c in report.columns], rows, totals,
+                             language=(get_language() or 'en')[:2], with_signature=(key == 'tax_summary'),
+                             generated_text=generated, tables=_tables(report) or None)
+
+
+def _file_stem(key, year, spec, flt):
+    return f'report-{key}-{year or "all"}{"-filtered" if spec.supports_filter and flt.is_active else ""}'
+
+
+def _harden(response):
+    response['Cache-Control'] = 'no-store'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
 @login_required
 @require_GET
 def report_pdf_download(request, key):
@@ -165,13 +185,61 @@ def report_pdf_download(request, key):
     if error:
         messages.error(request, error)
         return redirect('report_index')
-    rows, totals = _cells(report.columns, report.rows, report.totals)
-    generated = _('Generated %(when)s') % {'when': i18n.date_text(timezone.localdate())}
-    pdf = report_pdf.render(report, [c.label for c in report.columns], rows, totals,
-                            language=(get_language() or 'en')[:2], with_signature=(key == 'tax_summary'),
-                            generated_text=generated, tables=_tables(report) or None)
-    response = HttpResponse(pdf, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="report-{key}-{year or "all"}{"-filtered" if spec.supports_filter and flt.is_active else ""}.pdf"'
-    response['Cache-Control'] = 'no-store'
-    response['X-Content-Type-Options'] = 'nosniff'
-    return response
+    response = HttpResponse(_pdf(report, key), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{_file_stem(key, year, spec, flt)}.pdf"'
+    return _harden(response)
+
+
+def _package_context(request, key):
+    """(spec, report, year, filter, summary, error). Only the tax information summary has a package."""
+    if key != 'tax_summary':
+        raise Http404(_('Unknown report.'))
+    spec = _spec(key)
+    report, year, flt, error = _build(request, spec)
+    if error:
+        return spec, None, None, None, None, error
+    return spec, report, year, flt, report_package.inspect(report.sources), None
+
+
+@login_required
+@require_GET
+def report_package_confirm(request, key):
+    """What the package would hold and a plain warning, before anything is downloaded. Reads only."""
+    spec, report, year, flt, summary, error = _package_context(request, key)
+    if error:
+        messages.error(request, error)
+        return redirect('report_index')
+    limit = report_package.max_bytes()
+    query = flt.querystring(year)
+    return render(request, 'core/report_package.html', {
+        'report': report, 'summary': summary, 'year': year, 'filter': flt, 'query': query,
+        'included': len(summary.included), 'problems': summary.problems,
+        'size_mb': f'{summary.total_size / (1024 * 1024):.1f}', 'limit_mb': limit // (1024 * 1024),
+        'too_big': summary.total_size > limit, 'nothing': not summary.included,
+        'filter_text': flt.describe() if flt.is_active else _('no filter')})
+
+
+@login_required
+@require_GET
+def report_package_download(request, key):
+    spec, report, year, flt, summary, error = _package_context(request, key)
+    if error:
+        messages.error(request, error)
+        return redirect('report_index')
+    back = redirect(f"{reverse('report_package', args=[key])}?{flt.querystring(year)}")
+    if not summary.included:
+        messages.warning(request, _('No original statement is available for this selection, so there is nothing to package.'))
+        return back
+    if summary.total_size > report_package.max_bytes():
+        messages.error(request, _('The package would be larger than the limit of %(mb)s MB.') % {
+            'mb': report_package.max_bytes() // (1024 * 1024)})
+        return back
+    stem = _file_stem(key, year, spec, flt)
+    try:
+        tmp = report_package.build(summary, _pdf(report, key), f'{stem}.pdf', report.sources)
+    except OSError:
+        messages.error(request, _('An original statement could not be read while building the package. Nothing was downloaded.'))
+        return back
+    response = FileResponse(tmp, content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{stem}-package.zip"'
+    return _harden(response)

@@ -174,6 +174,8 @@ ENABLE_ADMIN = os.environ.get('DJANGO_ENABLE_ADMIN', '1' if DEBUG else '0') == '
 
 # Uploaded import files live here (git-ignored, never served publicly). Use an absolute path in production.
 UPLOAD_DIR = os.environ.get('DJANGO_UPLOAD_DIR', str(BASE_DIR / 'local' / 'uploads'))
+# Largest report package (Phase 42) in MB of originals; /tmp in the container is RAM-backed, see docs/deployment.md.
+REPORT_PACKAGE_MAX_MB = int(os.environ.get('DJANGO_REPORT_PACKAGE_MAX_MB', '100'))
 IMPORT_MAX_BYTES = 2 * 1024 * 1024
 IMPORT_MAX_ROWS = 5000
 # A whole folder of PDF statements arrives as one request with one part per file (Django's default limit is 100).

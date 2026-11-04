@@ -59,6 +59,7 @@ class Report:
     generated_at: object = None
     no_match: bool = False         # a filter is active and matched no payment (Phase 30)
     tables: list = field(default_factory=list)      # Phase 40: when set, these replace columns/rows/totals
+    sources: object = None         # Phase 41/42: the resolved source documents, when the report has them
     csv_tables: tuple = ()         # keys of the tables the CSV carries, in order (all of them if empty)
 
 

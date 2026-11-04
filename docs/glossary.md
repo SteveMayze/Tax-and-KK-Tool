@@ -193,3 +193,5 @@ Headings, table titles and labels of the reworked tax information summary. Statu
 | Stored original (stored / not found / not stored / removed on) | Gespeichertes Original (gespeichert / nicht gefunden / nicht gespeichert / entfernt am) |
 | none: entered by hand / batch deleted | keine: von Hand erfasst / Importvorgang gelöscht |
 | PDF statement / CSV file (your own import file) | PDF-Abrechnung / CSV-Datei (Ihre eigene Importdatei) |
+| PDF with source documents / Download package / Report PDF only | PDF mit Quellbelegen / Paket herunterladen / Nur Bericht als PDF |
+| Personal data | Personenbezogene Daten |
