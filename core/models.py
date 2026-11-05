@@ -158,6 +158,9 @@ class ImportBatch(models.Model):
     kind = models.CharField(max_length=3, choices=Kind.choices, default=Kind.CSV)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PREVIEW)
     warnings = models.JSONField(default=list, blank=True)
+    organisation_countries = models.JSONField(
+        default=dict, blank=True,
+        help_text='Owner choices at review (ADR 0040): {"new": {lower name: ISO country}, "fill_existing": {lower name: ISO country}}.')
     imported_count = models.PositiveIntegerField(default=0)
     skipped_count = models.PositiveIntegerField(default=0)
     unconverted_count = models.PositiveIntegerField(default=0)
@@ -226,6 +229,7 @@ class ImportRow(models.Model):
     created_payment = models.ForeignKey('Payment', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
     # PDF imports (Phase 14): the file a row came from and, per field, where in the PDF the value was read
     # ({field: {"page": 1, "text": "<sanitised source line>"}}), so the owner can check it in the review.
+    reader_country = models.CharField(max_length=2, blank=True, help_text='Country the reader proposes for a new organisation (ADR 0040).')
     source_name = models.CharField(max_length=255, blank=True)
     provenance = models.JSONField(default=dict, blank=True)
 

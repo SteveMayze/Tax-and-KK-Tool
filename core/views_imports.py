@@ -15,7 +15,7 @@ from .forms import ImportRowForm, ImportUploadForm
 from .models import ImportBatch, ImportDeletion, ImportRow
 from .services import import_files
 from .services import imports as svc
-from .services import pdf_imports, pdf_text
+from .services import org_countries, pdf_imports, pdf_text
 from .services.conversion import ConversionError, eur_amount, for_storage
 from .services.rates import get_provider
 
@@ -92,9 +92,11 @@ def import_preview(request, pk):
         r.proposed_eur = _proposed_eur(r)
     if show == 'problems':
         rows = [r for r in rows if r.errors or r.status == ImportRow.Status.DUPLICATE or r.rate_error or r.notes]
+    editable = batch.status == ImportBatch.Status.PREVIEW
+    new_orgs, blank_orgs = org_countries.review(batch) if editable else ([], [])
     return render(request, 'core/import_preview.html', {
         'batch': batch, 'rows': rows, 'show': show, 'summary': svc.summary(batch),
-        'editable': batch.status == ImportBatch.Status.PREVIEW})
+        'editable': editable, 'new_orgs': new_orgs, 'blank_orgs': blank_orgs})
 
 
 def _state_guard(request, batch):
@@ -139,6 +141,24 @@ def import_row_toggle(request, pk, line, action):
         svc.set_keep_duplicate(row, False)
     else:
         raise Http404
+    return _preview_redirect(batch)
+
+
+@login_required
+@require_POST
+def import_countries(request, pk):
+    """Save the owner's country choices for the organisations of this batch. Re-validates nothing else."""
+    batch = get_object_or_404(ImportBatch, pk=pk)
+    blocked = _state_guard(request, batch)
+    if blocked:
+        return blocked
+    keys, values = request.POST.getlist('org_key'), request.POST.getlist('org_country')
+    try:
+        org_countries.save_choices(batch, dict(zip(keys, values)), request.POST.getlist('fill'))
+    except org_countries.CountryError as e:
+        messages.error(request, _('Countries not saved: %(reason)s') % {'reason': e})
+    else:
+        messages.success(request, _('Countries saved for this import. Nothing has been imported yet.'))
     return _preview_redirect(batch)
 
 

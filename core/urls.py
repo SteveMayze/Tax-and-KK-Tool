@@ -32,6 +32,7 @@ urlpatterns = [
     path('imports/template.csv', views_imports.import_template, name='import_template'),
     path('imports/<int:pk>/', views_imports.import_preview, name='import_preview'),
     path('imports/<int:pk>/file/', views_imports.import_file, name='import_file'),
+    path('imports/<int:pk>/countries/', views_imports.import_countries, name='import_countries'),
     path('imports/<int:pk>/refresh-rates/', views_imports.import_refresh_rates, name='import_refresh_rates'),
     path('imports/<int:pk>/delete-file/', views_imports.import_delete_file, name='import_delete_file'),
     path('imports/<int:pk>/delete/', views_imports.import_delete, name='import_delete'),
@@ -52,6 +53,7 @@ urlpatterns = [
     path('reports/<str:key>.pdf', views_reports.report_pdf_download, name='report_pdf'),
 
     path('organisations/', views_lookups.lookup_list, {'kind': 'organisation'}, name='organisation_list'),
+    path('organisations/countries/', views_lookups.organisation_countries, name='organisation_countries'),
     path('organisations/new/', views_lookups.lookup_edit, {'kind': 'organisation'}, name='organisation_add'),
     path('organisations/<int:pk>/edit/', views_lookups.lookup_edit, {'kind': 'organisation'}, name='organisation_edit'),
     path('organisations/<int:pk>/delete/', views_lookups.lookup_delete, {'kind': 'organisation'}, name='organisation_delete'),

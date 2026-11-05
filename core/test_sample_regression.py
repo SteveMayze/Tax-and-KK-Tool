@@ -42,17 +42,19 @@ class Phase14SamplesStayIdenticalTests(SimpleTestCase):
 @skipUnless((SAMPLES / 'Securities').is_dir(), 'owner-supplied Securities samples are not present (they are never committed)')
 class SecuritiesRefusalsAreIntendedTests(SimpleTestCase):
     """Fix of 2026-11-05 (ADR 0039): every Securities advice is staged, or refused for a known reason. Prints counts only."""
-    INTENDED = ('scheme of arrangement', 'bonus share plan', 'ASX code')
+    INTENDED = ('scheme of arrangement', 'bonus share plan')
 
     def test_each_file_is_staged_or_refused_for_an_intended_reason(self):
-        staged, reasons = 0, {}
+        staged = blocked = 0
+        reasons = {}
         for path in sorted((SAMPLES / 'Securities').rglob('*.pdf')):
             outcome = sr.read_statement(path.read_bytes())
             if outcome.result is not None and outcome.result.rows:
                 staged += 1
+                blocked += bool(outcome.result.rows[0].data.get('_structural'))     # staged, but needs the owner's input
                 continue
             reason = next((r for r in self.INTENDED if r in (outcome.error or '')), None)
             self.assertIsNotNone(reason, f'{path.name[:10]}: refused for a reason that is not intended')
             reasons[reason] = reasons.get(reason, 0) + 1
-        print(f'\nSecurities samples: {staged} staged, refused for intended reasons: {reasons}')
+        print(f'\nSecurities samples: {staged} staged ({blocked} blocked until the owner enters the organisation), refused for intended reasons: {reasons}')
         self.assertTrue(staged)

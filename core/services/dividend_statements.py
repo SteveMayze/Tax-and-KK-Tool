@@ -52,6 +52,8 @@ class Dividend:
     unfranked: Decimal | None = None
     franking_credit: Decimal | None = None
     franking_percent: Decimal | None = None
+    code_missing: bool = False        # no ASX code is printed (ADR 0040): the owner is asked for the organisation at review
+    printed_name: str = ''            # the company name as printed in the holding sentence, '' when not found
 
     def row_data(self, columns):
         """The import-row fields for this statement. Organisation: "<company name> (<ASX code>)" when the statement prints
@@ -64,6 +66,12 @@ class Dividend:
         if franking:
             comment += ' ' + franking
         organisation = f'{self.issuer} ({self.code})' if self.issuer else self.code
+        if self.code_missing:
+            organisation = ''
+            data['_structural'] = [gettext(
+                'The ASX code was not found in this statement. Enter the organisation as "<company name> (<ASX code>)".')]
+            if self.printed_name:
+                data['_org_hint'] = self.printed_name          # staging turns it into a proposal; never stored as a column
         data.update(payment_date=self.payment_date.isoformat(), organisation=organisation, category='Dividends',
                     currency='AUD', gross_amount=format(self.gross, 'f'), net_amount=format(self.net, 'f'),
                     withholding_tax=format(self.withholding, 'f'), expenses='0', frequency='one_off', comment=comment)
@@ -313,6 +321,16 @@ def _issuer(lines):
     return ''
 
 
+HOLDING_NAME = re.compile(r'(?i)\byour\s+holding\s+in\s+(.+?)(?:\s+and\b|[.,;:]|$)')
+
+
+def _printed_name(lines):
+    """The company name from the anchored phrase "your holding in <name>"; '' when the statement does not say it so."""
+    names = {_tidy_name(m.group(1)) for _p, line in lines for m in HOLDING_NAME.finditer(line)}
+    names.discard('')
+    return next(iter(names)) if len(names) == 1 and len(next(iter(names))) <= 70 else ''
+
+
 def _reinvested(lines):
     return any(re.search(r'(?i)dividend reinvestment plan amount|shares allotted|cost of shares allotted', line)
                for _p, line in lines)
@@ -406,7 +424,12 @@ def parse(pages: list[str]) -> Dividend:
     payment_date, date_evidence, record_date = _payment_date(lines)
     if record_date and record_date > payment_date:
         raise UnsupportedStatement(gettext('The record date is after the payment date; the dates could not be read reliably.'))
-    code, code_evidence = _code(lines)
+    try:
+        code, code_evidence = _code(lines)
+        code_missing = False
+    except UnsupportedStatement:
+        # Everything else must still read and reconcile below; only then is the missing code left to the owner (ADR 0040).
+        code, code_evidence, code_missing = '', (1, gettext('The ASX code was not found in this statement.')), True
     columns = _column_layout(lines)
     if columns:
         gross, tax, net, row = columns
@@ -437,6 +460,7 @@ def parse(pages: list[str]) -> Dividend:
     evidence.update(franking_evidence)
     return Dividend(code=code, payment_date=payment_date, gross=gross, net=net, withholding=withholding,
                     record_date=record_date, issuer=_issuer(lines), reinvested=_reinvested(lines), evidence=evidence,
+                    code_missing=code_missing, printed_name=_printed_name(lines) if code_missing else '',
                     franked=franking.get('franked'), unfranked=franking.get('unfranked'),
                     franking_credit=franking.get('credit'), franking_percent=franking.get('percent'))
 
