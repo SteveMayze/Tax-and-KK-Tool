@@ -139,8 +139,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
                         % {'n': previous.pk})
     rows = [(shown, row, statement_readers.reader_by_id(reader_of[id(result)]).country)
             for _n, shown, _r, result in staged for row in result.rows]
-    for _shown, row, _country in rows:
-        _add_organisation_proposal(row.data)
+    hints = [_add_organisation_proposal(row.data) for _shown, row, _country in rows]
     stored = None
     try:
         with transaction.atomic():
@@ -152,8 +151,8 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
             batch.save()
             ImportRow.objects.bulk_create([
                 ImportRow(batch=batch, line_number=number, data=dict(row.data), original=dict(row.data),
-                          source_name=shown, provenance=_provenance(row), reader_country=country)
-                for number, (shown, row, country) in enumerate(rows, start=1)])
+                          source_name=shown, provenance=_provenance(row), reader_country=country, org_hint=hint)
+                for number, ((shown, row, country), hint) in enumerate(zip(rows, hints), start=1)])
             imports.revalidate_batch(batch, provider)
     except Exception:
         if stored:
@@ -169,13 +168,14 @@ def _add_organisation_proposal(data):
     proposal: the one existing organisation whose name starts with it. Shown only; never applied (ADR 0040)."""
     hint = data.pop('_org_hint', '')
     if not hint:
-        return
+        return ''
     structural = data.setdefault('_structural', [])
     structural.append(gettext('The company name printed in the statement is "%(name)s".') % {'name': hint})
     matches = list(Organisation.objects.filter(name__istartswith=hint)[:2])
     if len(matches) == 1:
         structural.append(gettext('Existing organisation that starts with this name (not applied; copy it into the organisation field if it is right): %(org)s.')
                           % {'org': matches[0].name})
+    return hint[:200]
 
 
 def _notice_lines(notices):

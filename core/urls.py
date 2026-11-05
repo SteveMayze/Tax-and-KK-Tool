@@ -33,6 +33,7 @@ urlpatterns = [
     path('imports/<int:pk>/', views_imports.import_preview, name='import_preview'),
     path('imports/<int:pk>/file/', views_imports.import_file, name='import_file'),
     path('imports/<int:pk>/countries/', views_imports.import_countries, name='import_countries'),
+    path('imports/<int:pk>/apply-organisation/', views_imports.import_apply_organisation, name='import_apply_organisation'),
     path('imports/<int:pk>/refresh-rates/', views_imports.import_refresh_rates, name='import_refresh_rates'),
     path('imports/<int:pk>/delete-file/', views_imports.import_delete_file, name='import_delete_file'),
     path('imports/<int:pk>/delete/', views_imports.import_delete, name='import_delete'),

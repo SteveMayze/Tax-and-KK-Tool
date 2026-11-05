@@ -3537,3 +3537,27 @@ msgstr "Art der Abrechnung"
 #, python-format
 msgid "\"%(code)s\" is not an ISO 3166-1 alpha-2 country code."
 msgstr "„%(code)s“ ist kein Ländercode nach ISO 3166-1 Alpha-2."
+
+
+msgid "Organisation missing"
+msgstr "Organisation fehlt"
+
+
+msgid "These statements print no ASX code. Enter the organisation once, as company name and ASX code, and use it for all rows from the same company that are still empty. Rows you have edited are not touched."
+msgstr "Diese Abrechnungen enthalten keinen ASX-Code. Geben Sie die Organisation einmal als Firmenname und ASX-Code ein und übernehmen Sie sie für alle noch leeren Zeilen derselben Firma. Bereits bearbeitete Zeilen werden nicht verändert."
+
+#, python-format
+msgid "Printed name \"%(name)s\" (%(n)s row(s))"
+msgstr "Gedruckter Name „%(name)s“ (%(n)s Zeile(n))"
+
+#, python-format
+msgid "Use for all %(n)s rows"
+msgstr "Für alle %(n)s Zeilen übernehmen"
+
+#, python-format
+msgid "Nothing was changed: %(reason)s"
+msgstr "Es wurde nichts geändert: %(reason)s"
+
+#, python-format
+msgid "Organisation set on %(n)s row(s). Nothing has been imported yet."
+msgstr "Organisation bei %(n)s Zeile(n) gesetzt. Es wurde noch nichts importiert."

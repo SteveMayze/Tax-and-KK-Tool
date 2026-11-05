@@ -229,6 +229,7 @@ class ImportRow(models.Model):
     created_payment = models.ForeignKey('Payment', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
     # PDF imports (Phase 14): the file a row came from and, per field, where in the PDF the value was read
     # ({field: {"page": 1, "text": "<sanitised source line>"}}), so the owner can check it in the review.
+    org_hint = models.CharField(max_length=200, blank=True, help_text='Company name printed in a statement without an ASX code; a label for grouping rows only (ADR 0041).')
     reader_country = models.CharField(max_length=2, blank=True, help_text='Country the reader proposes for a new organisation (ADR 0040).')
     source_name = models.CharField(max_length=255, blank=True)
     provenance = models.JSONField(default=dict, blank=True)

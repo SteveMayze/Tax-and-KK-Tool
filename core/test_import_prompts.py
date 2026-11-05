@@ -1,6 +1,7 @@
 """Review-page prompts (ADR 0040): a missing ASX code is asked for, and the country of a NEW organisation is confirmed at
 import. Synthetic text only."""
 import datetime
+from unittest import mock
 from decimal import Decimal as D
 
 from django.contrib.auth import get_user_model
@@ -195,3 +196,95 @@ class StoredCountryReportTests(TestCase):
         self.assertEqual(strip(before), strip(after))
         self.assertIn('taken from the payment currency', before[0]['flags'])
         self.assertNotIn('taken from the payment currency', after[0]['flags'])
+
+
+class ApplyOrganisationToAllTests(Staging):
+    """ADR 0041: enter a missing organisation once for every statement of the same company."""
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch('core.views_imports.get_provider', return_value=PROVIDER)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.client.force_login(get_user_model().objects.create_user('u', password='p'))
+
+    def stage_many(self, *specs):
+        """specs: (file name, printed company, payment day). One blocked row each."""
+        files = []
+        for name, company, day in specs:
+            lines = [l.replace('27 February 2025', f'{day} February 2025').replace('Example Property Group', company) for l in NO_CODE]
+            files.append((name, make_pdf([lines])))
+        return pdf_imports.stage_pdf_batch(files, PROVIDER)
+
+    def three_and_one(self):
+        return self.stage_many(('a.pdf', 'Alpha Group', 20), ('b.pdf', 'Alpha Group', 21), ('c.pdf', 'Alpha Group', 24),
+                               ('d.pdf', 'Beta Group', 25))
+
+    def post(self, batch, value, hint='Alpha Group'):
+        return self.client.post(reverse('import_apply_organisation', args=[batch.pk]), {'hint': hint, 'organisation': value}, follow=True)
+
+    def test_the_hint_survives_staging_and_is_not_a_data_column(self):
+        batch = self.three_and_one()
+        self.assertEqual(sorted(batch.rows.values_list('org_hint', flat=True)), ['Alpha Group'] * 3 + ['Beta Group'])
+        self.assertTrue(all('_org_hint' not in r.data for r in batch.rows.all()))
+
+    def test_applying_changes_exactly_the_rows_of_that_company_and_the_batch_becomes_committable(self):
+        batch = self.three_and_one()
+        page = self.post(batch, '  Alpha   Group (AGX) ')
+        self.assertContains(page, 'Organisation set on 3 row(s)')
+        rows = {r.org_hint: [] for r in batch.rows.all()}
+        for r in batch.rows.all():
+            rows[r.org_hint].append(r)
+        self.assertTrue(all(r.data['organisation'] == 'Alpha Group (AGX)' and r.status == 'valid' and '_structural' not in r.data
+                            and r.original['organisation'] == '' for r in rows['Alpha Group']))
+        self.assertEqual([(r.data['organisation'], r.status) for r in rows['Beta Group']], [('', 'invalid')])
+        with self.assertRaises(svc.ImportStateError):
+            svc.commit_batch(batch)
+        self.post(batch, 'Beta Group (BGX)', hint='Beta Group')
+        svc.commit_batch(batch)
+        self.assertEqual(Payment.objects.count(), 4)
+
+    def test_group_disappears_and_the_new_organisation_gets_its_country_control(self):
+        batch = self.three_and_one()
+        self.assertContains(self.client.get(reverse('import_preview', args=[batch.pk])), 'Use for all 3 rows')
+        self.post(batch, 'Alpha Group (AGX)')
+        page = self.client.get(reverse('import_preview', args=[batch.pk]))
+        self.assertNotContains(page, 'Use for all 3 rows')
+        self.assertContains(page, 'Use for all 1 rows')
+        new, _b = org_countries.review(batch)
+        self.assertEqual([(n['name'], n['proposed']) for n in new], [('Alpha Group (AGX)', 'AU')])
+
+    def test_a_row_edited_by_hand_is_not_overwritten(self):
+        batch = self.three_and_one()
+        row = batch.rows.filter(org_hint='Alpha Group').first()
+        data = {k: v for k, v in row.data.items() if not k.startswith('_')}
+        data['organisation'] = 'Hand Edited (HND)'
+        svc.update_row(row, data, PROVIDER)
+        self.assertContains(self.post(batch, 'Alpha Group (AGX)'), 'Organisation set on 2 row(s)')
+        row.refresh_from_db()
+        self.assertEqual(row.data['organisation'], 'Hand Edited (HND)')
+
+    def test_empty_overlong_and_inactive_values_change_nothing(self):
+        batch = self.three_and_one()
+        Organisation.objects.create(name='Gone (GON)', active=False)
+        for value in ('   ', 'x' * 201, 'gone (gon)'):
+            page = self.post(batch, value)
+            self.assertContains(page, 'Nothing was changed')
+        self.assertEqual(batch.rows.exclude(data__organisation='').count(), 0)
+
+    def test_state_method_and_login_guards(self):
+        batch = self.three_and_one()
+        url = reverse('import_apply_organisation', args=[batch.pk])
+        self.assertEqual(self.client.get(url).status_code, 405)
+        svc.discard_batch(batch)
+        self.assertContains(self.post(batch, 'Alpha Group (AGX)'), 'can no longer be changed')
+        self.client.logout()
+        self.assertEqual(self.client.post(url, {}).status_code, 302)
+
+    def test_prefill_only_when_exactly_one_existing_organisation_matches(self):
+        from core.services import org_hints
+        batch = self.three_and_one()
+        self.assertEqual({g['hint']: g['proposal'] for g in org_hints.groups(batch)}, {'Alpha Group': '', 'Beta Group': ''})
+        Organisation.objects.create(name='Alpha Group (AGX)')
+        self.assertEqual({g['hint']: g['proposal'] for g in org_hints.groups(batch)}['Alpha Group'], 'Alpha Group (AGX)')
+        Organisation.objects.create(name='Alpha Group Trust (AGT)')
+        self.assertEqual({g['hint']: g['proposal'] for g in org_hints.groups(batch)}['Alpha Group'], '')
