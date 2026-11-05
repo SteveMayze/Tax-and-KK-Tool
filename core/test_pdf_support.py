@@ -121,6 +121,21 @@ ACCEPTED = {
     'withholding': (WITH_WITHHOLDING, EXPECT_WITHHOLDING), 'reinvested': (REINVESTED, EXPECT_REINVESTED),
 }
 
+BRACKETED_NET = [
+    'Example Annuity Fund Limited ABN 33 333 333 333', 'Dividend Statement', 'Record Date', 'Payment Date', '17 February 2025', '6 March 2025',
+    'T 0000002 000 BRK', 'Franked', 'Unfranked', 'Net Payment (AUD$) $122.00', 'Your Payment Instruction', 'Amount Deposited', 'AUD $122.00',
+    'Ordinary Shares AU 30 Cents 400 $0.00 $122.00 $122.00',
+]
+DATE_PAID = [
+    'DISTRIBUTION STATEMENT FOR THE HALF YEAR ENDED 31 DECEMBER 2024', 'Example Property Group ABN 44 444 444 444',
+    'T 0000003 000 EPG', 'DISTRIBUTION - EPT 2,400 4.5 cents $108.00', 'TOTAL PAYMENT $108.00',
+    'LESS RESIDENT WITHHOLDING TAX $0.00', 'NET PAYMENT $108.00', 'DATE PAID: 27 February 2025', 'RECORD DATE: 31 December 2024',
+]
+DUPLICATE_DATE_LABELS = [
+    'Example Energy Limited ABN 55 555 555 555', 'T 0000004 000 EEL', '25 September 2025', 'Dividend Reinvestment Plan Residual Balance Payout',
+    'Class Description Payment Amount (AUD) Number ofSecurities TotalPayment', 'Ordinary Shares 221 $2.21', 'Payment Date', '25 September 2025',
+    'Amount Deposited', 'AUD$2.21', 'Payment Date:', '$2.21',
+]
 SCHEME_PAYMENT = ['Example Cement Limited ABN 77 777 777 777', 'Scheme Consideration Payment', 'The Scheme Consideration is $8.88 cash per share',
                   'Ordinary Shares $8.88 1,000 $8,880.00', 'Net Payment $8,880.00', 'Payment date: 9 July 2024']
 BONUS_SHARE_PLAN = ['Example Bank Limited ABN 88 888 888 888', 'Bonus Share Plan Statement', 'Dividend Rate per Share 85 cents',

@@ -3415,3 +3415,29 @@ msgstr "Das Paket wäre größer als die Grenze von %(mb)s MB."
 
 msgid "An original statement could not be read while building the package. Nothing was downloaded."
 msgstr "Eine Original-Abrechnung konnte beim Erstellen des Pakets nicht gelesen werden. Es wurde nichts heruntergeladen."
+
+#, python-format
+msgid "%(p)s%% franked"
+msgstr "%(p)s %% franked (australische Steueranrechnung)"
+
+#, python-format
+msgid "franked amount A$%(a)s"
+msgstr "Franked-Betrag A$%(a)s"
+
+#, python-format
+msgid "unfranked amount A$%(a)s"
+msgstr "Unfranked-Betrag A$%(a)s"
+
+#, python-format
+msgid "franking credit A$%(a)s"
+msgstr "Franking Credit A$%(a)s"
+
+#, python-format
+msgid "Franking (information only, not part of gross, net or withholding): %(parts)s."
+msgstr "Franking (nur zur Information, nicht Teil von Brutto, Netto oder Quellensteuer): %(parts)s."
+
+msgid "The franked and unfranked amounts do not add up to the total payment."
+msgstr "Der Franked- und der Unfranked-Betrag ergeben nicht die Gesamtzahlung."
+
+msgid "A franking credit is shown although nothing is franked."
+msgstr "Ein Franking Credit ist angegeben, obwohl nichts franked ist."
