@@ -46,13 +46,16 @@ def resolve(model, name):
     return obj or model.objects.create(name=_clean(name))
 
 
-def resolve_organisation(name):
-    """An organisation named by a statement rule (the tenant of the joint-account rent, Phase 26) is created with country
-    DE; any other new organisation is created without a country, as before."""
+def resolve_organisation(name, country=''):
+    """A NEW organisation is created with `country` (the owner's confirmed choice at import, ADR 0040; blank = unknown).
+    One named by a statement rule (the tenant of the joint-account rent, Phase 26) gets DE when no country is given.
+    An existing organisation is returned unchanged: its country is never overwritten."""
     from core.models import StatementRule
-    if find(Organisation, name) is None and StatementRule.objects.filter(organisation__iexact=_clean(name)).exists():
+    if find(Organisation, name) is None:
         check_usable(Organisation, name)
-        return Organisation.objects.create(name=_clean(name), country='DE')
+        if not country and StatementRule.objects.filter(organisation__iexact=_clean(name)).exists():
+            country = 'DE'
+        return Organisation.objects.create(name=_clean(name), country=country)
     return resolve(Organisation, name)
 
 

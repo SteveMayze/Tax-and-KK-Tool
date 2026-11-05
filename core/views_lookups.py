@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import CategoryForm, OrganisationForm
 from .models import IncomeCategory, Organisation
+from .services import org_countries
 
 CONFIG = {
     'organisation': {'model': Organisation, 'form': OrganisationForm, 'title': gettext_lazy('Organisations'),
@@ -52,3 +53,21 @@ def lookup_delete(request, kind, pk):
         'consequence': (_('It is used by %(n)s payment(s) and cannot be deleted; deactivate it instead.') % {'n': used}
                         if used else _('This cannot be undone.')),
         'blocked': bool(used), 'cancel_href': reverse(f'{kind}_list', args=[])})
+
+
+@login_required
+def organisation_countries(request):
+    """Proposes a country for organisations that have none, where every payment has the same non-EUR currency. Changes
+    nothing until the owner ticks organisations and confirms (POST); the country applied is the server's own proposal."""
+    proposals = org_countries.organisation_proposals()
+    if request.method == 'POST':
+        ticked = set(request.POST.getlist('org'))
+        applied = 0
+        for org, code, _ccy, _n in proposals:
+            if str(org.pk) in ticked:
+                org.country = code
+                org.save()
+                applied += 1
+        messages.success(request, _('Country set for %(n)s organisation(s).') % {'n': applied})
+        return redirect('organisation_countries')
+    return render(request, 'core/organisation_countries.html', {'proposals': proposals})

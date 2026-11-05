@@ -13,8 +13,8 @@ All models live in `core/models.py`. Money uses `Decimal` (see decisions/0001-de
 | `ExchangeRateRecord` | Append-only rate record: currency, requested date, rate date, rate (EUR per 1 unit), provider, `is_manual`, notes, request URL, response body, retrieval time. Reused for identical provider requests; manual records are always new. |
 | `ConversionEvent` | Append-only audit trail per payment: kind (initial, recalculated, manual correction, currency/date edited, amounts edited), the rate record, rate, rate date and EUR amounts that took effect, the values they replaced, and a reason. Deleted with its payment (records are kept). |
 | `SourceDocument` | An original file a payment came from: name (display only), SHA-256. |
-| `ImportBatch` | One CSV upload: file name, SHA-256, stored path (relative to `UPLOAD_DIR`), status (preview / committed / discarded), warnings, imported/skipped/unconverted counts, link to its `SourceDocument`. |
-| `ImportRow` | A staged CSV row: line number, editable and original cell values (JSON), status (valid / invalid / duplicate), errors, notes, excluded / keep-duplicate flags, duplicate reference, the proposed conversion shown in the review (applied at commit), and the payment it created. Deleted with the batch. |
+| `ImportBatch` | One CSV upload: file name, SHA-256, stored path (relative to `UPLOAD_DIR`), status (preview / committed / discarded), warnings, `organisation_countries` (JSON, the owner's country choices at review, ADR 0040), imported/skipped/unconverted counts, link to its `SourceDocument`. |
+| `ImportRow` | A staged CSV row: line number, editable and original cell values (JSON), status (valid / invalid / duplicate), errors, notes, excluded / keep-duplicate flags, `org_hint` (printed company name of a statement without an ASX code, grouping label only, ADR 0041), `reader_country` (the country the reader proposes for a new organisation, not a CSV column), duplicate reference, the proposed conversion shown in the review (applied at commit), and the payment it created. Deleted with the batch. |
 | `Payment` | See below. |
 
 ## Payment

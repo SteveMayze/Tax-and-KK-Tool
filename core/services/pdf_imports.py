@@ -15,7 +15,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils.translation import gettext, ngettext
 
-from core.models import ImportBatch, ImportRow
+from core.models import ImportBatch, ImportRow, Organisation
 
 from . import imports, pdf_text, statement_readers
 from .dividend_statements import UnsupportedStatement
@@ -70,6 +70,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
     refused = nothing = not_imported = 0
     statements_seen = {}                                  # (reader id, fingerprint) -> display name of the first file
     notices, continuity, by_reader, accepted = [], [], {}, []
+    reader_of = {}                                        # id(result) -> reader id (for the proposed country of new organisations)
     for raw_name, raw in sorted(files, key=lambda f: _clean_name(f[0]).lower()):
         name = _clean_name(raw_name)
         shown = _display_name(name)
@@ -94,6 +95,7 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
         by_reader.setdefault(outcome.reader_id, []).append((shown, result))
         continuity.append((shown, outcome.reader_id, result.continuity))      # all recognised statements, income or not
         accepted.append((name, shown, raw, result))
+        reader_of[id(result)] = outcome.reader_id
     settle_warnings = []
     for reader_id, items in by_reader.items():
         settle = statement_readers.reader_by_id(reader_id).settle
@@ -135,7 +137,9 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
     if previous:
         warnings.append(gettext('These exact files were already imported as batch #%(n)s. Importing them again will flag every row as a duplicate.')
                         % {'n': previous.pk})
-    rows = [(shown, row) for _n, shown, _r, result in staged for row in result.rows]
+    rows = [(shown, row, statement_readers.reader_by_id(reader_of[id(result)]).country)
+            for _n, shown, _r, result in staged for row in result.rows]
+    hints = [_add_organisation_proposal(row.data) for _shown, row, _country in rows]
     stored = None
     try:
         with transaction.atomic():
@@ -147,8 +151,8 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
             batch.save()
             ImportRow.objects.bulk_create([
                 ImportRow(batch=batch, line_number=number, data=dict(row.data), original=dict(row.data),
-                          source_name=shown, provenance=_provenance(row))
-                for number, (shown, row) in enumerate(rows, start=1)])
+                          source_name=shown, provenance=_provenance(row), reader_country=country, org_hint=hint)
+                for number, ((shown, row, country), hint) in enumerate(zip(rows, hints), start=1)])
             imports.revalidate_batch(batch, provider)
     except Exception:
         if stored:
@@ -157,6 +161,21 @@ def stage_pdf_batch(files, provider: RateProvider) -> ImportBatch:
     batch.file_counts = {'files': len(files), 'staged': len(staged), 'rows': len(rows), 'nothing': nothing,
                          'not_imported': not_imported, 'not_staged': len(skipped)}
     return batch
+
+
+def _add_organisation_proposal(data):
+    """A row whose reader could not find the ASX code carries `_org_hint` (the printed company name). Turn it into a visible
+    proposal: the one existing organisation whose name starts with it. Shown only; never applied (ADR 0040)."""
+    hint = data.pop('_org_hint', '')
+    if not hint:
+        return ''
+    structural = data.setdefault('_structural', [])
+    structural.append(gettext('The company name printed in the statement is "%(name)s".') % {'name': hint})
+    matches = list(Organisation.objects.filter(name__istartswith=hint)[:2])
+    if len(matches) == 1:
+        structural.append(gettext('Existing organisation that starts with this name (not applied; copy it into the organisation field if it is right): %(org)s.')
+                          % {'org': matches[0].name})
+    return hint[:200]
 
 
 def _notice_lines(notices):

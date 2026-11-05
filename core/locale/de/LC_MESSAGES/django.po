@@ -3415,3 +3415,149 @@ msgstr "Das Paket wäre größer als die Grenze von %(mb)s MB."
 
 msgid "An original statement could not be read while building the package. Nothing was downloaded."
 msgstr "Eine Original-Abrechnung konnte beim Erstellen des Pakets nicht gelesen werden. Es wurde nichts heruntergeladen."
+
+#, python-format
+msgid "%(p)s%% franked"
+msgstr "%(p)s %% franked (australische Steueranrechnung)"
+
+#, python-format
+msgid "franked amount A$%(a)s"
+msgstr "Franked-Betrag A$%(a)s"
+
+#, python-format
+msgid "unfranked amount A$%(a)s"
+msgstr "Unfranked-Betrag A$%(a)s"
+
+#, python-format
+msgid "franking credit A$%(a)s"
+msgstr "Franking Credit A$%(a)s"
+
+#, python-format
+msgid "Franking (information only, not part of gross, net or withholding): %(parts)s."
+msgstr "Franking (nur zur Information, nicht Teil von Brutto, Netto oder Quellensteuer): %(parts)s."
+
+msgid "The franked and unfranked amounts do not add up to the total payment."
+msgstr "Der Franked- und der Unfranked-Betrag ergeben nicht die Gesamtzahlung."
+
+msgid "A franking credit is shown although nothing is franked."
+msgstr "Ein Franking Credit ist angegeben, obwohl nichts franked ist."
+
+#, python-format
+msgid "Countries not saved: %(reason)s"
+msgstr "Länder nicht gespeichert: %(reason)s"
+
+
+msgid "Countries saved for this import. Nothing has been imported yet."
+msgstr "Länder für diesen Import gespeichert. Es wurde noch nichts importiert."
+
+
+msgid "Country of organisations"
+msgstr "Land der Organisationen"
+
+#, python-format
+msgid "Country set for %(n)s organisation(s)."
+msgstr "Land für %(n)s Organisation(en) gesetzt."
+
+#, python-format
+msgid "Existing organisation that starts with this name (not applied; copy it into the organisation field if it is right): %(org)s."
+msgstr "Vorhandene Organisation, die mit diesem Namen beginnt (nicht übernommen; bei Zutreffen in das Feld Organisation kopieren): %(org)s."
+
+
+msgid "Existing organisations without a country (left unchanged unless you tick):"
+msgstr "Vorhandene Organisationen ohne Land (bleiben unverändert, außer Sie haken sie an):"
+
+
+msgid "New organisation"
+msgstr "Neue Organisation"
+
+
+msgid "Nothing to propose."
+msgstr "Nichts vorzuschlagen."
+
+
+msgid "Only organisations whose payments are all in the same AUD, GBP or USD currency are listed. A currency is a hint, not proof of the country (a UK bank can pay in USD). Nothing changes until you tick organisations and confirm."
+msgstr "Aufgeführt werden nur Organisationen, deren Zahlungen alle in derselben Währung AUD, GBP oder USD sind. Eine Währung ist ein Hinweis, kein Beweis für das Land (eine britische Bank kann in USD zahlen). Es ändert sich nichts, bis Sie Organisationen ankreuzen und bestätigen."
+
+
+msgid "Propose countries for organisations without one"
+msgstr "Länder für Organisationen ohne Land vorschlagen"
+
+
+msgid "Propose countries"
+msgstr "Länder vorschlagen"
+
+
+msgid "Proposed country"
+msgstr "Vorgeschlagenes Land"
+
+
+msgid "Proposed from"
+msgstr "Vorschlag aus"
+
+
+msgid "Save countries"
+msgstr "Länder speichern"
+
+
+msgid "Set the country of the ticked organisations"
+msgstr "Land der angekreuzten Organisationen setzen"
+
+#, python-format
+msgid "Set the country of %(name)s to %(c)s"
+msgstr "Land von %(name)s auf %(c)s setzen"
+
+
+msgid "The ASX code was not found in this statement."
+msgstr "Der ASX-Code wurde in dieser Abrechnung nicht gefunden."
+
+
+msgid "The ASX code was not found in this statement. Enter the organisation as \"<company name> (<ASX code>)\"."
+msgstr "Der ASX-Code wurde in dieser Abrechnung nicht gefunden. Geben Sie die Organisation als „<Firmenname> (<ASX-Code>)“ ein."
+
+#, python-format
+msgid "The company name printed in the statement is \"%(name)s\"."
+msgstr "Der in der Abrechnung gedruckte Firmenname lautet „%(name)s“."
+
+
+msgid "The country is proposed from the statement type or, for AUD, GBP and USD, from the currency. A currency is a hint, not proof. Check it, change it if needed (two-letter code, e.g. DE, AU, GB, US; empty = unknown) and save. An existing organisation keeps its country."
+msgstr "Das Land wird aus der Art der Abrechnung oder, bei AUD, GBP und USD, aus der Währung vorgeschlagen. Eine Währung ist ein Hinweis, kein Beweis. Prüfen, bei Bedarf ändern (zweistelliger Code, z. B. DE, AU, GB, US; leer = unbekannt) und speichern. Eine vorhandene Organisation behält ihr Land."
+
+
+msgid "no country to propose"
+msgstr "kein Land vorzuschlagen"
+
+
+msgid "nothing to propose"
+msgstr "nichts vorzuschlagen"
+
+
+msgid "statement type"
+msgstr "Art der Abrechnung"
+
+#, python-format
+msgid "\"%(code)s\" is not an ISO 3166-1 alpha-2 country code."
+msgstr "„%(code)s“ ist kein Ländercode nach ISO 3166-1 Alpha-2."
+
+
+msgid "Organisation missing"
+msgstr "Organisation fehlt"
+
+
+msgid "These statements print no ASX code. Enter the organisation once, as company name and ASX code, and use it for all rows from the same company that are still empty. Rows you have edited are not touched."
+msgstr "Diese Abrechnungen enthalten keinen ASX-Code. Geben Sie die Organisation einmal als Firmenname und ASX-Code ein und übernehmen Sie sie für alle noch leeren Zeilen derselben Firma. Bereits bearbeitete Zeilen werden nicht verändert."
+
+#, python-format
+msgid "Printed name \"%(name)s\" (%(n)s row(s))"
+msgstr "Gedruckter Name „%(name)s“ (%(n)s Zeile(n))"
+
+#, python-format
+msgid "Use for all %(n)s rows"
+msgstr "Für alle %(n)s Zeilen übernehmen"
+
+#, python-format
+msgid "Nothing was changed: %(reason)s"
+msgstr "Es wurde nichts geändert: %(reason)s"
+
+#, python-format
+msgid "Organisation set on %(n)s row(s). Nothing has been imported yet."
+msgstr "Organisation bei %(n)s Zeile(n) gesetzt. Es wurde noch nichts importiert."

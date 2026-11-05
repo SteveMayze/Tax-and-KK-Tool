@@ -1,8 +1,11 @@
 """Reading Australian dividend and distribution advices from PDF text (Phase 14).
 
-Only what the owner records is extracted (decision 2026-10-19): the payment date, the payer (ASX code), the dividend
-paid (the total payment, gross) and the tax withheld. Franking details (franked/unfranked amount, franking credit) are
-Australian-tax-system information that is irrelevant for the German use case and is deliberately NOT read.
+What decides the recorded figures (decision 2026-10-19): the payment date, the payer (ASX code), the dividend paid (the
+total payment, gross) and the tax withheld. Franking details (franked amount, unfranked amount, franking percentage,
+franking credit) are read as INFORMATION ONLY since the fix of 2026-11-05 (ADR 0039, option B): they are shown in the review
+and written to the comment, they never change gross, net or withholding, and a figure that is not printed unambiguously is
+left out (never guessed). Franked + unfranked must equal the total payment, and a statement that is 0 % franked cannot
+carry a franking credit; otherwise the statement is refused.
 
 Every figure comes with the page and the text line it was taken from, so the owner can check it in the review. A value
 is never guessed: when the layout is not recognised, two readings disagree, or the arithmetic does not close, the
@@ -25,8 +28,8 @@ MONTHS = {m: i for i, m in enumerate(
     ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november',
      'december'], start=1)}
 DATE = r'(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})'
-MONEY = re.compile(r'(?<![\w.,])(?:A\$|AU\$|AUD\s?|\$)\s?(\d{1,3}(?:,\d{3})+\.\d{2}|\d+\.\d{2})(?![\d])')
-PURE_MONEY_LINE = re.compile(r'^(?:A\$|AU\$|AUD\s?|\$)\s?(?:\d{1,3}(?:,\d{3})+\.\d{2}|\d+\.\d{2})$')
+MONEY = re.compile(r'(?<![\w.,])(?:A\$|AU\$|AUD\s?\$?|\$)\s?(\d{1,3}(?:,\d{3})+\.\d{2}|\d+\.\d{2})(?![\d])')
+PURE_MONEY_LINE = re.compile(r'^(?:A\$|AU\$|AUD\s?\$?|\$)\s?(?:\d{1,3}(?:,\d{3})+\.\d{2}|\d+\.\d{2})$')
 CODE_STOPWORDS = {'TFN', 'ABN', 'AUS', 'HIN', 'SRN', 'BSB', 'ACC', 'THE', 'AND', 'ASX', 'AUD', 'USD', 'N/A', 'NIL'}
 
 
@@ -45,6 +48,12 @@ class Dividend:
     issuer: str = ''                 # the company's name when the statement prints it next to its ABN, else ''
     reinvested: bool = False
     evidence: dict = field(default_factory=dict)      # field -> (page number, source line)
+    franked: Decimal | None = None                   # information only (ADR 0039): None = not printed unambiguously
+    unfranked: Decimal | None = None
+    franking_credit: Decimal | None = None
+    franking_percent: Decimal | None = None
+    code_missing: bool = False        # no ASX code is printed (ADR 0040): the owner is asked for the organisation at review
+    printed_name: str = ''            # the company name as printed in the holding sentence, '' when not found
 
     def row_data(self, columns):
         """The import-row fields for this statement. Organisation: "<company name> (<ASX code>)" when the statement prints
@@ -53,11 +62,36 @@ class Dividend:
         comment = gettext('Dividend (PDF import).')
         if self.reinvested:
             comment += ' ' + gettext('Reinvested under a dividend reinvestment plan (no cash received).')
+        franking = self.franking_text()
+        if franking:
+            comment += ' ' + franking
         organisation = f'{self.issuer} ({self.code})' if self.issuer else self.code
+        if self.code_missing:
+            organisation = ''
+            data['_structural'] = [gettext(
+                'The ASX code was not found in this statement. Enter the organisation as "<company name> (<ASX code>)".')]
+            if self.printed_name:
+                data['_org_hint'] = self.printed_name          # staging turns it into a proposal; never stored as a column
         data.update(payment_date=self.payment_date.isoformat(), organisation=organisation, category='Dividends',
                     currency='AUD', gross_amount=format(self.gross, 'f'), net_amount=format(self.net, 'f'),
                     withholding_tax=format(self.withholding, 'f'), expenses='0', frequency='one_off', comment=comment)
         return data
+
+    def franking_text(self):
+        """One line of franking information for the comment ('' when nothing was read). Information only."""
+        parts = []
+        if self.franking_percent is not None:
+            parts.append(gettext('%(p)s%% franked') % {'p': format(self.franking_percent.normalize(), 'f')})
+        if self.franked is not None:
+            parts.append(gettext('franked amount A$%(a)s') % {'a': format(self.franked, 'f')})
+        if self.unfranked is not None:
+            parts.append(gettext('unfranked amount A$%(a)s') % {'a': format(self.unfranked, 'f')})
+        if self.franking_credit is not None:
+            parts.append(gettext('franking credit A$%(a)s') % {'a': format(self.franking_credit, 'f')})
+        if not parts:
+            return ''
+        return gettext('Franking (information only, not part of gross, net or withholding): %(parts)s.') % {
+            'parts': ', '.join(parts)}
 
     def provenance_items(self):
         items = dict(self.evidence)
@@ -95,6 +129,7 @@ def _payment_date(lines):
     inline = [
         re.compile(r'(?i)\bpayment\s+date\s*:?\s*' + DATE), re.compile(r'(?i)\bdate\s+payable\s*:?\s*' + DATE),
         re.compile(r'(?i)\bpayable\s+date\s*:?\s*' + DATE), re.compile(r'(?i)\bdate\s+credited\s*:?\s*' + DATE),
+        re.compile(r'(?i)\bdate\s+paid\s*:?\s*' + DATE),
         re.compile(r'(?i)^date\s*:\s*' + DATE),
     ]
     found = {}
@@ -120,6 +155,15 @@ def _payment_date(lines):
             labels += [m.group(1) for m in label_re.finditer(low)]
             first_label = index if first_label is None else first_label
             last_label = index
+    if labels and 'record' not in labels:
+        # Payment-date labels only (a label printed twice, as "Payment Date" and "Payment Date:"): accepted when every
+        # standalone date in the statement is one and the same date; two different dates stay ambiguous.
+        every = {_parse_date(*m.groups()) for _p, line in lines if re.fullmatch(r'(?:' + DATE + r'\s*)+', line)
+                 for m in re.finditer(DATE, line)}
+        if len(every) == 1 and None not in every:
+            d = next(iter(every))
+            page, line = next((p, l) for p, l in lines if re.fullmatch(r'(?:' + DATE + r'\s*)+', l))
+            return d, (page, line), None
     if labels and labels.count('record') <= 1 and (labels.count('payment') + labels.count('payable')) == 1:
         def standalone_dates(chunk):
             found = []
@@ -172,6 +216,8 @@ def _code(lines):
 
 
 NET_PATTERNS = [
+    # "Net Payment (AUD$) $122.01": the currency in brackets after the label (Phase 14 fix, ADR 0039)
+    re.compile(r'(?i)\bnet\s+payment\s*\(\s*A?U?D?\s*\$?\s*\)\s*(?:AUD\s?\$?|A\$|AU\$|\$)\s?(\d[\d,]*\.\d{2})'),
     re.compile(r'(?i)\bnet\s+(?:payment|amount|dividend\s+amount|dividend\s+payment)\b\W{0,3}(?:AUD|A\$|AU\$|\$)\s?(\d[\d,]*\.\d{2})'),
     re.compile(r'(?i)\b(?:amount\s+paid|payment\s+amount|amount\s+deposited)\b\s*:?\s*(?:AUD|A\$|AU\$|\$)\s?(\d[\d,]*\.\d{2})'),
     re.compile(r'(?i)\bdirect\s+credit\s+amount\s+AUD\s?(\d[\d,]*\.\d{2})'),
@@ -275,9 +321,86 @@ def _issuer(lines):
     return ''
 
 
+HOLDING_NAME = re.compile(r'(?i)\byour\s+holding\s+in\s+(.+?)(?:\s+and\b|[.,;:]|$)')
+
+
+def _printed_name(lines):
+    """The company name from the anchored phrase "your holding in <name>"; '' when the statement does not say it so."""
+    names = {_tidy_name(m.group(1)) for _p, line in lines for m in HOLDING_NAME.finditer(line)}
+    names.discard('')
+    return next(iter(names)) if len(names) == 1 and len(next(iter(names))) <= 70 else ''
+
+
 def _reinvested(lines):
     return any(re.search(r'(?i)dividend reinvestment plan amount|shares allotted|cost of shares allotted', line)
                for _p, line in lines)
+
+
+# ---------------------------------------------------------------- franking (information only, ADR 0039)
+
+MONEY_TEXT = r'(?:A\$|AU\$|AUD\s?\$?|\$)\s?(\d{1,3}(?:,\d{3})+\.\d{2}|\d+\.\d{2})'
+CREDIT_LABEL = re.compile(r'(?i)\bfranking\s+credits?\b\s*(?:\(\s*A?U?D?\$?\s*\))?\s*:?\s*' + MONEY_TEXT)
+AMOUNT_LABELS = {'franked': re.compile(r'(?i)(?<!un)\bfranked\s+amount\b\s*:?\s*' + MONEY_TEXT),
+                 'unfranked': re.compile(r'(?i)\bunfranked\s+amount\b\s*:?\s*' + MONEY_TEXT)}
+PERCENT_PATTERNS = [re.compile(r'(?i)\bfranking\s+percentage\s*:?\s*(\d{1,3}(?:\.\d+)?)\s*%'),
+                    re.compile(r'(?i)\b(\d{1,3}(?:\.\d+)?)\s*%\s+franked\b'),
+                    re.compile(r'(?i)\bfully\s+franked\s*\(\s*100\s*(?:%|per\s*cent)\s*\)')]
+UNFRANKED_PERCENT = re.compile(r'(?i)\b100\s*%\s+unfranked\b')
+HEADER_COLUMNS = [('unfranked', r'unfranked\s+amount'), ('franked', r'(?<!un)franked\s+amount'), ('total', r'total\s+payment'),
+                  ('credit', r'franking\s+credit')]
+
+
+def _single_value(found):
+    """The one value, or None when nothing was found or two readings disagree (information is never guessed)."""
+    values = {v for v, _e in found}
+    return (next(iter(values)), found[0][1]) if len(values) == 1 else (None, None)
+
+
+def _franking(lines, gross):
+    """(info dict of Decimals, evidence dict). Every field is optional: only what the statement prints unambiguously."""
+    info, evidence = {}, {}
+    credits = [(_decimal(m.group(1)), (page, line)) for page, line in lines for m in CREDIT_LABEL.finditer(line)]
+    for key, pattern in AMOUNT_LABELS.items():
+        found = [(_decimal(m.group(1)), (page, line)) for page, line in lines for m in pattern.finditer(line)]
+        value, ev = _single_value(found)
+        if value is not None:
+            info[key], evidence[key + '_amount'] = value, ev
+    # A header line naming the columns in one row (unfranked, franked, total payment, franking credit in print order),
+    # followed by a row whose last values are those columns.
+    for index, (page, line) in enumerate(lines):
+        positions = {name: m.start() for name, rx in HEADER_COLUMNS if (m := re.search('(?i)' + rx, line))}
+        if len(positions) != 4:
+            continue
+        order = sorted(positions, key=positions.get)
+        for _p, row in lines[index + 1:index + 3]:
+            values = _money(row)
+            if len(values) >= 4:
+                got = dict(zip(order, values[-4:]))
+                if got['total'] == gross and got['franked'] + got['unfranked'] == gross:
+                    for key in ('franked', 'unfranked'):
+                        info.setdefault(key, got[key])
+                        evidence.setdefault(key + '_amount', (_p, row))
+                    credits.append((got['credit'], (_p, row)))
+                break
+    credit, credit_ev = _single_value(credits)
+    if credit is not None:
+        info['credit'], evidence['franking_credit'] = credit, credit_ev
+    percents = []
+    for page, line in lines:
+        for rx in PERCENT_PATTERNS:
+            for m in rx.finditer(line):
+                percents.append((Decimal(m.group(1)) if m.groups() else Decimal(100), (page, line)))
+        if UNFRANKED_PERCENT.search(line):
+            percents.append((Decimal(0), (page, line)))
+    percent, percent_ev = _single_value(percents)
+    if percent is not None:
+        info['percent'], evidence['franking_percent'] = percent, percent_ev
+    # Consistency (refuse, never guess).
+    if 'franked' in info and 'unfranked' in info and info['franked'] + info['unfranked'] != gross:
+        raise UnsupportedStatement(gettext('The franked and unfranked amounts do not add up to the total payment.'))
+    if 'credit' in info and (info.get('percent') == 0 or info.get('franked') == 0) and info['credit'] != 0:
+        raise UnsupportedStatement(gettext('A franking credit is shown although nothing is franked.'))
+    return info, evidence
 
 
 # ---------------------------------------------------------------- the entry point
@@ -301,7 +424,12 @@ def parse(pages: list[str]) -> Dividend:
     payment_date, date_evidence, record_date = _payment_date(lines)
     if record_date and record_date > payment_date:
         raise UnsupportedStatement(gettext('The record date is after the payment date; the dates could not be read reliably.'))
-    code, code_evidence = _code(lines)
+    try:
+        code, code_evidence = _code(lines)
+        code_missing = False
+    except UnsupportedStatement:
+        # Everything else must still read and reconcile below; only then is the missing code left to the owner (ADR 0040).
+        code, code_evidence, code_missing = '', (1, gettext('The ASX code was not found in this statement.')), True
     columns = _column_layout(lines)
     if columns:
         gross, tax, net, row = columns
@@ -328,8 +456,13 @@ def parse(pages: list[str]) -> Dividend:
                 'net_amount': net_evidence}
     if withheld:
         evidence['withholding_tax'] = withheld[0][1]
+    franking, franking_evidence = _franking(lines, gross)
+    evidence.update(franking_evidence)
     return Dividend(code=code, payment_date=payment_date, gross=gross, net=net, withholding=withholding,
-                    record_date=record_date, issuer=_issuer(lines), reinvested=_reinvested(lines), evidence=evidence)
+                    record_date=record_date, issuer=_issuer(lines), reinvested=_reinvested(lines), evidence=evidence,
+                    code_missing=code_missing, printed_name=_printed_name(lines) if code_missing else '',
+                    franked=franking.get('franked'), unfranked=franking.get('unfranked'),
+                    franking_credit=franking.get('credit'), franking_percent=franking.get('percent'))
 
 
 def recognises(pages: list[str]) -> bool:

@@ -27,6 +27,7 @@ class Reader:
     recognises: Callable[[list[str]], bool]
     parse: Callable[[list[str]], StatementResult]
     needs_layout: bool = False
+    country: str = ''                  # ISO country proposed for a NEW organisation made from this reader's rows (ADR 0040); '' = none
     settle: Callable | None = None     # optional: settles values across all statements of one upload (see fidelity_stock_plan)
 
 
@@ -50,18 +51,18 @@ def _parse_fund(pages) -> StatementResult:
 
 # Order matters only for reporting; no two readers may claim the same file.
 READERS: list[Reader] = [
-    Reader(hsbc_savings.READER_ID, hsbc_savings.recognises, hsbc_savings.parse, needs_layout=True),
-    Reader(hodges_rental.READER_ID, hodges_rental.recognises, hodges_rental.parse),
-    Reader(mecu_account.READER_ID, mecu_account.recognises, mecu_account.parse, needs_layout=True, settle=mecu_account.settle),
-    Reader(ordminnett_cmt.READER_ID, ordminnett_cmt.recognises, ordminnett_cmt.parse, needs_layout=True, settle=ordminnett_cmt.settle),
-    Reader(ordminnett_cmt.VALUATION_ID, ordminnett_cmt.recognises_valuation, ordminnett_cmt.parse_valuation, needs_layout=True),
-    Reader(rvb_account.READER_ID, rvb_account.recognises, rvb_account.parse, needs_layout=True),
-    Reader(rvb_joint.READER_ID, rvb_joint.recognises, rvb_joint.parse, needs_layout=True),
-    Reader(etrade_client.READER_ID, etrade_client.recognises, etrade_client.parse, needs_layout=True),
-    Reader(fidelity_stock_plan.READER_ID, fidelity_stock_plan.recognises, fidelity_stock_plan.parse, needs_layout=True,
+    Reader(hsbc_savings.READER_ID, hsbc_savings.recognises, hsbc_savings.parse, needs_layout=True, country='GB'),
+    Reader(hodges_rental.READER_ID, hodges_rental.recognises, hodges_rental.parse, country='AU'),
+    Reader(mecu_account.READER_ID, mecu_account.recognises, mecu_account.parse, needs_layout=True, settle=mecu_account.settle, country='AU'),
+    Reader(ordminnett_cmt.READER_ID, ordminnett_cmt.recognises, ordminnett_cmt.parse, needs_layout=True, settle=ordminnett_cmt.settle, country='AU'),
+    Reader(ordminnett_cmt.VALUATION_ID, ordminnett_cmt.recognises_valuation, ordminnett_cmt.parse_valuation, needs_layout=True, country='AU'),
+    Reader(rvb_account.READER_ID, rvb_account.recognises, rvb_account.parse, needs_layout=True, country='DE'),
+    Reader(rvb_joint.READER_ID, rvb_joint.recognises, rvb_joint.parse, needs_layout=True, country='DE'),
+    Reader(etrade_client.READER_ID, etrade_client.recognises, etrade_client.parse, needs_layout=True, country='US'),
+    Reader(fidelity_stock_plan.READER_ID, fidelity_stock_plan.recognises, fidelity_stock_plan.parse, needs_layout=True, country='US',
            settle=fidelity_stock_plan.settle),
     Reader('revolut_flexible_cash_funds', interest_statements.recognises, _parse_fund),
-    Reader('au_dividend_advice', dividend_statements.recognises, _parse_dividend),
+    Reader('au_dividend_advice', dividend_statements.recognises, _parse_dividend, country='AU'),
 ]
 
 

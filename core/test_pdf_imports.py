@@ -26,7 +26,7 @@ from core.services.rates import FakeRateProvider
 
 from .test_pdf_support import (
     ACCEPTED, BONUS_SHARE_PLAN, DISAGREEING_NET, EXPECT_FUND, INCONSISTENT, MUFG_STYLE, NO_PAYMENT_DATE, REINVESTED, SCHEME_PAYMENT,
-    UNKNOWN_LAYOUT, fund_statement, make_pdf)
+    UNKNOWN_LAYOUT, BRACKETED_NET, DATE_PAID, DUPLICATE_DATE_LABELS, fund_statement, make_pdf)
 
 import datetime
 
@@ -57,7 +57,8 @@ class ExtractionTests(SimpleTestCase):
 
     def test_every_value_comes_with_its_source_line(self):
         d = parsed(MUFG_STYLE)
-        self.assertEqual(set(d.evidence), {'payment_date', 'organisation', 'gross_amount', 'net_amount', 'withholding_tax'})
+        self.assertEqual(set(d.evidence), {'payment_date', 'organisation', 'gross_amount', 'net_amount', 'withholding_tax', 'franked_amount',
+                                          'unfranked_amount', 'franking_credit'})
         page, text = d.evidence['net_amount']
         self.assertEqual((page, text), (1, 'Net Amount AUD 50.00'))
         self.assertEqual(d.evidence['payment_date'], (1, 'Payment Date: 12 May 2025'))
@@ -82,8 +83,46 @@ class ExtractionTests(SimpleTestCase):
         self.assertEqual(names['payment_then_record'], 'Hubb Limited')
         self.assertEqual(names['value_per_line'], '')                       # no name next to the ABN: the code alone is used
 
-    def test_franking_details_are_not_read(self):
-        self.assertFalse(hasattr(parsed(MUFG_STYLE), 'franking_credit'))
+    def test_franking_is_information_only_and_never_changes_gross_net_or_withholding(self):
+        d = parsed(MUFG_STYLE)
+        self.assertEqual((d.franked, d.unfranked, d.franking_credit), (D('50.00'), D('0.00'), D('21.43')))
+        self.assertEqual((d.gross, d.net, d.withholding), (D('50.00'), D('50.00'), D('0.00')))
+        self.assertIn('franking credit A$21.43', d.row_data(svc.COLUMNS)['comment'])
+        self.assertEqual(d.provenance_items()['franking_credit'][1], MUFG_STYLE[10])
+
+    def test_franking_percentages_zero_twenty_and_one_hundred(self):
+        for text, percent in (('For Australian income tax purposes, this payment is 100% unfranked.', D(0)),
+                              ('This dividend has been 20% franked at the company tax rate of 30%.', D(20)),
+                              ('This dividend is 100% franked at the company tax rate of 30%.', D(100))):
+            self.assertEqual(parsed(BRACKETED_NET + [text]).franking_percent, percent, text)
+
+    def test_franking_that_is_not_printed_unambiguously_is_left_out_not_guessed(self):
+        d = parsed(BRACKETED_NET)
+        self.assertEqual((d.franked, d.unfranked, d.franking_credit, d.franking_percent), (None, None, None, None))
+        self.assertEqual(d.franking_text(), '')
+        two = parsed(BRACKETED_NET + ['This dividend is 100% franked.', 'The dividend is 20% franked.'])
+        self.assertIsNone(two.franking_percent)
+
+    def test_franking_that_contradicts_the_amounts_refuses_the_statement(self):
+        with self.assertRaisesRegex(ds.UnsupportedStatement, 'do not add up'):
+            parsed(BRACKETED_NET + ['Franked Amount $100.00', 'Unfranked Amount $5.00'])
+        with self.assertRaisesRegex(ds.UnsupportedStatement, 'nothing is franked'):
+            parsed(BRACKETED_NET + ['This payment is 100% unfranked.', 'Franking Credit $1.00'])
+
+    def test_net_payment_with_the_currency_in_brackets(self):
+        d = parsed(BRACKETED_NET)
+        self.assertEqual((d.code, d.gross, d.net, d.withholding), ('BRK', D('122.00'), D('122.00'), D('0.00')))
+
+    def test_date_paid_label(self):
+        d = parsed(DATE_PAID)
+        self.assertEqual((d.payment_date, d.record_date, d.net), (datetime.date(2025, 2, 27), datetime.date(2024, 12, 31), D('108.00')))
+
+    def test_a_payment_date_label_printed_twice_is_one_date_but_two_dates_stay_ambiguous(self):
+        d = parsed(DUPLICATE_DATE_LABELS)
+        self.assertEqual((d.payment_date, d.net), (datetime.date(2025, 9, 25), D('2.21')))
+        other = DUPLICATE_DATE_LABELS + ['26 September 2025']
+        with self.assertRaisesRegex(ds.UnsupportedStatement, 'payment date'):
+            parsed(other)
 
     def test_pdf_problems_have_clear_messages(self):
         with self.assertRaisesRegex(pdf_text.PdfError, 'not a PDF'):
@@ -160,7 +199,7 @@ class StagingTests(UploadDirMixin, TestCase):
         self.assertEqual(named.data['organisation'], 'Acme Mining Limited (ACM)')
         unnamed = self.stage(('u.pdf', ACCEPTED['value_per_line'][0])).rows.get()
         self.assertEqual(unnamed.data['organisation'], 'RTO')
-        self.assertEqual(named.data['comment'], 'Dividend (PDF import).')
+        self.assertTrue(named.data['comment'].startswith('Dividend (PDF import).'))
 
     def test_each_value_shows_where_it_was_read(self):
         row = self.stage(('acme.pdf', MUFG_STYLE)).rows.get()

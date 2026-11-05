@@ -5,6 +5,7 @@
 <h1>{{ cfg.title }}</h1>
 <p class="actions"><a href="{% url kind|add:'_add' %}" class="btn btn-primary btn-icon" aria-label="{% trans "Add" %} {{ cfg.singular }}" title="{% trans "Add" %} {{ cfg.singular }}">{% icon "plus" %}</a></p>
 <p class="note">{% trans "Items used by payments cannot be deleted; deactivate them instead (inactive items are not offered when entering payments)." %}</p>
+{% if kind == 'organisation' %}<p><a href="{% url 'organisation_countries' %}">{% trans "Propose countries for organisations without one" %}</a></p>{% endif %}
 <table>
   <thead><tr><th>{% trans "Name" %}</th>{% if kind == 'organisation' %}<th>{% trans "Country" %}</th>{% else %}<th>{% trans "SBK treatment" %}</th><th>{% trans "Tax income type" %}</th><th>{% trans "May be negative" %}</th>{% endif %}<th>{% trans "Active" %}</th><th class="num">{% trans "Payments" %}</th><th></th></tr></thead>
   <tbody>

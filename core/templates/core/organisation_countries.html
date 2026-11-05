@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Propose countries" %}{% endblock %}
+{% block content %}
+<p><a href="{% url 'organisation_list' %}">{% trans "Organisations" %}</a></p>
+<h1>{% trans "Propose countries for organisations without one" %}</h1>
+<p class="note">{% trans "Only organisations whose payments are all in the same AUD, GBP or USD currency are listed. A currency is a hint, not proof of the country (a UK bank can pay in USD). Nothing changes until you tick organisations and confirm." %}</p>
+{% if proposals %}
+<form method="post">{% csrf_token %}
+  <table>
+    <thead><tr><th></th><th>{% trans "Organisation" %}</th><th>{% trans "Currency" %}</th><th class="num">{% trans "Payments" %}</th><th>{% trans "Proposed country" %}</th></tr></thead>
+    <tbody>{% for org, code, ccy, n in proposals %}
+    <tr><td><input type="checkbox" name="org" value="{{ org.pk }}" aria-label="{{ org.name }}"></td><td>{{ org.name }}</td><td>{{ ccy }}</td><td class="num">{{ n }}</td><td>{{ code }}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+  <p><button type="submit" class="btn btn-primary">{% trans "Set the country of the ticked organisations" %}</button></p>
+</form>
+{% else %}<p>{% trans "Nothing to propose." %}</p>{% endif %}
+{% endblock %}

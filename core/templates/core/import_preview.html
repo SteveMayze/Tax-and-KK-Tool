@@ -20,6 +20,34 @@
   <form method="post" action="{% url 'import_refresh_rates' batch.pk %}" class="inline">{% csrf_token %}<button type="submit" class="btn-secondary">{% icon "refresh" %}{% trans "Request exchange rates again" %}</button></form>
 </p>
 {% endif %}
+{% if editable and hint_groups %}
+<h2>{% trans "Organisation missing" %}</h2>
+<p class="note">{% trans "These statements print no ASX code. Enter the organisation once, as company name and ASX code, and use it for all rows from the same company that are still empty. Rows you have edited are not touched." %}</p>
+{% for g in hint_groups %}
+<form method="post" action="{% url 'import_apply_organisation' batch.pk %}">{% csrf_token %}
+  <input type="hidden" name="hint" value="{{ g.hint }}">
+  <label>{% blocktrans with name=g.hint n=g.count %}Printed name "{{ name }}" ({{ n }} row(s)){% endblocktrans %}
+    <input type="text" name="organisation" value="{{ g.proposal }}" maxlength="200" size="40"></label>
+  <button type="submit" class="btn btn-secondary">{% blocktrans with n=g.count %}Use for all {{ n }} rows{% endblocktrans %}</button>
+</form>
+{% endfor %}
+{% endif %}
+{% if editable and new_orgs or editable and blank_orgs %}
+<form method="post" action="{% url 'import_countries' batch.pk %}">{% csrf_token %}
+  <h2>{% trans "Country of organisations" %}</h2>
+  <p class="note">{% trans "The country is proposed from the statement type or, for AUD, GBP and USD, from the currency. A currency is a hint, not proof. Check it, change it if needed (two-letter code, e.g. DE, AU, GB, US; empty = unknown) and save. An existing organisation keeps its country." %}</p>
+  {% if new_orgs %}<table>
+    <thead><tr><th>{% trans "New organisation" %}</th><th>{% trans "Payments" %}</th><th>{% trans "Country" %}</th><th>{% trans "Proposed from" %}</th></tr></thead>
+    <tbody>{% for o in new_orgs %}
+    <tr><td>{{ o.name }}<input type="hidden" name="org_key" value="{{ o.key }}"></td><td class="num">{{ o.payments }}</td>
+      <td><input type="text" name="org_country" value="{{ o.country }}" maxlength="2" size="3" aria-label="{% trans "Country" %}: {{ o.name }}"></td>
+      <td class="note">{% if o.source == 'reader' %}{% trans "statement type" %}{% elif o.source == 'currency' %}{% trans "currency" %}{% else %}{% trans "nothing to propose" %}{% endif %}{% if o.proposed %} ({{ o.proposed }}){% endif %}</td></tr>
+    {% endfor %}</tbody></table>{% endif %}
+  {% if blank_orgs %}<p>{% trans "Existing organisations without a country (left unchanged unless you tick):" %}</p><ul>
+    {% for o in blank_orgs %}<li>{% if o.proposed %}<label><input type="checkbox" name="fill" value="{{ o.key }}"{% if o.fill %} checked{% endif %}> {% blocktrans with name=o.name c=o.proposed %}Set the country of {{ name }} to {{ c }}{% endblocktrans %}</label>{% else %}{{ o.name }} <span class="note">({% trans "no country to propose" %})</span>{% endif %}</li>{% endfor %}</ul>{% endif %}
+  <p><button type="submit" class="btn btn-secondary">{% trans "Save countries" %}</button></p>
+</form>
+{% endif %}
 <p>{% trans "Show:" %} {% if show == 'problems' %}<a href="?show=all">{% trans "all rows" %}</a> | <strong>{% trans "rows needing attention" %}</strong>{% else %}<strong>{% trans "all rows" %}</strong> | <a href="?show=problems">{% trans "rows needing attention" %}</a>{% endif %}</p>
 
 <table>

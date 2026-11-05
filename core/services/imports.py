@@ -23,7 +23,7 @@ from core.currencies import BASE_CURRENCY
 from core.models import (
     ImportBatch, ImportRow, IncomeCategory, Organisation, Payment, ReportingMonth, SourceDocument)
 
-from . import lookups
+from . import lookups, org_countries
 from .conversion import ConversionError, convert_payment, quote_notes, stored_quote
 from .i18n import number
 from .money import MoneyError, normalise_currency, to_decimal
@@ -441,6 +441,8 @@ def commit_batch(batch: ImportBatch) -> ImportBatch:
     if problems:
         raise ImportStateError(gettext('Rows still invalid (fix or exclude them): lines %(lines)s.') % {'lines': ', '.join(map(str, problems[:10]))})
 
+    new_countries = org_countries.countries_for_new(batch)
+    org_countries.fill_existing_countries(batch)
     doc = SourceDocument.objects.create(
         description=f'{batch.kind.upper()} import #{batch.pk}',
         file_name=batch.file_name, sha256=batch.sha256)
@@ -453,7 +455,8 @@ def commit_batch(batch: ImportBatch) -> ImportBatch:
             raise ImportStateError(gettext('Line %(n)s is no longer valid.') % {'n': r.line_number})
         payment = Payment(
             month=ReportingMonth.for_date(c['payment_date']),
-            organisation=lookups.resolve_organisation(c['organisation']),
+            organisation=lookups.resolve_organisation(
+                c['organisation'], country=new_countries.get(' '.join(c['organisation'].split()).lower(), '')),
             category=lookups.resolve_category(c['category']),
             payment_date=c['payment_date'], currency=c['currency'], gross_amount=c['gross_amount'],
             net_amount=c['net_amount'], withholding_tax=c['withholding_tax'], expenses=c['expenses'],
