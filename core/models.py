@@ -35,6 +35,10 @@ class ReportingYear(models.Model):
     year = models.PositiveSmallIntegerField(
         unique=True, validators=[MinValueValidator(1900), MaxValueValidator(2200)])
     notes = models.TextField(blank=True)
+    # SBK self-payer membership (docs/decisions, SBK letter review): first calendar month of this year in which the owner
+    # pays SBK contributions himself. Blank = all 12 months (the earlier assumption). Never inferred from payments.
+    self_pay_first_month = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(12)])
 
     class Meta:
         ordering = ['-year']
@@ -517,6 +521,19 @@ class AnnualInput(models.Model):
     @property
     def months_earned(self):
         return self.last_month - self.first_month + 1
+
+
+class TaxAssessmentFigures(models.Model):
+    """Figures printed on the Einkommensteuerbescheid of a year, typed in by the owner (SBK letter review, task G).
+
+    SBK sets the final contribution from this document. Stored only to compare it with SBK's letter and with the
+    app's estimate; no calculation uses them. Blank = not entered. Never guessed.
+    """
+    year = models.OneToOneField(ReportingYear, on_delete=models.CASCADE, related_name='tax_assessment_figures')
+    capital_income = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    rental_income_after_costs = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    other_income = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    note = models.TextField(max_length=1000, blank=True)
 
 
 class StatementRule(models.Model):

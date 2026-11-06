@@ -35,6 +35,14 @@ Research date: **2026-10-18**. Rules change yearly (rates, limits) and sometimes
 | Care insurance | **4.2 %** (23 or over, no children) | Default setting; base 3.6 % selectable; reduced rates for several children are not implemented until verified |
 | Tax scope | Information summary + the verified checks | `tax-information` policy: Sparer-Pauschbetrag, private-sale Freigrenze, flat-tax rate as reference. **No tax amount**, no treaty logic |
 
+## Decisions made (2026-11-06, after SBK's letter; ADR 0042)
+| Question | Decision | Effect |
+|---|---|---|
+| Health-insurance rate | SBK's Beitragsmitteilung of 2026-11-06 applies the **reduced rate 14.00 %** and additional contribution **3.80 %**; accepted by the owner as a valid source | Setting reduced, "confirmed" ticked; the "upper bound" label no longer appears |
+| Care insurance (item 3, SBK-11) | SBK applies **4.20 %**; the owner has no children | The policy uses SBK's applied rate; the legal-basis CONFLICT stays documented |
+| Year 2025 | Parameters verified (ceiling 5,512.50, Bezugsgröße 3,745); first self-pay month **2025-11** | Estimate for 2 months; `self_pay_first_month` per year |
+| Joint rent share | Owner: 50 % | Not modelled; recorded in full (SBK's letter matches the full recorded rent) |
+
 ## Still open (your input or verification)
 1. **Category mapping.** Each category needs your SBK treatment and tax income type (Categories page). Unmapped categories are excluded and listed on every output.
 2. **Months earned.** BVSz section 5(2) divides annual rental/self-employed/capital income by the months it was earned. Which months receive the result is not spelled out; the policy applies it to the months you enter (default January to December). Please confirm this reading with SBK if your income does not run all year.
@@ -42,7 +50,7 @@ Research date: **2026-10-18**. Rules change yearly (rates, limits) and sometimes
 4. **Spouse income** (SBK-14), **child deductions**, **ranking of income types** (SBK-16) are not modelled.
 5. **Foreign-currency conversion** for SBK and for tax (SBK-12, TAX-08): ask SBK / your adviser.
 6. **Costs**: enter annual Werbungskosten / Betriebsausgaben per year for rental, self-employed and capital income (Annual inputs page). Tax-side expenses are not modelled (TAX-10).
-7. **Years**: the SBK estimate exists for **2026 only**. 2025 is waiting for SBK's answers to the open questions above before its parameters are verified and added.
+7. **Years**: the SBK estimate exists for **2025 and 2026** (2025 verified 2026-11-06). Earlier years and 2027 are refused until verified. **SBK letter of 2026-11-06 (provisional):** what "Sonstige Einnahmen" are, why the capital and Sonstige figures do not reconcile with the recorded data, whether rental costs are accepted before the Einkommensteuerbescheid, and the joint rent share (item 22) are open questions for SBK (see docs/sbk-letters/).
 8. **Newer SBK rules**: check for a BVSz amendment after 2024-03-20 and for SBK rate changes during the year.
 9. **Withholding tax and expenses (Phase 10, OPEN QUESTION).** How recorded withholding tax and expenses should affect the SBK and the tax figures is NOT decided: the app shows them next to gross and net and changes no calculation. Open: whether SBK takes gross or net foreign income, whether source-state withholding tax is creditable (treaty rules UK, AU, US; section 32d(5) EStG), and whether recorded expenses may replace the manual annual costs. Ask SBK and your tax adviser. Status: unverified, not implemented.
 10. **Loss-offset rules (Phase 11, UNVERIFIED).** Owner answer 2026-10-19: no SBK or tax-office statement on how losses count for health-insurance contributions is available; it stays unverified. Questions to ask SBK and your adviser are listed in income-tax-rules.md (TAX-11). The app implements no offset.
@@ -63,7 +71,7 @@ Research date: **2026-10-18**. Rules change yearly (rates, limits) and sometimes
 ## Implemented policies
 | Policy | Version | Rules | Tests |
 |---|---|---|---|
-| `sbk-contribution-estimate` | 1.0 (2026 parameters) | SBK-01 to SBK-10, SBK-17 (SBK-11 using SBK's published rate) | `core/test_policies_sbk.py` (hand-calculated) |
+| `sbk-contribution-estimate` | 1.1 (2025 and 2026 parameters) | SBK-01 to SBK-10, SBK-17 (SBK-11 using SBK's published rate) | `core/test_policies_sbk.py` (hand-calculated) |
 | `tax-information` | 1.0 | TAX-01, TAX-02, TAX-03 (reference), TAX-04 | `core/test_policies_tax.py` |
 
 Not implemented (unverified or out of scope): TAX-05 to TAX-10, SBK-13 detail, SBK-14, SBK-15 workflow, SBK-16.

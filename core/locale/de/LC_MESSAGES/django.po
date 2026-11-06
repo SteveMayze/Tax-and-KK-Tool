@@ -3561,3 +3561,61 @@ msgstr "Es wurde nichts geändert: %(reason)s"
 #, python-format
 msgid "Organisation set on %(n)s row(s). Nothing has been imported yet."
 msgstr "Organisation bei %(n)s Zeile(n) gesetzt. Es wurde noch nichts importiert."
+
+# SBK letter review (ADR 0042): wording proposed, see docs/glossary.md section F
+msgid "First month you pay SBK yourself (1-12; blank = all 12 months)"
+msgstr "Erster Monat der Selbstzahlung bei der SBK (1-12; leer = alle 12 Monate)"
+
+msgid "Capital income per the tax assessment, EUR a year"
+msgstr "Einkünfte aus Kapitalvermögen laut Einkommensteuerbescheid, EUR pro Jahr"
+
+msgid "Rental income after costs per the tax assessment, EUR a year"
+msgstr "Einkünfte aus Vermietung und Verpachtung nach Kosten laut Einkommensteuerbescheid, EUR pro Jahr"
+
+msgid "Other income per the tax assessment, EUR a year"
+msgstr "Sonstige Einkünfte laut Einkommensteuerbescheid, EUR pro Jahr"
+
+#, python-format
+msgid "WARNING %(type)s: %(exp)s EUR of expenses are recorded on the payments of %(year)s, but NO annual costs were entered, so nothing is deducted (recorded expenses are information only). With costs of that size the monthly base would be about %(m)s EUR lower. Enter the costs you want counted on the annual inputs page."
+msgstr "WARNUNG %(type)s: Auf den Zahlungen %(year)s sind %(exp)s EUR Ausgaben erfasst, aber es wurden KEINE Jahreskosten eingegeben; es wird daher nichts abgezogen (erfasste Ausgaben sind nur Information). Bei Kosten dieser Höhe läge die monatliche Bemessungsgrundlage etwa %(m)s EUR niedriger. Geben Sie die Kosten, die berücksichtigt werden sollen, auf der Seite der Jahreseingaben ein."
+
+#, python-format
+msgid "Contributions are estimated only from month %(m)s: the earlier months of %(year)s are not paid by you to SBK (setting \"first self-pay month\" of the year)."
+msgstr "Beiträge werden erst ab Monat %(m)s geschätzt: die früheren Monate %(year)s zahlen Sie nicht selbst an die SBK (Einstellung „Erster Monat der Selbstzahlung“ des Jahres)."
+
+#, python-format
+msgid "%(type)s: gross %(gross)s EUR; expenses recorded on payments %(rec)s EUR (not deducted); annual costs entered and used %(used)s EUR%(flat)s."
+msgstr "%(type)s: brutto %(gross)s EUR; auf den Zahlungen erfasste Ausgaben %(rec)s EUR (nicht abgezogen); eingegebene und verwendete Jahreskosten %(used)s EUR%(flat)s."
+
+#, python-format
+msgid " (capital: at least the flat %(f)s EUR applies)"
+msgstr " (Kapital: mindestens die Pauschale von %(f)s EUR)"
+
+msgid "Membership from the first self-pay month you entered for the year (default: all 12 months), each month counted as 30 days."
+msgstr "Mitgliedschaft ab dem für das Jahr eingegebenen ersten Monat der Selbstzahlung (Standard: alle 12 Monate), jeder Monat mit 30 Tagen."
+
+msgid "not self-paid"
+msgstr "nicht selbst gezahlt"
+
+#, python-format
+msgid "Calendar year %(year)s (estimate for the %(n)s months you pay SBK yourself, from month %(first)s)"
+msgstr "Kalenderjahr %(year)s (Schätzung für die %(n)s Monate, in denen Sie die SBK selbst zahlen, ab Monat %(first)s)"
+
+msgid "Costs"
+msgstr "Kosten"
+
+#, python-format
+msgid "Average total contribution per month (%(n)s months): %(eur)s EUR."
+msgstr "Durchschnittlicher Gesamtbeitrag pro Monat (%(n)s Monate): %(eur)s EUR."
+
+msgid "Membership"
+msgstr "Mitgliedschaft"
+
+msgid "The SBK estimate counts contributions only from this month. Leave blank if you paid SBK yourself for the whole year. Never inferred from payments."
+msgstr "Die SBK-Schätzung berücksichtigt Beiträge erst ab diesem Monat. Leer lassen, wenn Sie die SBK das ganze Jahr selbst gezahlt haben. Wird nie aus Zahlungen abgeleitet."
+
+msgid "Figures of the income tax assessment (Einkommensteuerbescheid)"
+msgstr "Zahlen des Einkommensteuerbescheids"
+
+msgid "Type in the figures printed on the assessment once you have it. SBK sets the final contribution from this document. They are only compared with SBK's letter and the estimate; no calculation uses them."
+msgstr "Geben Sie die im Bescheid gedruckten Zahlen ein, sobald Sie ihn haben. Die SBK setzt den endgültigen Beitrag anhand dieses Dokuments fest. Sie werden nur mit dem Schreiben der SBK und der Schätzung verglichen; keine Berechnung verwendet sie."

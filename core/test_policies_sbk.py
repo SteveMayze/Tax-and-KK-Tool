@@ -71,10 +71,31 @@ class SbkParametersTests(TestCase):
         self.assertEqual((p.kv_general_pct, p.zusatz_pct, p.pflege_base_pct), (D('14.6'), D('3.8'), D('3.6')))
 
     def test_unverified_years_are_refused(self):
-        for year in (2024, 2025, 2027):
+        for year in (2024, 2027):
             with self.assertRaises(sbk.PolicyUnavailable) as cm:
                 sbk.parameters_for(year)
-            self.assertIn('2026', str(cm.exception))
+            self.assertIn('2025, 2026', str(cm.exception))
+
+    def test_2025_parameters_are_the_2025_figures_not_a_copy_of_2026(self):
+        p = sbk.parameters_for(2025)
+        self.assertEqual((p.bbg_monthly, p.bezugsgroesse_monthly), (D('5512.50'), D('3745')))
+        self.assertEqual(round(p.min_monthly, 2), D('1248.33'))
+        self.assertEqual((p.kv_reduced_pct, p.zusatz_pct, p.pflege_base_pct, p.pflege_childless_surcharge_pct),
+                         (D('14.0'), D('3.8'), D('3.6'), D('0.6')))
+        self.assertTrue(any('2026-11-06' in src for src in p.sources))
+
+    def test_letter_of_2026_11_06_is_reproduced(self):
+        # Hand calculation, reduced rate 14.0 / additional 3.8 / care 4.2 (3.6 + 0.6):
+        #   3,971.82: 556.0548 -> 556.05 ; 150.9292 -> 150.93 ; 166.8164 -> 166.82 ; sum 873.80
+        #   2,296.98: 321.5772 -> 321.58 ;  87.2852 ->  87.29 ;  96.4732 ->  96.47 ; sum 505.34
+        # SBK's per-type figures sum to the same base, so rounding the total once gives the letter's cents.
+        for base, kv_g, zusatz, pv, total in ((D('3971.82'), '556.05', '150.93', '166.82', '873.80'),
+                                              (D('2296.98'), '321.58', '87.29', '96.47', '505.34')):
+            got = sbk.contributions(base, D('14.0'), D('3.8'), D('4.2'))
+            self.assertEqual(got[0], D(kv_g))
+            self.assertEqual(got[1], D(zusatz))
+            self.assertEqual(got[3], D(pv))
+            self.assertEqual(got[2] + got[3], D(total))
 
     def test_rates_follow_settings(self):
         p = sbk.parameters_for(2026)
@@ -315,7 +336,7 @@ class SbkReportTests(TestCase):
         self.assertEqual(rep.rows[0]['month'], '2026-01 January')
         b = dict(rep.basis)
         self.assertIn('NOT an SBK assessment', b['Status'])
-        self.assertIn('sbk-contribution-estimate 1.0', b['Policy'])
+        self.assertIn('sbk-contribution-estimate 1.1', b['Policy'])
         self.assertIn('5,812.50', b['Parameters'])
         self.assertIn('1,318.33', b['Parameters'])
         self.assertIn('18.4%', b['Parameters'])
@@ -323,14 +344,101 @@ class SbkReportTests(TestCase):
         self.assertIn('Other (1 payment(s), 777.00 EUR converted)', b['Excluded / missing'])
         self.assertIn('1 unconverted payment(s) in mapped categories', b['Excluded / missing'])
         self.assertEqual(sum(1 for k, _ in rep.basis if k == 'Assumption'), len(sbk.ASSUMPTIONS))
-        self.assertTrue(any('Average total contribution per month: 395.62' in n for n in rep.notes))   # 4747.40 / 12
+        self.assertTrue(any('Average total contribution per month (12 months): 395.62' in n for n in rep.notes))   # 4747.40 / 12
 
     def test_csv_carries_policy_version_assumptions_and_exclusions(self):
         text = report_csv.render(reports.REPORTS['sbk'].build(2026))
-        for needle in ('sbk-contribution-estimate 1.0', 'NOT an SBK assessment', 'Assumption,', 'BVSz section 5(3)',
+        for needle in ('sbk-contribution-estimate 1.1', 'NOT an SBK assessment', 'Assumption,', 'BVSz section 5(3)',
                        'EXCLUDED', '4747.40', 'Year total'):
             self.assertIn(needle, text)
 
     def test_report_for_unverified_year_is_unavailable(self):
         with self.assertRaises(sbk.PolicyUnavailable):
-            reports.REPORTS['sbk'].build(2025)
+            reports.REPORTS['sbk'].build(2024)
+
+
+class MembershipMonthsTests(TestCase):
+    """SBK letter 2026-11-06: self-pay from November 2025. Pension 3,971.82 in every month of 2025 (base per month),
+    reduced rate 14.0 / 3.8, care 4.2 -> 873.80 for each of Nov and Dec = 1,747.60; January to October carry nothing."""
+
+    def setUp(self):
+        map_categories(Pension='pension')
+        for month in range(1, 13):
+            add('3971.82', datetime.date(2025, month, 15), 'Pension')
+        self.settings = AssessmentSettings(kv_rate='reduced', kv_rate_confirmed=True, pflege='childless')
+
+    def test_default_is_all_twelve_months(self):
+        a = sbk.assess_year(2025, self.settings)
+        self.assertEqual((a.first_month, a.member_months), (1, 12))
+        self.assertEqual(a.total, D('873.80') * 12)
+
+    def test_first_self_pay_month_limits_the_estimate(self):
+        ReportingYear.objects.filter(year=2025).update(self_pay_first_month=11)
+        a = sbk.assess_year(2025, self.settings)
+        self.assertEqual(a.member_months, 2)
+        self.assertEqual([m.member for m in a.months], [False] * 10 + [True] * 2)
+        self.assertEqual(a.months[0].total, D(0))
+        self.assertEqual((a.months[10].total, a.months[11].total), (D('873.80'), D('873.80')))
+        self.assertEqual(a.total, D('1747.60'))
+        self.assertTrue(any('from month 11' in n for n in a.notes))
+
+    def test_report_states_the_months_and_average(self):
+        ReportingYear.objects.filter(year=2025).update(self_pay_first_month=11)
+        sbk.assess_year(2025, self.settings)
+        AssessmentSettings.objects.create(pk=1, kv_rate='reduced', kv_rate_confirmed=True, pflege='childless')
+        rep = reports.REPORTS['sbk'].build(2025)
+        self.assertEqual(rep.rows[0]['limit'], 'not self-paid')
+        self.assertEqual(rep.totals['total'], D('1747.60'))
+        self.assertIn('2 months', dict(rep.basis)['Period'])
+        self.assertTrue(any('873.80' in n for n in rep.notes))
+
+    def test_form_rejects_month_outside_1_to_12(self):
+        from core.forms import SelfPayFirstMonthForm
+        y = ReportingYear.objects.get(year=2025)
+        self.assertFalse(SelfPayFirstMonthForm({'self_pay_first_month': '13'}, instance=y).is_valid())
+        self.assertTrue(SelfPayFirstMonthForm({'self_pay_first_month': ''}, instance=y).is_valid())
+
+
+class RentalCostsVisibilityTests(TestCase):
+    def setUp(self):
+        map_categories(Rental='rental')
+        p = add(1200, datetime.date(2025, 3, 1), 'Rental', expenses='300', net='900')
+        p.refresh_from_db()
+
+    def test_recorded_expenses_without_annual_costs_warn_loudly_and_are_not_deducted(self):
+        a = sbk.assess_year(2025, AssessmentSettings(kv_rate='reduced', kv_rate_confirmed=True))
+        self.assertEqual(a.cost_lines, [('rental', D('1200'), D('300'), D(0))])
+        self.assertEqual(a.months[0].components['rental'], D(100))          # 1,200 / 12, no deduction
+        warn = [n for n in a.notes if n.startswith('WARNING')]
+        self.assertEqual(len(warn), 1)
+        self.assertIn('300', warn[0])
+
+    def test_entered_costs_are_used_and_no_warning(self):
+        AnnualInput.objects.create(year=ReportingYear.objects.get(year=2025), treatment='rental', costs_eur=300)
+        a = sbk.assess_year(2025, AssessmentSettings(kv_rate='reduced', kv_rate_confirmed=True))
+        self.assertEqual(a.months[0].components['rental'], D(75))           # (1,200 - 300) / 12
+        self.assertFalse([n for n in a.notes if n.startswith('WARNING')])
+        self.assertEqual(a.cost_lines, [('rental', D('1200'), D('300'), D(300))])
+
+
+class TaxAssessmentFiguresTests(TestCase):
+    def test_figures_are_stored_per_year_and_shown_by_the_comparison_command(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from core.models import TaxAssessmentFigures
+        y = ReportingYear.objects.create(year=2025)
+        TaxAssessmentFigures.objects.create(year=y, capital_income=D('11000.00'), rental_income_after_costs=D('19000.00'))
+        out = StringIO()
+        call_command('sbk_letter_reconciliation', year=2025, stdout=out)
+        self.assertIn('rental after costs 19000.00', out.getvalue())
+        self.assertIn('other None', out.getvalue())
+
+    def test_page_saves_figures(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+        ReportingYear.objects.create(year=2025)
+        get_user_model().objects.create_user('t', password='x')
+        self.client.login(username='t', password='x')
+        r = self.client.post(reverse('annual_inputs', args=[2025]), {'capital_income': '11000.50', 'rental_income_after_costs': '', 'other_income': '', 'note': ''})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(ReportingYear.objects.get(year=2025).tax_assessment_figures.capital_income, D('11000.50'))

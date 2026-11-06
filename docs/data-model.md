@@ -9,6 +9,8 @@ All models live in `core/models.py`. Money uses `Decimal` (see decisions/0001-de
 | `Organisation` | `name`, `country` (ISO alpha-2, optional), `active`. Names are whitespace-normalised and unique case-insensitively, which prevents duplicate spellings. |
 | `IncomeCategory` | Configurable `name`, `active`. Seeded: Salary, Pension, Rental, Interest, Dividends, Capital gains, Other. Optional user-chosen `sbk_treatment` and `tax_income_type` mappings; blank = unmapped (never guessed). |
 | `AssessmentSettings` | Single row: health-insurance rate choice and whether SBK confirmed it, care-insurance rate choice, joint tax assessment. |
+| `ReportingYear.self_pay_first_month` | Optional 1-12: first month of the year in which the owner pays SBK contributions himself (blank = 12 months). Used only by the SBK estimate. |
+| `TaxAssessmentFigures` | One per year (deleted with the year): capital income, rental income after costs and other income as printed on the Einkommensteuerbescheid, typed in by the owner; compared, never calculated with. |
 | `AnnualInput` | Per year and SBK treatment (self-employed, rental, capital): annual costs in EUR and first/last month earned. |
 | `ExchangeRateRecord` | Append-only rate record: currency, requested date, rate date, rate (EUR per 1 unit), provider, `is_manual`, notes, request URL, response body, retrieval time. Reused for identical provider requests; manual records are always new. |
 | `ConversionEvent` | Append-only audit trail per payment: kind (initial, recalculated, manual correction, currency/date edited, amounts edited), the rate record, rate, rate date and EUR amounts that took effect, the values they replaced, and a reason. Deleted with its payment (records are kept). |

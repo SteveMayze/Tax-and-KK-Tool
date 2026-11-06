@@ -24,7 +24,7 @@ def sbk_estimate(year):
     rows = []
     for m in a.months:
         row = {'month': f'{year}-{m.month:02d} {month_name(m.month)}', 'base': m.base, 'assessed': m.assessed,
-               'limit': {'minimum': _('minimum'), 'maximum': _('maximum')}.get(m.limit, m.limit), 'kv_general': m.kv_general, 'kv_zusatz': m.kv_zusatz, 'kv': m.kv,
+               'limit': {'minimum': _('minimum'), 'maximum': _('maximum'), 'not self-paid': _('not self-paid')}.get(m.limit, m.limit), 'kv_general': m.kv_general, 'kv_zusatz': m.kv_zusatz, 'kv': m.kv,
                'pflege': m.pflege, 'total': m.total}
         row.update({t: m.components[t] for t in TREATMENTS})
         rows.append(row)
@@ -41,7 +41,8 @@ def sbk_estimate(year):
     p = a.params
     payments = list(_payments(year))
     basis = [
-        (_('Period'), _('Calendar year %(year)s (estimate for each of its 12 months)') % {'year': year}),
+        (_('Period'), _('Calendar year %(year)s (estimate for the %(n)s months you pay SBK yourself, from month %(first)s)') % {
+            'year': year, 'n': a.member_months, 'first': a.first_month}),
         (_('Policy'), _('%(version)s. Sources: %(sources)s. Rules: docs/rules/sbk-contribution-rules.md') % {
             'version': p.policy_version, 'sources': '; '.join(p.sources)}),
         (_('Status'), NOT_AN_ASSESSMENT),
@@ -67,8 +68,12 @@ def sbk_estimate(year):
     if a.excluded_by_mapping:
         excl.append(_('%(n)s payment(s) in categories mapped as "not contribution-relevant" excluded.') % {'n': a.excluded_by_mapping})
     excl += a.notes
+    for t, gross, rec, used in a.cost_lines:
+        basis.append((_('Costs'), _('%(type)s: gross %(gross)s EUR; expenses recorded on payments %(rec)s EUR (not deducted); annual costs entered and used %(used)s EUR%(flat)s.') % {
+            'type': str(sbk._short(t)), 'gross': number(gross), 'rec': number(rec), 'used': number(used),
+            'flat': _(' (capital: at least the flat %(f)s EUR applies)') % {'f': number(p.capital_costs_flat)} if t == 'capital' else ''}))
     basis.append((_('Excluded / missing'), ' '.join(excl) if excl else _('None.')))
-    notes = [_('Average total contribution per month: %(eur)s EUR.') % {'eur': number(a.total / 12)},
+    notes = [_('Average total contribution per month (%(n)s months): %(eur)s EUR.') % {'n': a.member_months, 'eur': number(a.total / a.member_months)},
              _('Limit applied: "minimum" means the legal minimum base replaced a lower income.')]
     return Report('sbk', _('SBK contribution estimate'), _('Calendar year %(year)s') % {'year': year}, _('SBK-style estimate'), cols, rows, basis, totals, notes, timezone.now())
 

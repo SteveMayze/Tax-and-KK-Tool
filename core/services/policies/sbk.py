@@ -5,7 +5,7 @@ GKV-Spitzenverband Beitragsverfahrensgrundsaetze Selbstzahler (BVSz, 11th amendm
 2024-04-01), Katalog von Einnahmen, SBK's published 2026 rates.
 
 This is a planning estimate, NOT an SBK assessment. Parameters exist only for years whose figures
-were verified (currently 2026); other years are refused rather than guessed.
+were verified (currently 2025 and 2026); other years are refused rather than guessed.
 """
 import calendar
 from dataclasses import dataclass, field
@@ -15,7 +15,7 @@ from django.utils.translation import gettext as _, gettext_lazy
 
 from core.services.i18n import number
 
-from core.models import AnnualInput, AssessmentSettings, IncomeCategory, Payment, SbkTreatment
+from core.models import AnnualInput, AssessmentSettings, IncomeCategory, Payment, ReportingYear, SbkTreatment
 
 POLICY_NAME = 'sbk-contribution-estimate'
 CENT = Decimal('0.01')
@@ -52,7 +52,7 @@ class SbkParameters:
 
 PARAMETERS = {
     2026: SbkParameters(
-        year=2026, version='1.0 (2026 parameters, verified 2026-10-18)',
+        year=2026, version='1.1 (2026 parameters, verified 2026-10-18)',
         bbg_monthly=Decimal('5812.50'), bezugsgroesse_monthly=Decimal('3955'),
         kv_general_pct=Decimal('14.6'), kv_reduced_pct=Decimal('14.0'), zusatz_pct=Decimal('3.8'),
         pflege_base_pct=Decimal('3.6'), pflege_childless_surcharge_pct=Decimal('0.6'),
@@ -60,17 +60,20 @@ PARAMETERS = {
         sources=('section 240 SGB V', 'BVSz sections 3, 5, 9 (version 2024-04-01)', 'SBK website 2026 figures',
                  'SV-Rechengrossenverordnung 2026')),
     2025: SbkParameters(
-        year=2025, version='1.0 (2025 parameters, not verified)',
-        bbg_monthly=Decimal('5812.50'), bezugsgroesse_monthly=Decimal('3955'),
+        year=2025, version='1.1 (2025 parameters, verified 2026-11-06)',
+        bbg_monthly=Decimal('5512.50'), bezugsgroesse_monthly=Decimal('3745'),
         kv_general_pct=Decimal('14.6'), kv_reduced_pct=Decimal('14.0'), zusatz_pct=Decimal('3.8'),
         pflege_base_pct=Decimal('3.6'), pflege_childless_surcharge_pct=Decimal('0.6'),
         capital_costs_flat=Decimal('51'),
-        sources=('section 240 SGB V', 'BVSz sections 3, 5, 9 (version 2024-04-01)', 'SBK website 2025 figures',
-                 'SV-Rechengrossenverordnung 2025')),
+        sources=('section 240 SGB V', 'BVSz sections 3, 5, 9 (version 2024-04-01)',
+                 'SV-Rechengroessenverordnung 2025 (BGBl. 2024 I Nr. 365): Bezugsgroesse 3,745 EUR per month (section 1)',
+                 'BMAS page on the 2025 Verordnung: contribution ceiling 5,512.50 EUR per month (same figure as section 2(2) of the Verordnung)',
+                 'SBK Beitragsmitteilung 2026-11-06: reduced rate 14.0 %, additional contribution 3.8 % from 2025-11, care 3.6 % + 0.6 % '
+                 '(owner\'s document; rates for 2025-01 to 2025-10 are not needed unless the owner paid himself then)')),
 }
 
 ASSUMPTIONS = [
-    gettext_lazy('Membership for all 12 months of the year, each month counted as 30 days.'),
+    gettext_lazy('Membership from the first self-pay month you entered for the year (default: all 12 months), each month counted as 30 days.'),
     gettext_lazy('The base is derived from the selected year\'s data. SBK itself uses the last proven year and the tax assessment, and its '
     'contributions stay provisional until then.'),
     gettext_lazy('Employment and pension income is allocated to the month of the payment date (income-period dates are not used).'),
@@ -108,6 +111,7 @@ class MonthResult:
     kv_zusatz: Decimal
     kv: Decimal
     pflege: Decimal
+    member: bool = True          # False = before the first self-pay month: no contribution is estimated
 
     @property
     def total(self):
@@ -128,6 +132,12 @@ class Assessment:
     unconverted: int = 0
     unconverted_mapped: int = 0
     notes: list = field(default_factory=list)          # run-specific warnings
+    cost_lines: list = field(default_factory=list)    # [(treatment, gross, recorded expenses, costs entered)]
+    first_month: int = 1                               # first self-pay month of the year (1 = all 12 months)
+
+    @property
+    def member_months(self):
+        return 13 - self.first_month
 
     @property
     def total_kv(self):
@@ -187,6 +197,8 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
 
     comps = {m: {t: ZERO for t in SbkTreatment.values} for m in range(1, 13)}
     gross_year = {t: ZERO for t in (SbkTreatment.SELF_EMPLOYED, SbkTreatment.RENTAL, SbkTreatment.CAPITAL)}
+    expenses_year = {t: ZERO for t in gross_year}      # expenses RECORDED on payments: information only, never deducted
+    cost_lines = []
     unmapped, notes = {}, []
     losses = {}                      # treatment -> [count, EUR sum] of normal payments below 0 received in the year
     excluded_by_mapping = unconverted = unconverted_mapped = 0
@@ -224,6 +236,7 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
                     comps[idx % 12 + 1][treatment] += gross / 12
         elif in_year:
             gross_year[treatment] += gross
+            expenses_year[treatment] += p.expenses_eur or ZERO
 
     for treatment, gross in gross_year.items():
         inp = inputs.get(treatment)
@@ -231,6 +244,13 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
         costs = inp.costs_eur if inp else ZERO
         if gross == 0:
             continue
+        cost_lines.append((treatment, gross, expenses_year[treatment], costs))
+        if expenses_year[treatment] and costs == 0:
+            notes.append(_('WARNING %(type)s: %(exp)s EUR of expenses are recorded on the payments of %(year)s, but NO annual costs were entered, so '
+                           'nothing is deducted (recorded expenses are information only). With costs of that size the monthly base would be about '
+                           '%(m)s EUR lower. Enter the costs you want counted on the annual inputs page.') % {
+                'type': _short(treatment), 'exp': number(expenses_year[treatment]), 'year': year,
+                'm': number(expenses_year[treatment] / (last - first + 1))})
         if treatment == SbkTreatment.CAPITAL:
             costs = max(costs, params.capital_costs_flat)        # SBK-03: 51 EUR unless higher costs proven
         surplus = gross - costs
@@ -251,9 +271,17 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
                        '(loss-offset rules are unverified, docs/rules/).') % {
             'type': _short(treatment), 'n': count, 'eur': number(total)})
 
+    year_row = ReportingYear.objects.filter(year=year).first()
+    first_member_month = (year_row.self_pay_first_month if year_row else None) or 1
+    if first_member_month > 1:
+        notes.append(_('Contributions are estimated only from month %(m)s: the earlier months of %(year)s are not paid by you to SBK '
+                       '(setting "first self-pay month" of the year).') % {'m': first_member_month, 'year': year})
     months = []
     for m in range(1, 13):
         base = sum(comps[m].values(), ZERO)
+        if m < first_member_month:
+            months.append(MonthResult(m, comps[m], base, ZERO, 'not self-paid', ZERO, ZERO, ZERO, ZERO, member=False))
+            continue
         if base < params.min_monthly:
             assessed, limit = params.min_monthly, 'minimum'
         elif base > params.bbg_monthly:
@@ -266,4 +294,5 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
     return Assessment(
         params, settings, months, kv_pct, zusatz_pct, pflege_pct, label,
         unmapped=sorted((n, c, g) for n, (c, g) in unmapped.items()),
-        excluded_by_mapping=excluded_by_mapping, unconverted=unconverted, unconverted_mapped=unconverted_mapped, notes=notes)
+        excluded_by_mapping=excluded_by_mapping, unconverted=unconverted, unconverted_mapped=unconverted_mapped, notes=notes,
+        first_month=first_member_month, cost_lines=cost_lines)
