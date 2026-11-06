@@ -344,7 +344,7 @@ class SbkReportTests(TestCase):
         self.assertIn('Other (1 payment(s), 777.00 EUR converted)', b['Excluded / missing'])
         self.assertIn('1 unconverted payment(s) in mapped categories', b['Excluded / missing'])
         self.assertEqual(sum(1 for k, _ in rep.basis if k == 'Assumption'), len(sbk.ASSUMPTIONS))
-        self.assertTrue(any('Average total contribution per month: 395.62' in n for n in rep.notes))   # 4747.40 / 12
+        self.assertTrue(any('Average total contribution per month (12 months): 395.62' in n for n in rep.notes))   # 4747.40 / 12
 
     def test_csv_carries_policy_version_assumptions_and_exclusions(self):
         text = report_csv.render(reports.REPORTS['sbk'].build(2026))
@@ -355,3 +355,45 @@ class SbkReportTests(TestCase):
     def test_report_for_unverified_year_is_unavailable(self):
         with self.assertRaises(sbk.PolicyUnavailable):
             reports.REPORTS['sbk'].build(2024)
+
+
+class MembershipMonthsTests(TestCase):
+    """SBK letter 2026-11-06: self-pay from November 2025. Pension 3,971.82 in every month of 2025 (base per month),
+    reduced rate 14.0 / 3.8, care 4.2 -> 873.80 for each of Nov and Dec = 1,747.60; January to October carry nothing."""
+
+    def setUp(self):
+        map_categories(Pension='pension')
+        for month in range(1, 13):
+            add('3971.82', datetime.date(2025, month, 15), 'Pension')
+        self.settings = AssessmentSettings(kv_rate='reduced', kv_rate_confirmed=True, pflege='childless')
+
+    def test_default_is_all_twelve_months(self):
+        a = sbk.assess_year(2025, self.settings)
+        self.assertEqual((a.first_month, a.member_months), (1, 12))
+        self.assertEqual(a.total, D('873.80') * 12)
+
+    def test_first_self_pay_month_limits_the_estimate(self):
+        ReportingYear.objects.filter(year=2025).update(self_pay_first_month=11)
+        a = sbk.assess_year(2025, self.settings)
+        self.assertEqual(a.member_months, 2)
+        self.assertEqual([m.member for m in a.months], [False] * 10 + [True] * 2)
+        self.assertEqual(a.months[0].total, D(0))
+        self.assertEqual((a.months[10].total, a.months[11].total), (D('873.80'), D('873.80')))
+        self.assertEqual(a.total, D('1747.60'))
+        self.assertTrue(any('from month 11' in n for n in a.notes))
+
+    def test_report_states_the_months_and_average(self):
+        ReportingYear.objects.filter(year=2025).update(self_pay_first_month=11)
+        sbk.assess_year(2025, self.settings)
+        AssessmentSettings.objects.create(pk=1, kv_rate='reduced', kv_rate_confirmed=True, pflege='childless')
+        rep = reports.REPORTS['sbk'].build(2025)
+        self.assertEqual(rep.rows[0]['limit'], 'not self-paid')
+        self.assertEqual(rep.totals['total'], D('1747.60'))
+        self.assertIn('2 months', dict(rep.basis)['Period'])
+        self.assertTrue(any('873.80' in n for n in rep.notes))
+
+    def test_form_rejects_month_outside_1_to_12(self):
+        from core.forms import SelfPayFirstMonthForm
+        y = ReportingYear.objects.get(year=2025)
+        self.assertFalse(SelfPayFirstMonthForm({'self_pay_first_month': '13'}, instance=y).is_valid())
+        self.assertTrue(SelfPayFirstMonthForm({'self_pay_first_month': ''}, instance=y).is_valid())

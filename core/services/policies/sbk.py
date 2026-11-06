@@ -15,7 +15,7 @@ from django.utils.translation import gettext as _, gettext_lazy
 
 from core.services.i18n import number
 
-from core.models import AnnualInput, AssessmentSettings, IncomeCategory, Payment, SbkTreatment
+from core.models import AnnualInput, AssessmentSettings, IncomeCategory, Payment, ReportingYear, SbkTreatment
 
 POLICY_NAME = 'sbk-contribution-estimate'
 CENT = Decimal('0.01')
@@ -73,7 +73,7 @@ PARAMETERS = {
 }
 
 ASSUMPTIONS = [
-    gettext_lazy('Membership for all 12 months of the year, each month counted as 30 days.'),
+    gettext_lazy('Membership from the first self-pay month you entered for the year (default: all 12 months), each month counted as 30 days.'),
     gettext_lazy('The base is derived from the selected year\'s data. SBK itself uses the last proven year and the tax assessment, and its '
     'contributions stay provisional until then.'),
     gettext_lazy('Employment and pension income is allocated to the month of the payment date (income-period dates are not used).'),
@@ -111,6 +111,7 @@ class MonthResult:
     kv_zusatz: Decimal
     kv: Decimal
     pflege: Decimal
+    member: bool = True          # False = before the first self-pay month: no contribution is estimated
 
     @property
     def total(self):
@@ -131,6 +132,11 @@ class Assessment:
     unconverted: int = 0
     unconverted_mapped: int = 0
     notes: list = field(default_factory=list)          # run-specific warnings
+    first_month: int = 1                               # first self-pay month of the year (1 = all 12 months)
+
+    @property
+    def member_months(self):
+        return 13 - self.first_month
 
     @property
     def total_kv(self):
@@ -254,9 +260,17 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
                        '(loss-offset rules are unverified, docs/rules/).') % {
             'type': _short(treatment), 'n': count, 'eur': number(total)})
 
+    year_row = ReportingYear.objects.filter(year=year).first()
+    first_member_month = (year_row.self_pay_first_month if year_row else None) or 1
+    if first_member_month > 1:
+        notes.append(_('Contributions are estimated only from month %(m)s: the earlier months of %(year)s are not paid by you to SBK '
+                       '(setting "first self-pay month" of the year).') % {'m': first_member_month, 'year': year})
     months = []
     for m in range(1, 13):
         base = sum(comps[m].values(), ZERO)
+        if m < first_member_month:
+            months.append(MonthResult(m, comps[m], base, ZERO, 'not self-paid', ZERO, ZERO, ZERO, ZERO, member=False))
+            continue
         if base < params.min_monthly:
             assessed, limit = params.min_monthly, 'minimum'
         elif base > params.bbg_monthly:
@@ -269,4 +283,5 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
     return Assessment(
         params, settings, months, kv_pct, zusatz_pct, pflege_pct, label,
         unmapped=sorted((n, c, g) for n, (c, g) in unmapped.items()),
-        excluded_by_mapping=excluded_by_mapping, unconverted=unconverted, unconverted_mapped=unconverted_mapped, notes=notes)
+        excluded_by_mapping=excluded_by_mapping, unconverted=unconverted, unconverted_mapped=unconverted_mapped, notes=notes,
+        first_month=first_member_month)

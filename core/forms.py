@@ -30,6 +30,13 @@ class YearNotesForm(forms.ModelForm):
         widgets = {'notes': NOTE}
 
 
+class SelfPayFirstMonthForm(forms.ModelForm):
+    class Meta:
+        model = ReportingYear
+        fields = ['self_pay_first_month']
+        labels = {'self_pay_first_month': _('First month you pay SBK yourself (1-12; blank = all 12 months)')}
+
+
 class UniqueNameMixin:
     """Reject duplicate spellings (case- and whitespace-insensitive) with a friendly message,
     before the database constraint is hit."""

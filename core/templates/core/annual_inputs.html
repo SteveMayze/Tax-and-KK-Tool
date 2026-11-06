@@ -5,6 +5,13 @@
 <p><a href="{% url 'assessment_settings' %}">{% icon "arrow-left" %}{% trans "Assessment settings" %}</a> &middot; <a href="{% url 'report_view' 'sbk' %}?year={{ year.year|stringformat:"d" }}">{% trans "SBK estimate" %} {{ year.year|stringformat:"d" }}</a></p>
 <h1>{% trans "Annual inputs" %} {{ year.year|stringformat:"d" }}</h1>
 <p class="note">{% trans "Used only for the SBK estimate. Costs: Werbungskosten (rental, capital) or Betriebsausgaben (self-employed), in EUR. Months earned: first to last month in which the income was earned (default January to December). Capital income uses the flat 51 EUR unless your costs are higher. Saving an existing treatment replaces it." %}</p>
+<h2>{% trans "Membership" %}</h2>
+<form method="post" novalidate>{% csrf_token %}
+  {% for field in membership %}<div class="field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+  <p class="note">{% trans "The SBK estimate counts contributions only from this month. Leave blank if you paid SBK yourself for the whole year. Never inferred from payments." %}</p>
+  <button type="submit">{% icon "check" %}{% trans "Save" %}</button>
+</form>
+<h2>{% trans "Costs and months earned" %}</h2>
 {% if inputs %}
 <table>
   <thead><tr><th>{% trans "Treatment" %}</th><th class="num">{% trans "Costs EUR" %}</th><th>{% trans "Months" %}</th><th>{% trans "Note" %}</th><th></th></tr></thead>

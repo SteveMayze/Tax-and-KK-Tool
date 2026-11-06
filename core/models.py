@@ -35,6 +35,10 @@ class ReportingYear(models.Model):
     year = models.PositiveSmallIntegerField(
         unique=True, validators=[MinValueValidator(1900), MaxValueValidator(2200)])
     notes = models.TextField(blank=True)
+    # SBK self-payer membership (docs/decisions, SBK letter review): first calendar month of this year in which the owner
+    # pays SBK contributions himself. Blank = all 12 months (the earlier assumption). Never inferred from payments.
+    self_pay_first_month = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(12)])
 
     class Meta:
         ordering = ['-year']
