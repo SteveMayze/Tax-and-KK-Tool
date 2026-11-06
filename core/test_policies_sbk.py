@@ -71,10 +71,31 @@ class SbkParametersTests(TestCase):
         self.assertEqual((p.kv_general_pct, p.zusatz_pct, p.pflege_base_pct), (D('14.6'), D('3.8'), D('3.6')))
 
     def test_unverified_years_are_refused(self):
-        for year in (2024, 2025, 2027):
+        for year in (2024, 2027):
             with self.assertRaises(sbk.PolicyUnavailable) as cm:
                 sbk.parameters_for(year)
-            self.assertIn('2026', str(cm.exception))
+            self.assertIn('2025, 2026', str(cm.exception))
+
+    def test_2025_parameters_are_the_2025_figures_not_a_copy_of_2026(self):
+        p = sbk.parameters_for(2025)
+        self.assertEqual((p.bbg_monthly, p.bezugsgroesse_monthly), (D('5512.50'), D('3745')))
+        self.assertEqual(round(p.min_monthly, 2), D('1248.33'))
+        self.assertEqual((p.kv_reduced_pct, p.zusatz_pct, p.pflege_base_pct, p.pflege_childless_surcharge_pct),
+                         (D('14.0'), D('3.8'), D('3.6'), D('0.6')))
+        self.assertTrue(any('2026-11-06' in src for src in p.sources))
+
+    def test_letter_of_2026_11_06_is_reproduced(self):
+        # Hand calculation, reduced rate 14.0 / additional 3.8 / care 4.2 (3.6 + 0.6):
+        #   3,971.82: 556.0548 -> 556.05 ; 150.9292 -> 150.93 ; 166.8164 -> 166.82 ; sum 873.80
+        #   2,296.98: 321.5772 -> 321.58 ;  87.2852 ->  87.29 ;  96.4732 ->  96.47 ; sum 505.34
+        # SBK's per-type figures sum to the same base, so rounding the total once gives the letter's cents.
+        for base, kv_g, zusatz, pv, total in ((D('3971.82'), '556.05', '150.93', '166.82', '873.80'),
+                                              (D('2296.98'), '321.58', '87.29', '96.47', '505.34')):
+            got = sbk.contributions(base, D('14.0'), D('3.8'), D('4.2'))
+            self.assertEqual(got[0], D(kv_g))
+            self.assertEqual(got[1], D(zusatz))
+            self.assertEqual(got[3], D(pv))
+            self.assertEqual(got[2] + got[3], D(total))
 
     def test_rates_follow_settings(self):
         p = sbk.parameters_for(2026)
@@ -315,7 +336,7 @@ class SbkReportTests(TestCase):
         self.assertEqual(rep.rows[0]['month'], '2026-01 January')
         b = dict(rep.basis)
         self.assertIn('NOT an SBK assessment', b['Status'])
-        self.assertIn('sbk-contribution-estimate 1.0', b['Policy'])
+        self.assertIn('sbk-contribution-estimate 1.1', b['Policy'])
         self.assertIn('5,812.50', b['Parameters'])
         self.assertIn('1,318.33', b['Parameters'])
         self.assertIn('18.4%', b['Parameters'])
@@ -327,10 +348,10 @@ class SbkReportTests(TestCase):
 
     def test_csv_carries_policy_version_assumptions_and_exclusions(self):
         text = report_csv.render(reports.REPORTS['sbk'].build(2026))
-        for needle in ('sbk-contribution-estimate 1.0', 'NOT an SBK assessment', 'Assumption,', 'BVSz section 5(3)',
+        for needle in ('sbk-contribution-estimate 1.1', 'NOT an SBK assessment', 'Assumption,', 'BVSz section 5(3)',
                        'EXCLUDED', '4747.40', 'Year total'):
             self.assertIn(needle, text)
 
     def test_report_for_unverified_year_is_unavailable(self):
         with self.assertRaises(sbk.PolicyUnavailable):
-            reports.REPORTS['sbk'].build(2025)
+            reports.REPORTS['sbk'].build(2024)

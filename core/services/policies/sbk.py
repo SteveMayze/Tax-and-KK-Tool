@@ -5,7 +5,7 @@ GKV-Spitzenverband Beitragsverfahrensgrundsaetze Selbstzahler (BVSz, 11th amendm
 2024-04-01), Katalog von Einnahmen, SBK's published 2026 rates.
 
 This is a planning estimate, NOT an SBK assessment. Parameters exist only for years whose figures
-were verified (currently 2026); other years are refused rather than guessed.
+were verified (currently 2025 and 2026); other years are refused rather than guessed.
 """
 import calendar
 from dataclasses import dataclass, field
@@ -52,7 +52,7 @@ class SbkParameters:
 
 PARAMETERS = {
     2026: SbkParameters(
-        year=2026, version='1.0 (2026 parameters, verified 2026-10-18)',
+        year=2026, version='1.1 (2026 parameters, verified 2026-10-18)',
         bbg_monthly=Decimal('5812.50'), bezugsgroesse_monthly=Decimal('3955'),
         kv_general_pct=Decimal('14.6'), kv_reduced_pct=Decimal('14.0'), zusatz_pct=Decimal('3.8'),
         pflege_base_pct=Decimal('3.6'), pflege_childless_surcharge_pct=Decimal('0.6'),
@@ -60,13 +60,16 @@ PARAMETERS = {
         sources=('section 240 SGB V', 'BVSz sections 3, 5, 9 (version 2024-04-01)', 'SBK website 2026 figures',
                  'SV-Rechengrossenverordnung 2026')),
     2025: SbkParameters(
-        year=2025, version='1.0 (2025 parameters, not verified)',
-        bbg_monthly=Decimal('5812.50'), bezugsgroesse_monthly=Decimal('3955'),
+        year=2025, version='1.1 (2025 parameters, verified 2026-11-06)',
+        bbg_monthly=Decimal('5512.50'), bezugsgroesse_monthly=Decimal('3745'),
         kv_general_pct=Decimal('14.6'), kv_reduced_pct=Decimal('14.0'), zusatz_pct=Decimal('3.8'),
         pflege_base_pct=Decimal('3.6'), pflege_childless_surcharge_pct=Decimal('0.6'),
         capital_costs_flat=Decimal('51'),
-        sources=('section 240 SGB V', 'BVSz sections 3, 5, 9 (version 2024-04-01)', 'SBK website 2025 figures',
-                 'SV-Rechengrossenverordnung 2025')),
+        sources=('section 240 SGB V', 'BVSz sections 3, 5, 9 (version 2024-04-01)',
+                 'SV-Rechengroessenverordnung 2025 (BGBl. 2024 I Nr. 365): Bezugsgroesse 3,745 EUR per month (section 1)',
+                 'BMAS page on the 2025 Verordnung: contribution ceiling 5,512.50 EUR per month (same figure as section 2(2) of the Verordnung)',
+                 'SBK Beitragsmitteilung 2026-11-06: reduced rate 14.0 %, additional contribution 3.8 % from 2025-11, care 3.6 % + 0.6 % '
+                 '(owner\'s document; rates for 2025-01 to 2025-10 are not needed unless the owner paid himself then)')),
 }
 
 ASSUMPTIONS = [

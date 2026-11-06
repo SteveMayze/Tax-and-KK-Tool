@@ -108,11 +108,11 @@ class AssessmentViewTests(TestCase):
         self.assertIn('4747.40', c.content.decode())
 
     def test_sbk_report_for_unverified_year_redirects_with_message(self):
-        add(100, datetime.date(2025, 5, 1), 'Pension')
+        add(100, datetime.date(2024, 5, 1), 'Pension')
         for name in ('report_view', 'report_csv'):
-            r = self.client.get(reverse(name, args=['sbk']) + '?year=2025', follow=True)
+            r = self.client.get(reverse(name, args=['sbk']) + '?year=2024', follow=True)
             self.assertRedirects(r, reverse('report_index'))
-            self.assertContains(r, 'No verified SBK parameters for 2025')
+            self.assertContains(r, 'No verified SBK parameters for 2024')
 
     def test_sbk_requires_a_year(self):
         r = self.client.get(reverse('report_view', args=['sbk']), follow=True)
