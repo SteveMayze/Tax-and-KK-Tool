@@ -523,6 +523,19 @@ class AnnualInput(models.Model):
         return self.last_month - self.first_month + 1
 
 
+class TaxAssessmentFigures(models.Model):
+    """Figures printed on the Einkommensteuerbescheid of a year, typed in by the owner (SBK letter review, task G).
+
+    SBK sets the final contribution from this document. Stored only to compare it with SBK's letter and with the
+    app's estimate; no calculation uses them. Blank = not entered. Never guessed.
+    """
+    year = models.OneToOneField(ReportingYear, on_delete=models.CASCADE, related_name='tax_assessment_figures')
+    capital_income = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    rental_income_after_costs = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    other_income = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    note = models.TextField(max_length=1000, blank=True)
+
+
 class StatementRule(models.Model):
     """What counts as rent (or another income kind) on a bank statement: data the owner edits, never code (Phase 25, ADR 0025).
 

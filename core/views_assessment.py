@@ -4,8 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .forms import AnnualInputForm, AssessmentSettingsForm, SelfPayFirstMonthForm
-from .models import AnnualInput, AssessmentSettings, ReportingYear
+from .forms import AnnualInputForm, AssessmentSettingsForm, SelfPayFirstMonthForm, TaxAssessmentFiguresForm
+from .models import TaxAssessmentFigures, AnnualInput, AssessmentSettings, ReportingYear
 from .services.policies import sbk
 
 
@@ -26,13 +26,22 @@ def annual_inputs(request, year):
     y = get_object_or_404(ReportingYear, year=year)
     form = AnnualInputForm(request.POST or None, year=y)
     membership = SelfPayFirstMonthForm(instance=y)
+    figures_obj = TaxAssessmentFigures.objects.filter(year=y).first() or TaxAssessmentFigures(year=y)
+    figures = TaxAssessmentFiguresForm(instance=figures_obj)
+    if request.method == 'POST' and 'capital_income' in request.POST:
+        figures = TaxAssessmentFiguresForm(request.POST, instance=figures_obj)
+        if figures.is_valid():
+            figures.save()
+            messages.success(request, _('Saved.'))
+            return redirect('annual_inputs', year=year)
+        return render(request, 'core/annual_inputs.html', {'year': y, 'form': form, 'membership': membership, 'figures': figures, 'inputs': y.annual_inputs.all()})
     if request.method == 'POST' and 'self_pay_first_month' in request.POST:
         membership = SelfPayFirstMonthForm(request.POST, instance=y)
         if membership.is_valid():
             membership.save()
             messages.success(request, _('Saved.'))
             return redirect('annual_inputs', year=year)
-        return render(request, 'core/annual_inputs.html', {'year': y, 'form': form, 'membership': membership, 'inputs': y.annual_inputs.all()})
+        return render(request, 'core/annual_inputs.html', {'year': y, 'form': form, 'membership': membership, 'figures': figures, 'inputs': y.annual_inputs.all()})
     if request.method == 'POST' and form.is_valid():
         cd = form.cleaned_data
         AnnualInput.objects.update_or_create(
@@ -40,7 +49,7 @@ def annual_inputs(request, year):
             defaults={k: cd[k] for k in ('costs_eur', 'first_month', 'last_month', 'note')})
         messages.success(request, _('Saved.'))
         return redirect('annual_inputs', year=year)
-    return render(request, 'core/annual_inputs.html', {'year': y, 'form': form, 'membership': membership, 'inputs': y.annual_inputs.all()})
+    return render(request, 'core/annual_inputs.html', {'year': y, 'form': form, 'membership': membership, 'figures': figures, 'inputs': y.annual_inputs.all()})
 
 
 @login_required

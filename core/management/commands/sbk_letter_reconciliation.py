@@ -28,6 +28,17 @@ class Command(BaseCommand):
             w(f'  {t:12} {v["gross"]:>12.2f} {v["withholding"]:>10.2f} {v["expenses"]:>10.2f} {v["costs"]:>10.2f} '
               f'{v["monthly"]:>10.2f} {v["pending"]:>3}{note}')
         w('')
+        from core.models import TaxAssessmentFigures
+        fig = TaxAssessmentFigures.objects.filter(year__year=r.year).first()
+        if fig:
+            w(f'Tax assessment figures entered for {r.year} (annual / 12 = monthly): capital {fig.capital_income}, '
+              f'rental after costs {fig.rental_income_after_costs}, other {fig.other_income}')
+            for name, val, key in (('capital', fig.capital_income, 'capital'), ('rental', fig.rental_income_after_costs, 'rental')):
+                est = r.treatments.get(key, {}).get('gross')
+                w(f'  {name}: assessment {val if val is not None else "not entered"} | app gross {est if est is not None else 0:.2f}')
+        else:
+            w(f'No tax assessment figures entered for {r.year} (annual inputs page).')
+        w('')
         w('Groups (category / organisation country / currency):')
         for g in r.groups:
             w(f'  {g.treatment:10} {g.key:42} n={g.count:<3} gross={g.gross:>11.2f} withholding={g.withholding:>9.2f} '

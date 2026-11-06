@@ -419,3 +419,26 @@ class RentalCostsVisibilityTests(TestCase):
         self.assertEqual(a.months[0].components['rental'], D(75))           # (1,200 - 300) / 12
         self.assertFalse([n for n in a.notes if n.startswith('WARNING')])
         self.assertEqual(a.cost_lines, [('rental', D('1200'), D('300'), D(300))])
+
+
+class TaxAssessmentFiguresTests(TestCase):
+    def test_figures_are_stored_per_year_and_shown_by_the_comparison_command(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from core.models import TaxAssessmentFigures
+        y = ReportingYear.objects.create(year=2025)
+        TaxAssessmentFigures.objects.create(year=y, capital_income=D('11000.00'), rental_income_after_costs=D('19000.00'))
+        out = StringIO()
+        call_command('sbk_letter_reconciliation', year=2025, stdout=out)
+        self.assertIn('rental after costs 19000.00', out.getvalue())
+        self.assertIn('other None', out.getvalue())
+
+    def test_page_saves_figures(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+        ReportingYear.objects.create(year=2025)
+        get_user_model().objects.create_user('t', password='x')
+        self.client.login(username='t', password='x')
+        r = self.client.post(reverse('annual_inputs', args=[2025]), {'capital_income': '11000.50', 'rental_income_after_costs': '', 'other_income': '', 'note': ''})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(ReportingYear.objects.get(year=2025).tax_assessment_figures.capital_income, D('11000.50'))

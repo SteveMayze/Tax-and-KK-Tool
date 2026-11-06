@@ -5,7 +5,7 @@ from django.conf import settings
 from django.utils.translation import gettext, gettext_lazy as _
 
 from .currencies import BASE_CURRENCY, SUPPORTED_CURRENCIES
-from .models import AnnualInput, AssessmentSettings, IncomeCategory, Organisation, Payment, ReportingYear
+from .models import TaxAssessmentFigures, AnnualInput, AssessmentSettings, IncomeCategory, Organisation, Payment, ReportingYear
 from .services import lookups
 
 DATE = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
@@ -35,6 +35,16 @@ class SelfPayFirstMonthForm(forms.ModelForm):
         model = ReportingYear
         fields = ['self_pay_first_month']
         labels = {'self_pay_first_month': _('First month you pay SBK yourself (1-12; blank = all 12 months)')}
+
+
+class TaxAssessmentFiguresForm(forms.ModelForm):
+    class Meta:
+        model = TaxAssessmentFigures
+        fields = ['capital_income', 'rental_income_after_costs', 'other_income', 'note']
+        labels = {'capital_income': _('Capital income per the tax assessment, EUR a year'),
+                  'rental_income_after_costs': _('Rental income after costs per the tax assessment, EUR a year'),
+                  'other_income': _('Other income per the tax assessment, EUR a year'), 'note': _('Note')}
+        widgets = {'note': NOTE}
 
 
 class UniqueNameMixin:

@@ -11,6 +11,12 @@
   <p class="note">{% trans "The SBK estimate counts contributions only from this month. Leave blank if you paid SBK yourself for the whole year. Never inferred from payments." %}</p>
   <button type="submit">{% icon "check" %}{% trans "Save" %}</button>
 </form>
+<h2>{% trans "Figures of the income tax assessment (Einkommensteuerbescheid)" %}</h2>
+<form method="post" novalidate>{% csrf_token %}
+  {% for field in figures %}<div class="field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+  <p class="note">{% trans "Type in the figures printed on the assessment once you have it. SBK sets the final contribution from this document. They are only compared with SBK's letter and the estimate; no calculation uses them." %}</p>
+  <button type="submit">{% icon "check" %}{% trans "Save" %}</button>
+</form>
 <h2>{% trans "Costs and months earned" %}</h2>
 {% if inputs %}
 <table>
