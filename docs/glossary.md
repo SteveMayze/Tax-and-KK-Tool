@@ -195,3 +195,17 @@ Headings, table titles and labels of the reworked tax information summary. Statu
 | PDF statement / CSV file (your own import file) | PDF-Abrechnung / CSV-Datei (Ihre eigene Importdatei) |
 | PDF with source documents / Download package / Report PDF only | PDF mit Quellbelegen / Paket herunterladen / Nur Bericht als PDF |
 | Personal data | Personenbezogene Daten |
+
+## F. SBK letter review terms (ADR 0042)
+
+Status: **proposed, awaiting the owner's review**. German terms are those used in SBK's letter or standard German usage; not official translations.
+
+| English | German |
+|---|---|
+| Notice of contributions (SBK letter) | Beitragsmitteilung |
+| Provisional ("subject to reservation") | vorläufig / unter Vorbehalt |
+| Other income (as SBK names it in the letter; content unknown) | Sonstige Einnahmen |
+| Income tax assessment | Einkommensteuerbescheid |
+| First month you pay SBK yourself | Erster Monat der Selbstzahlung |
+| not self-paid | nicht selbst gezahlt |
+| Back payment | Nachzahlung |
