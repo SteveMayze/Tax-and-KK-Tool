@@ -68,6 +68,10 @@ def sbk_estimate(year):
     if a.excluded_by_mapping:
         excl.append(_('%(n)s payment(s) in categories mapped as "not contribution-relevant" excluded.') % {'n': a.excluded_by_mapping})
     excl += a.notes
+    for t, gross, rec, used in a.cost_lines:
+        basis.append((_('Costs'), _('%(type)s: gross %(gross)s EUR; expenses recorded on payments %(rec)s EUR (not deducted); annual costs entered and used %(used)s EUR%(flat)s.') % {
+            'type': str(sbk._short(t)), 'gross': number(gross), 'rec': number(rec), 'used': number(used),
+            'flat': _(' (capital: at least the flat %(f)s EUR applies)') % {'f': number(p.capital_costs_flat)} if t == 'capital' else ''}))
     basis.append((_('Excluded / missing'), ' '.join(excl) if excl else _('None.')))
     notes = [_('Average total contribution per month (%(n)s months): %(eur)s EUR.') % {'n': a.member_months, 'eur': number(a.total / a.member_months)},
              _('Limit applied: "minimum" means the legal minimum base replaced a lower income.')]

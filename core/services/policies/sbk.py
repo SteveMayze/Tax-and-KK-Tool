@@ -132,6 +132,7 @@ class Assessment:
     unconverted: int = 0
     unconverted_mapped: int = 0
     notes: list = field(default_factory=list)          # run-specific warnings
+    cost_lines: list = field(default_factory=list)    # [(treatment, gross, recorded expenses, costs entered)]
     first_month: int = 1                               # first self-pay month of the year (1 = all 12 months)
 
     @property
@@ -196,6 +197,8 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
 
     comps = {m: {t: ZERO for t in SbkTreatment.values} for m in range(1, 13)}
     gross_year = {t: ZERO for t in (SbkTreatment.SELF_EMPLOYED, SbkTreatment.RENTAL, SbkTreatment.CAPITAL)}
+    expenses_year = {t: ZERO for t in gross_year}      # expenses RECORDED on payments: information only, never deducted
+    cost_lines = []
     unmapped, notes = {}, []
     losses = {}                      # treatment -> [count, EUR sum] of normal payments below 0 received in the year
     excluded_by_mapping = unconverted = unconverted_mapped = 0
@@ -233,6 +236,7 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
                     comps[idx % 12 + 1][treatment] += gross / 12
         elif in_year:
             gross_year[treatment] += gross
+            expenses_year[treatment] += p.expenses_eur or ZERO
 
     for treatment, gross in gross_year.items():
         inp = inputs.get(treatment)
@@ -240,6 +244,13 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
         costs = inp.costs_eur if inp else ZERO
         if gross == 0:
             continue
+        cost_lines.append((treatment, gross, expenses_year[treatment], costs))
+        if expenses_year[treatment] and costs == 0:
+            notes.append(_('WARNING %(type)s: %(exp)s EUR of expenses are recorded on the payments of %(year)s, but NO annual costs were entered, so '
+                           'nothing is deducted (recorded expenses are information only). With costs of that size the monthly base would be about '
+                           '%(m)s EUR lower. Enter the costs you want counted on the annual inputs page.') % {
+                'type': _short(treatment), 'exp': number(expenses_year[treatment]), 'year': year,
+                'm': number(expenses_year[treatment] / (last - first + 1))})
         if treatment == SbkTreatment.CAPITAL:
             costs = max(costs, params.capital_costs_flat)        # SBK-03: 51 EUR unless higher costs proven
         surplus = gross - costs
@@ -284,4 +295,4 @@ def assess_year(year: int, settings: AssessmentSettings | None = None) -> Assess
         params, settings, months, kv_pct, zusatz_pct, pflege_pct, label,
         unmapped=sorted((n, c, g) for n, (c, g) in unmapped.items()),
         excluded_by_mapping=excluded_by_mapping, unconverted=unconverted, unconverted_mapped=unconverted_mapped, notes=notes,
-        first_month=first_member_month)
+        first_month=first_member_month, cost_lines=cost_lines)

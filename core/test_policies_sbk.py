@@ -397,3 +397,25 @@ class MembershipMonthsTests(TestCase):
         y = ReportingYear.objects.get(year=2025)
         self.assertFalse(SelfPayFirstMonthForm({'self_pay_first_month': '13'}, instance=y).is_valid())
         self.assertTrue(SelfPayFirstMonthForm({'self_pay_first_month': ''}, instance=y).is_valid())
+
+
+class RentalCostsVisibilityTests(TestCase):
+    def setUp(self):
+        map_categories(Rental='rental')
+        p = add(1200, datetime.date(2025, 3, 1), 'Rental', expenses='300', net='900')
+        p.refresh_from_db()
+
+    def test_recorded_expenses_without_annual_costs_warn_loudly_and_are_not_deducted(self):
+        a = sbk.assess_year(2025, AssessmentSettings(kv_rate='reduced', kv_rate_confirmed=True))
+        self.assertEqual(a.cost_lines, [('rental', D('1200'), D('300'), D(0))])
+        self.assertEqual(a.months[0].components['rental'], D(100))          # 1,200 / 12, no deduction
+        warn = [n for n in a.notes if n.startswith('WARNING')]
+        self.assertEqual(len(warn), 1)
+        self.assertIn('300', warn[0])
+
+    def test_entered_costs_are_used_and_no_warning(self):
+        AnnualInput.objects.create(year=ReportingYear.objects.get(year=2025), treatment='rental', costs_eur=300)
+        a = sbk.assess_year(2025, AssessmentSettings(kv_rate='reduced', kv_rate_confirmed=True))
+        self.assertEqual(a.months[0].components['rental'], D(75))           # (1,200 - 300) / 12
+        self.assertFalse([n for n in a.notes if n.startswith('WARNING')])
+        self.assertEqual(a.cost_lines, [('rental', D('1200'), D('300'), D(300))])
