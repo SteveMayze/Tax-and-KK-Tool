@@ -54,7 +54,7 @@ PARAMETERS = {
     2026: SbkParameters(
         year=2026, version='1.1 (2026 parameters, verified 2026-10-18)',
         bbg_monthly=Decimal('5812.50'), bezugsgroesse_monthly=Decimal('3955'),
-        kv_general_pct=Decimal('14.6'), kv_reduced_pct=Decimal('14.0'), zusatz_pct=Decimal('3.8'),
+        kv_general_pct=Decimal('14.0'), kv_reduced_pct=Decimal('14.0'), zusatz_pct=Decimal('3.8'),
         pflege_base_pct=Decimal('3.6'), pflege_childless_surcharge_pct=Decimal('0.6'),
         capital_costs_flat=Decimal('51'),
         sources=('section 240 SGB V', 'BVSz sections 3, 5, 9 (version 2024-04-01)', 'SBK website 2026 figures',
@@ -62,7 +62,7 @@ PARAMETERS = {
     2025: SbkParameters(
         year=2025, version='1.1 (2025 parameters, verified 2026-11-06)',
         bbg_monthly=Decimal('5512.50'), bezugsgroesse_monthly=Decimal('3745'),
-        kv_general_pct=Decimal('14.6'), kv_reduced_pct=Decimal('14.0'), zusatz_pct=Decimal('3.8'),
+        kv_general_pct=Decimal('14.0'), kv_reduced_pct=Decimal('14.0'), zusatz_pct=Decimal('3.8'),
         pflege_base_pct=Decimal('3.6'), pflege_childless_surcharge_pct=Decimal('0.6'),
         capital_costs_flat=Decimal('51'),
         sources=('section 240 SGB V', 'BVSz sections 3, 5, 9 (version 2024-04-01)',
