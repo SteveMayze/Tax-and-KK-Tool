@@ -181,6 +181,8 @@ Headings, table titles and labels of the reworked tax information summary. Statu
 | Income by category and currency | Einkommen nach Kategorie und Währung |
 | Income by organisation | Einkommen nach Organisation |
 | Taxes withheld | Einbehaltene Steuern |
+| Gross to net by category and currency | Von Brutto zu Netto nach Kategorie und Währung |
+| Unallocated (as a column of that table; see section B) | Nicht zugeordnet |
 | Of which negative payments (original currency) | Davon negative Zahlungen (Originalwährung) |
 | Subtotal (name) (EUR only) | Zwischensumme (Name) (nur EUR) |
 | Total (EUR only) / Total EUR / Total (currency) | Summe (nur EUR) / Summe EUR / Summe (Währung) |

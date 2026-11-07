@@ -1,6 +1,16 @@
 # Proposal: show expenses and net next to gross on the "Tax information summary"
 
-Status: **proposal, awaiting the owner's approval. Nothing is implemented.** Branch `fix/tax-summary-net-expenses`
+Status: **approved by the owner on 2026-11-07 (new table, CSV version 3, refresh the development database, spot check); implemented, see ADR 0043.**
+
+**Decisions and outcomes (2026-11-07)**
+- Layout: option (b), the new "Gross to net by category and currency" table. Option (d) (hide empty expense columns) was *not* applied: a fixed layout keeps the CSV stable. Table 4 is unchanged.
+- `CSV_FORMAT_VERSION` is now 3. Table 2 was not added to the CSV.
+- German terms follow `docs/glossary.md` ("Ausgaben", "Nicht zugeordnet"), not the "Kosten" used in section D below.
+- Development database refreshed from production backup `backup-20261107-022314` (a backup `pre-refresh` was taken first; the old files are in `local/backups/*.before-restore-*`).
+- Spot check B.4 (done): all 246 payments that were created by an import (every payment except the 11 entered by hand) were compared with a fresh re-read of their stored original statement by the current readers: date, gross, net, withholding tax and expenses match on every one (0 differences). Two import batches (15 and 16) have no stored original, but no payment links to them. This proves the stored values equal what the readers extract from the stored statements today; it is not an independent check of the readers against the printed statements.
+- The page-wide sideways scroll (question 8) is fixed in the same change (C.4).
+
+Original status line: proposal, awaiting approval. Branch `fix/tax-summary-net-expenses`
 (from `main` 5fd73cf). Written 2026-11-07. Presentation change only: no calculation, policy, model or migration changes.
 
 Privacy: this file holds category-level figures only. Organisation names, account holders and addresses are left out on

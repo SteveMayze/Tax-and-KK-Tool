@@ -14,7 +14,7 @@ The tax adviser could not work with the 2025 report. It grouped payments by the 
 - **CSV:** header block with the basis and `Filter` rows, then the payment table, then the category-by-currency table, each introduced by a `Table` row. `CSV_FORMAT_VERSION` is one global constant and stays `2` (owner's decision): this report's layout is new under the same number, and every other CSV is byte-identical.
 
 ## Not done / left to later phases
-Source references and the document index (Phase 41), the package with the original statements (Phase 42). Expenses and net amounts are not shown (rental costs are deferred). The policy code (`policies/tax.py`: `tax_summary_rows`, `effective_country`, `POLICY_VERSION`, `NOT_APPLIED`) stays: the tax checks and their tests use it, and the old income-type grouping is simply no longer reachable from the reports.
+Source references and the document index (Phase 41), the package with the original statements (Phase 42). Expenses and net amounts are not shown (rental costs are deferred; amended by ADR 0043, which adds a separate gross-to-net table). The policy code (`policies/tax.py`: `tax_summary_rows`, `effective_country`, `POLICY_VERSION`, `NOT_APPLIED`) stays: the tax checks and their tests use it, and the old income-type grouping is simply no longer reachable from the reports.
 
 ## Consequences
 The "Categories without payments" line prints stored category names, including ones such as a pension category, as data; it is not a label of any figure. The old report's tests were updated where they asserted its table (listed in the Phase 40 report).
