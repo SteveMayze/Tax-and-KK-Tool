@@ -72,7 +72,7 @@ Planned in `docs/prompts/PHASES_2.md` (foundation and URL prefix, rootless Podma
 | Employment status | Confirmed by the owner: not employed | `docs/rules/README.md`; what this means for the SBK rate is NOT confirmed (SBK to be asked) |
 | Children | Unconfirmed: the app assumes none (care insurance 4.2 %, 23 or over, no children) | `docs/rules/README.md` |
 | Spouse / joint assessment | Unconfirmed: spouse income is not modelled; joint assessment defaults to single | `docs/rules/README.md` (SBK-14), `docs/rules/income-tax-rules.md` |
-| Sick-pay entitlement | Unconfirmed: decides general (14.6 %) vs reduced (14.0 %) rate; the app uses the general rate as an upper bound | `docs/rules/sbk-contribution-rules.md` (SBK-10) |
+| Sick-pay entitlement | SBK's letter of 2026-11-06 applies the reduced rate (14.0 %), which is now the default setting; the general rate (14.6 %) stays selectable and, while unconfirmed, is an upper bound | `docs/rules/sbk-contribution-rules.md` (SBK-10) |
 
 ## Documentation to maintain
 README.md, docs/architecture.md, data-model.md, financial-calculations.md, imports.md, reporting.md, deployment.md, docs/decisions/ (ADRs).

@@ -47,7 +47,7 @@ class AssessmentViewTests(TestCase):
     def test_settings_rejects_invalid_choices(self):
         r = self.client.post(reverse('assessment_settings'), {'kv_rate': 'weird', 'pflege': 'childless'})
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(AssessmentSettings.load().kv_rate, 'general')
+        self.assertEqual(AssessmentSettings.load().kv_rate, 'reduced')
 
     def test_annual_inputs_create_replace_validate_delete(self):
         ReportingYear.objects.create(year=2026)

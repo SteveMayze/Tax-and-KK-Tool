@@ -194,6 +194,7 @@ class ReportLanguageTests(LoggedInTestCase):
             'ID', 'Status', 'Version', 'Organisation', 'Basis', 'Normal', 'Information') else set()
 
     def test_german_sbk_report_uses_german_formats_and_labels(self):
+        AssessmentSettings.objects.update_or_create(pk=1, defaults={'kv_rate': 'general'})  # default is reduced (ADR 0042)
         html = self.page('sbk', 'de').content.decode()
         self.assertIn('Beitragsbemessungsgrundlage EUR', html)
         self.assertIn('1.318,33', html)                                 # the legal minimum base, German formatted
