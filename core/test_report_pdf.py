@@ -145,7 +145,7 @@ class PdfRouteTests(PdfBase):
                 self.pdf(key)
             self.assertEqual(list(Path(tmp).rglob('*')), [])
         self.assertEqual(self.client.get(reverse('report_csv', args=['annual']) + '?year=2024').content, before)
-        self.assertEqual(report_csv.CSV_FORMAT_VERSION, '2')
+        self.assertEqual(report_csv.CSV_FORMAT_VERSION, '3')
 
     def test_buttons(self):
         self.assertContains(self.client.get(reverse('report_view', args=['annual'])), reverse('report_pdf', args=['annual']))
@@ -162,7 +162,7 @@ class TaxSummarySignatureTests(PdfBase):
         reader = read(self.pdf('tax_summary'))
         body = text(reader)
         self.assertEqual(body.count(EN_NOTICE), 2)                   # near the title and above the signature block
-        for s in ('Steuerbescheid', 'Steuererklärung', 'gross income', 'not a tax calculation',
+        for s in ('Steuerbescheid', 'Steuererklärung', 'gross, withholding tax, expenses and net', 'not a tax calculation',
                   'Name', 'Place (Ort)', 'Date (Datum)', 'Signature (Unterschrift)'):
             self.assertIn(s, body)
         fields = self.fields(reader)

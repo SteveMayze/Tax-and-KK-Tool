@@ -311,7 +311,7 @@ class ViewTests(FilterBase):
         self.assertIn('Organisations: EXAMPLE ORG A, EXAMPLE ORG B. Categories: EXAMPLE CATEGORY X. Combined as: any of the ticked '
                       'organisations AND any of the ticked categories', page)
         rows = self.csv_rows('category', f"?year=2026&organisation={self.org['A']}&organisation={self.org['B']}&category={self.cat['X']}")
-        self.assertEqual(rows[1], ['Report format version', '2'])
+        self.assertEqual(rows[1], ['Report format version', '3'])
         flt = [r for r in rows[:14] if r and r[0] == 'Filter']
         self.assertEqual(len(flt), 1)
         self.assertIn('EXAMPLE ORG A, EXAMPLE ORG B', flt[0][1])

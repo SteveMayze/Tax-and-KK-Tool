@@ -229,7 +229,7 @@ class CsvIsLanguageIndependentTests(LoggedInTestCase):
 
     def test_csv_format_rows_headings_numbers_and_dates(self):
         text = self.csv('payments', 'de')
-        self.assertIn('Report format version,2', text)
+        self.assertIn('Report format version,3', text)
         self.assertIn('Language,English (CSV headings are always English)', text)
         self.assertIn('Format,Comma-separated; decimal point;', text)
         header = text.split('\r\n\r\n')[1].split('\r\n')[0]

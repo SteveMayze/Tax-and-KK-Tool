@@ -3139,8 +3139,8 @@ msgstr "Wichtiger Hinweis"
 msgid "This report must not be used on its own. It must be read together with the respective tax assessment (Steuerbescheid) or tax return (Steuererklärung)."
 msgstr "Dieser Bericht darf nicht für sich allein verwendet werden. Er ist zusammen mit dem jeweiligen Steuerbescheid bzw. der Steuererklärung zu lesen."
 
-msgid "It shows the gross income as recorded in this tool. It does not take into account all taxes, deductions, withholding, costs or individual circumstances, so the figures can differ from the assessed ones."
-msgstr "Er zeigt die in diesem Programm erfassten Bruttoeinnahmen; Steuern, Abzüge, Quellensteuern, Kosten und persönliche Verhältnisse sind nicht vollständig berücksichtigt, die Zahlen können daher von den festgesetzten abweichen."
+msgid "It shows the income as recorded in this tool: gross, withholding tax, expenses and net. It does not take into account all taxes, deductions, withholding, costs or individual circumstances, so the figures can differ from the assessed ones."
+msgstr "Er zeigt die in diesem Programm erfassten Einnahmen: Brutto, einbehaltene Steuer, Ausgaben und Netto; Steuern, Abzüge, Quellensteuern, Kosten und persönliche Verhältnisse sind nicht vollständig berücksichtigt, die Zahlen können daher von den festgesetzten abweichen."
 
 msgid "It is a general information summary, not a tax calculation, tax advice or an official assessment."
 msgstr "Er ist eine allgemeine Informationszusammenstellung, keine Steuerberechnung, keine Steuerberatung und kein amtlicher Bescheid."
@@ -3222,8 +3222,8 @@ msgstr "%(n)s nicht umgerechnete Zahlung(en) sind aufgeführt, fehlen aber in je
 msgid "Income as recorded; no tax classification, no country inference, no treaty or credit rules applied."
 msgstr "Einkommen wie erfasst; keine steuerliche Einordnung, keine Ableitung des Landes, keine Abkommens- oder Anrechnungsregeln angewendet."
 
-msgid "Gross amounts as recorded and withholding tax as recorded. Net amounts and expenses are not shown."
-msgstr "Bruttobeträge wie erfasst und einbehaltene Steuer wie erfasst. Nettobeträge und Ausgaben werden nicht gezeigt."
+msgid "Gross, withholding tax, expenses and net as recorded on each payment, with gross = net + withholding tax + expenses. Nothing is re-derived here; a payment edited after its import may differ from its statement. Expenses are shown as recorded, in the original currency of the payment and in EUR at its stored rate; they are not a deduction and no one has accepted them as one."
+msgstr "Brutto, einbehaltene Steuer, Ausgaben und Netto wie auf jeder Zahlung erfasst, mit Brutto = Netto + einbehaltene Steuer + Ausgaben. Nichts wird hier neu berechnet; eine nach dem Import geänderte Zahlung kann von ihrer Abrechnung abweichen. Ausgaben werden wie erfasst gezeigt, in der Originalwährung der Zahlung und in EUR zum gespeicherten Kurs; sie sind kein Abzug, und niemand hat sie als solchen anerkannt."
 
 msgid "Original amounts are in the currency of each payment and are never added across currencies. EUR amounts use the rate stored on each payment."
 msgstr "Originalbeträge stehen in der Währung der jeweiligen Zahlung und werden nie über Währungen hinweg addiert. EUR-Beträge verwenden den bei jeder Zahlung gespeicherten Kurs."
@@ -3619,3 +3619,15 @@ msgstr "Zahlen des Einkommensteuerbescheids"
 
 msgid "Type in the figures printed on the assessment once you have it. SBK sets the final contribution from this document. They are only compared with SBK's letter and the estimate; no calculation uses them."
 msgstr "Geben Sie die im Bescheid gedruckten Zahlen ein, sobald Sie ihn haben. Die SBK setzt den endgültigen Beitrag anhand dieses Dokuments fest. Sie werden nur mit dem Schreiben der SBK und der Schätzung verglichen; keine Berechnung verwendet sie."
+
+msgid "Gross to net by category and currency"
+msgstr "Von Brutto zu Netto nach Kategorie und Währung"
+
+msgid "Unallocated"
+msgstr "Nicht zugeordnet"
+
+msgid "%(n)s payment(s) have no net amount recorded: they are counted in gross, withholding tax and expenses but add nothing to net or to the unallocated amount."
+msgstr "Bei %(n)s Zahlung(en) ist kein Nettobetrag erfasst: Sie zählen bei Brutto, einbehaltener Steuer und Ausgaben mit, tragen aber nichts zu Netto oder zum nicht zugeordneten Betrag bei."
+
+msgid "Unallocated = gross - net - withholding tax - expenses. A figure other than 0.00 means the recorded breakdown of a payment does not add up; it is shown, not corrected."
+msgstr "Nicht zugeordnet = Brutto - Netto - einbehaltene Steuer - Ausgaben. Ein anderer Wert als 0,00 bedeutet, dass die erfasste Aufteilung einer Zahlung nicht aufgeht; er wird gezeigt, nicht korrigiert."
