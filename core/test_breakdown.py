@@ -218,7 +218,7 @@ class ReportTests(TestCase):
         r = self.client.get(reverse('report_view', args=['category']) + '?year=2024')
         self.assertContains(r, 'Withholding tax EUR')
         r = self.client.get(reverse('report_csv', args=['category']) + '?year=2024')
-        self.assertContains(r, 'Report format version,2')
+        self.assertContains(r, 'Report format version,3')
 
     def test_tax_summary_shows_withholding_as_information_not_credited(self):
         rows, _ = tax.tax_summary_rows(2024)

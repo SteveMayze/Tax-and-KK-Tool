@@ -329,16 +329,17 @@ class OutputTests(Base):
             self.assertNotIn('report-table-section', html, key)
             self.assertIn('<table class="report-table">', html, key)
             text = self.get('report_csv', key, year='2026').content.decode()
-            self.assertIn('Report format version,2', text)
+            self.assertIn('Report format version,3', text)
             self.assertEqual(text.count('\r\n\r\n'), 1, key)                      # one blank line: basis block, then the table
-            self.assertEqual(report_csv.CSV_FORMAT_VERSION, '2')
+            self.assertEqual(report_csv.CSV_FORMAT_VERSION, '3')
             r = self.get('report_pdf', key, year='2026')
             self.assertEqual(r.status_code, 200, key)
 
     def test_csv_blocks(self):
         rows = list(csv.reader(io.StringIO(self.csv_text())))
         titles = [r for r in rows if r[:1] == ['Table']]
-        self.assertEqual([r[1] for r in titles], ['Payments', 'Income by category and currency', 'Source documents'])
+        self.assertEqual([r[1] for r in titles], ['Payments', 'Income by category and currency',
+                                                  'Gross to net by category and currency', 'Source documents'])
         header = [r for r in rows if r[:1] == ['Date']][0]
         self.assertEqual(header[:4], ['Date', 'Category', 'Organisation', 'Currency'])
         self.assertIn(['Language', 'English (CSV headings are always English)'], rows)

@@ -215,7 +215,7 @@ class SourceTests(SourceBase):
         self.assertIn(sha(PDF_A)[:12], html)
         self.assertNotIn(sha(PDF_A), html)
         self.assertIn('Documents</th>', html)
-        self.assertEqual(report_csv.CSV_FORMAT_VERSION, '2')
+        self.assertEqual(report_csv.CSV_FORMAT_VERSION, '3')
 
     def test_read_only(self):
         b = self.batch([('EXAMPLE r.pdf', PDF_A), ('EXAMPLE q.pdf', PDF_B)])

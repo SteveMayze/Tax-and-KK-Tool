@@ -272,7 +272,7 @@ class CsvRenderTests(TestCase):
         self.assertTrue(m['Generated (UTC)'].startswith('20'))
         for key in ('Period', 'Currency', 'Basis', 'Gross/net', 'Exchange-rate basis', 'Excluded / missing', 'Rounding'):
             self.assertIn(key, m)
-        self.assertEqual(m['Report format version'], '2')
+        self.assertEqual(m['Report format version'], '3')
         self.assertEqual(table[0], ['Organisation', 'Payments', 'Gains EUR', 'Losses EUR (signed)', 'Corrections / reversals EUR (signed)',
                                     'Gross EUR (signed sum)', 'Net EUR', 'Withholding tax EUR', 'Expenses EUR',
                                     'Unallocated EUR', 'Share of gross', 'Payments without net', 'Unconverted payments'])

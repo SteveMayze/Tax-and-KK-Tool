@@ -464,7 +464,9 @@ class ConversionEvent(models.Model):
 
 class AssessmentSettings(models.Model):
     """The user's own circumstances for the SBK estimate (single row). Defaults record the owner's
-    decisions of Phase 7: general rate as an unconfirmed upper-bound "affordability" figure; childless."""
+    decisions of Phase 7: childless; the rate is unconfirmed until ticked. Since SBK's letter of 2026-11-06 (ADR 0042)
+    the default rate is the reduced one (14.0 %), the rate SBK applies to the owner; the general rate (14.6 %) stays
+    selectable and, while unconfirmed, is labelled as an upper-bound "affordability" figure."""
     class KvRate(models.TextChoices):
         GENERAL = 'general', _('General rate (with sick-pay entitlement)')
         REDUCED = 'reduced', _('Reduced rate (no sick-pay entitlement)')
@@ -473,7 +475,7 @@ class AssessmentSettings(models.Model):
         CHILDLESS = 'childless', _('Age 23 or over, no children (surcharge)')
         BASE = 'base', _('One child, or under 23 (base rate)')
 
-    kv_rate = models.CharField(max_length=10, choices=KvRate.choices, default=KvRate.GENERAL)
+    kv_rate = models.CharField(max_length=10, choices=KvRate.choices, default=KvRate.REDUCED)
     kv_rate_confirmed = models.BooleanField(
         default=False, help_text='Tick once SBK has confirmed which rate applies to you.')
     pflege = models.CharField(max_length=10, choices=Pflege.choices, default=Pflege.CHILDLESS)

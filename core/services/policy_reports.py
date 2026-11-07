@@ -90,7 +90,7 @@ def tax_info_summary(year=None, flt=None):
     return Report('tax_summary', _('Tax information summary'),
                   _('Calendar year %(year)s') % {'year': year} if year else _('All years'), _('Information only'),
                   [], [], tax_income_report.basis_rows(payments, year, flt, sources), None, notes, timezone.now(), no_match,
-                  tables=tables, csv_tables=('payments', 'category_currency', 'sources'), sources=sources)
+                  tables=tables, csv_tables=('payments', 'category_currency', 'gross_to_net', 'sources'), sources=sources)
 
 
 def tax_check_report(year):

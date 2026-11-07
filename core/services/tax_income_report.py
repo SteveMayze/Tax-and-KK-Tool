@@ -43,6 +43,54 @@ def _eur_only(group):
     return {k: s[k] for k in ('payments', 'gross_eur', 'withholding_eur', 'unconverted')}
 
 
+def _net_sums(group):
+    """Gross-to-net figures of one group: the net, expenses and unallocated amounts AS RECORDED on the payments.
+    A payment with no net amount adds nothing to net or unallocated and is counted in `without_net`; when no payment of the
+    group has a net, net and unallocated are None (shown blank, never as 0). Nothing is derived."""
+    conv = _converted(group)
+    with_net = [p for p in group if p.net_amount is not None]
+    with_net_conv = [p for p in conv if p.net_amount is not None]
+    return {
+        'expenses': sum((p.expenses for p in group), ZERO),
+        'net': sum((p.net_amount for p in with_net), ZERO) if with_net else None,
+        'unallocated': sum((p.unallocated for p in with_net), ZERO) if with_net else None,
+        'expenses_eur': sum((p.expenses_eur or ZERO for p in conv), ZERO),
+        'net_eur': sum((p.net_eur or ZERO for p in with_net_conv), ZERO) if with_net_conv else None,
+        'without_net': len(group) - len(with_net),
+    }
+
+
+def gross_to_net_table(payments):
+    """Gross, withholding tax, expenses and net side by side, per category and currency (Phase 43, ADR 0043).
+    Presentation only: every figure is a sum of values stored on the payments, nothing is calculated or re-derived."""
+    by_cc = defaultdict(list)
+    for p in payments:
+        by_cc[(p.category.name, p.currency)].append(p)
+    rows = []
+    for (cat, ccy), group in sorted(by_cc.items()):
+        n = _net_sums(group)
+        rows.append({'category': cat, 'currency': ccy, **_sums(group), **{k: n[k] for k in
+                     ('expenses', 'net', 'unallocated', 'expenses_eur', 'net_eur')}})
+    s, n = _sums(payments), _net_sums(payments)
+    notes = []
+    if n['without_net']:
+        notes.append(_('%(n)s payment(s) have no net amount recorded: they are counted in gross, withholding tax and expenses but '
+                       'add nothing to net or to the unallocated amount.') % {'n': n['without_net']})
+    if any(r['unallocated'] for r in rows):
+        notes.append(_('Unallocated = gross - net - withholding tax - expenses. A figure other than 0.00 means the recorded '
+                       'breakdown of a payment does not add up; it is shown, not corrected.'))
+    cols = [Column('category', _('Category')), Column('currency', _('Currency')), Column('payments', _('Payments'), 'int'),
+            Column('gross', _('Gross'), 'money'), Column('withholding', _('Withholding tax'), 'money'),
+            Column('expenses', _('Expenses'), 'money'), Column('net', _('Net'), 'money'),
+            Column('unallocated', _('Unallocated'), 'money'),
+            Column('gross_eur', _('Gross EUR'), 'money'), Column('withholding_eur', _('Withholding tax EUR'), 'money'),
+            Column('expenses_eur', _('Expenses EUR'), 'money'), Column('net_eur', _('Net EUR'), 'money')]
+    return Table('gross_to_net', _('Gross to net by category and currency'), cols, rows,
+                 {'category': _('Total (EUR only)'), 'payments': s['payments'], 'gross_eur': s['gross_eur'],
+                  'withholding_eur': s['withholding_eur'], 'expenses_eur': n['expenses_eur'], 'net_eur': n['net_eur']},
+                 ' '.join(notes))
+
+
 def _rate_source_text(p):
     if p.conversion_status != CONVERTED:
         return _('not converted')
@@ -162,7 +210,7 @@ def tables(payments, sources=None):
                _('A document is one file, identified by the SHA-256 of its bytes; the same statement uploaded twice is one '
                  'document. File names are shown with long digit runs masked. A CSV file is your own import file and may '
                  'hold more than this report shows.'))
-    return [t1, t2, t3, t4, t5]
+    return [t1, gross_to_net_table(payments), t2, t3, t4, t5]
 
 
 def ordered(qs):
@@ -193,7 +241,10 @@ def basis_rows(payments, year, flt, sources=None):
     empty = [c.name for c in IncomeCategory.objects.filter(active=True).order_by('name') if c.pk not in used]
     rows += [
         (_('Basis'), _('Income as recorded; no tax classification, no country inference, no treaty or credit rules applied.')),
-        (_('Gross/net'), _('Gross amounts as recorded and withholding tax as recorded. Net amounts and expenses are not shown.')),
+        (_('Gross/net'), _('Gross, withholding tax, expenses and net as recorded on each payment, with gross = net + withholding tax + '
+                           'expenses. Nothing is re-derived here; a payment edited after its import may differ from its statement. '
+                           'Expenses are shown as recorded, in the original currency of the payment and in EUR at its stored rate; '
+                           'they are not a deduction and no one has accepted them as one.')),
         (_('Currency'), _('Original amounts are in the currency of each payment and are never added across currencies. '
                           'EUR amounts use the rate stored on each payment.')),
         (_('Exchange-rate basis'), _rate_basis(payments)),

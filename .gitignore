@@ -52,3 +52,6 @@ staticfiles/
 # Deployment: real inventory (host and user names); virtualenv for Ansible
 infra/inventory.ini
 .venv-infra/
+
+# Informational outputs from assistants, not part of the project
+Claude outputs/

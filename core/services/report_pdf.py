@@ -18,8 +18,8 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
-from reportlab.platypus import (BaseDocTemplate, Flowable, Frame, KeepTogether, PageTemplate, Paragraph, Spacer, Table,
-                                TableStyle)
+from reportlab.platypus import (BaseDocTemplate, CondPageBreak, Flowable, Frame, KeepTogether, PageTemplate, Paragraph, Spacer,
+                                Table, TableStyle)
 
 PAGE = landscape(A4)
 MARGIN = 12 * mm
@@ -54,7 +54,7 @@ def disclaimer_paragraphs():
     return [
         _('This report must not be used on its own. It must be read together with the respective tax assessment '
           '(Steuerbescheid) or tax return (Steuererklärung).'),
-        _('It shows the gross income as recorded in this tool. It does not take into account all taxes, deductions, '
+        _('It shows the income as recorded in this tool: gross, withholding tax, expenses and net. It does not take into account all taxes, deductions, '
           'withholding, costs or individual circumstances, so the figures can differ from the assessed ones.'),
         _('It is a general information summary, not a tax calculation, tax advice or an official assessment.'),
     ]
@@ -196,7 +196,8 @@ def _grid(headers, rows, totals, width, title=None, note=None):
     if totals:
         style.append(('BACKGROUND', (0, -1), (-1, -1), TOTAL_BG))
     table.setStyle(TableStyle(style))
-    out = [KeepTogether([Paragraph(escape(title), STYLES['h2']), Spacer(1, 1 * mm)])] if title else []
+    # A title never ends a page on its own: at least room for the header row and a few body rows must remain (Phase 43).
+    out = [CondPageBreak(30 * mm), KeepTogether([Paragraph(escape(title), STYLES['h2']), Spacer(1, 1 * mm)])] if title else []
     out.append(table)
     if note:
         out += [Spacer(1, 1 * mm), Paragraph(escape(note), STYLES['note'])]

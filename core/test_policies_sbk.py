@@ -47,7 +47,14 @@ def add(gross, date, category, org='Org', convert=True, **kw):
     return p
 
 
+def use_general_rate():
+    """The hand calculations in these tests are at the general rate (14.6 %); the default setting is the reduced rate
+    since SBK's letter of 2026-11-06, so the tests select the general rate explicitly."""
+    AssessmentSettings.objects.update_or_create(pk=1, defaults={'kv_rate': 'general'})
+
+
 def build_2026():
+    use_general_rate()
     map_categories(Pension='pension', Rental='rental', Interest='capital', Capital_gains='one_off')
     for m in range(1, 13):
         add(1000, datetime.date(2026, m, 15), 'Pension', 'Pension Fund')
@@ -108,14 +115,25 @@ class SbkParametersTests(TestCase):
         self.assertNotIn('NOT confirmed', label)
 
     def test_unconfirmed_general_rate_is_labelled_upper_bound(self):
-        label = sbk.rates_for(sbk.parameters_for(2026), AssessmentSettings())[3]
+        label = sbk.rates_for(sbk.parameters_for(2026), AssessmentSettings(kv_rate='general'))[3]
         self.assertIn('NOT confirmed with SBK', label)
         self.assertIn('upper-bound', label)
         self.assertIn('affordability', label)
 
     def test_defaults_record_the_owners_decisions(self):
         s = AssessmentSettings.load()
-        self.assertEqual((s.kv_rate, s.kv_rate_confirmed, s.pflege, s.joint_assessment), ('general', False, 'childless', False))
+        self.assertEqual((s.kv_rate, s.kv_rate_confirmed, s.pflege, s.joint_assessment), ('reduced', False, 'childless', False))
+
+    def test_unconfirmed_default_reduced_rate_is_not_an_upper_bound(self):
+        kv, _z, _pf, label = sbk.rates_for(sbk.parameters_for(2026), AssessmentSettings())
+        self.assertEqual(kv, D('14.0'))
+        self.assertIn('NOT confirmed with SBK', label)
+        self.assertNotIn('upper-bound', label)
+
+    def test_general_rate_is_the_statutory_14_6_in_both_years(self):
+        for year in (2025, 2026):
+            self.assertEqual(sbk.parameters_for(year).kv_general_pct, D('14.6'))
+            self.assertEqual(sbk.parameters_for(year).kv_reduced_pct, D('14.0'))
 
 
 class ContributionRoundingTests(TestCase):
@@ -195,6 +213,9 @@ class SbkEstimateTests(TestCase):
 
 
 class SbkEdgeCaseTests(TestCase):
+    def setUp(self):
+        use_general_rate()
+
     def assess(self, **kw):
         return sbk.assess_year(2026, **kw)
 

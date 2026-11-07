@@ -10,7 +10,8 @@ from decimal import Decimal
 from .money import round_for_display
 
 # 1: gross/net columns only (before Phase 10). 2: adds withholding tax, expenses and unallocated columns.
-CSV_FORMAT_VERSION = '2'
+# 3 (Phase 43, ADR 0043): the tax information summary's CSV also holds the "Gross to net" table.
+CSV_FORMAT_VERSION = '3'
 FORMULA_CHARS = ('=', '+', '-', '@', '\t', '\r')
 
 
