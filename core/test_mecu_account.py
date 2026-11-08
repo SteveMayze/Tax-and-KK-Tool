@@ -153,6 +153,55 @@ class MecuReaderTests(SimpleTestCase):
         self.assertNotEqual(a.fingerprint, read(statement(sections=[savings(), td_maturing(closing='10,301.00', net='301.00', gross='401.00'), td_paying_out()])).result.fingerprint)
 
 
+def pension_statement(rows, closing):
+    return statement(sections=[savings(rows=rows, closing=closing)])
+
+
+class MecuPensionTests(SimpleTestCase):
+    """ADR 0044. Invented figures: opening 1,000.00."""
+    HUB = '5 Mar 5 Mar Direct Credit Hub24 Custodial - 0000000000 250.00 1,250.00'
+
+    def test_a_hub24_direct_credit_stages_one_net_pension_row(self):
+        outcome = read(pension_statement([self.HUB], '1,250.00'))
+        self.assertEqual(outcome.error, '')
+        (row,) = outcome.result.rows
+        d = row.data
+        self.assertEqual((d['organisation'], d['category'], d['currency'], d['payment_date'], d['frequency']), ('HUB24', 'Pension', 'AUD', '2025-03-05', 'monthly'))
+        self.assertEqual((d['gross_amount'], d['net_amount'], d['withholding_tax'], d['expenses']), ('250.00', '250.00', '0', '0'))
+        self.assertNotIn('0000000000', d['comment'])
+        self.assertIn('payment_date', row.provenance)
+
+    def test_a_bpay_debit_to_hub24_stages_nothing_and_the_balance_closes(self):
+        outcome = read(pension_statement(['5 Mar 5 Mar BPAY Payment To Hub24 00000 100.00 900.00'], '900.00'))
+        self.assertEqual((outcome.error, len(outcome.result.rows)), ('', 0))
+
+    def test_another_direct_credit_still_stages_nothing(self):
+        outcome = read(pension_statement(['5 Mar 5 Mar Direct Credit EXAMPLE EMPLOYER 500.00 1,500.00'], '1,500.00'))
+        self.assertEqual((outcome.error, len(outcome.result.rows)), ('', 0))
+
+    def test_a_hub24_line_whose_balance_does_not_add_up_is_refused(self):
+        outcome = read(pension_statement(['5 Mar 5 Mar Direct Credit Hub24 Custodial - 0000000000 250.00 1,300.00'], '1,300.00'))
+        self.assertIsNone(outcome.result)
+
+    def test_a_hub24_debit_is_refused(self):
+        outcome = read(pension_statement(['5 Mar 5 Mar Direct Credit Hub24 Custodial - 0000000000 250.00 750.00'], '750.00'))
+        self.assertIsNone(outcome.result)
+
+    def test_a_wrapped_description_is_joined(self):
+        rows = ['5 Mar 5 Mar Direct Credit Hub24', 'Custodial - 0000000000 250.00 1,250.00']
+        outcome = read(pension_statement(rows, '1,250.00'))
+        self.assertEqual((outcome.error, [r.data['category'] for r in outcome.result.rows]), ('', ['Pension']))
+
+    def test_interest_and_pension_together_and_the_annual_summary_compares_interest_only(self):
+        rows = [self.HUB, '31 Mar 31 Mar Bonus Interest 8.00 1,258.00', *memo(31, '2.00', '10.00')]
+        outcome = read(pension_statement(rows, '1,258.00'))
+        self.assertEqual(sorted(r.data['category'] for r in outcome.result.rows), ['Interest', 'Pension'])
+        outcome.result.meta['payment_summary'] = {'start': datetime.date(2025, 3, 1), 'end': datetime.date(2025, 3, 31),
+                                                  'interest': D('10.00'), 'withheld': D('2.00')}
+        warnings = mecu_account.settle([('a', outcome.result)])
+        self.assertFalse([w for w in warnings if 'does not agree' in w])
+
+
 class MecuAnnualSummaryTests(SimpleTestCase):
     @staticmethod
     def year(summary_withheld='24.00', summary_interest='120.00', months=12):
@@ -209,6 +258,15 @@ class MecuStagingTests(UploadDirMixin, TestCase):
         self.assertIn(self.client.post(reverse('import_commit', args=[batch.pk])).status_code, (200, 302))
         self.assertEqual(Payment.objects.count(), 3)
         self.assertEqual(sorted(p.withholding_tax for p in Payment.objects.all()), [D('2.00'), D('20.00'), D('100.00')])
+
+    def test_a_hub24_credit_is_committed_as_a_pension_payment(self):
+        raw = make_pdf(pension_statement([MecuPensionTests.HUB], '1,250.00'))
+        provider = FakeRateProvider({('AUD', datetime.date(2025, 3, 5)): D('0.6')})
+        batch = pdf_imports.stage_pdf_batch([('p.pdf', raw)], provider)
+        self.client.force_login(get_user_model().objects.create_user('u', password='p'))
+        self.assertIn(self.client.post(reverse('import_commit', args=[batch.pk])).status_code, (200, 302))
+        (p,) = Payment.objects.all()
+        self.assertEqual((p.category.name, p.organisation.name, p.gross_amount, p.net_amount), ('Pension', 'HUB24', D('250.00'), D('250.00')))
 
     def test_a_barcode_only_page_does_not_refuse_the_file(self):                           # M7
         pages = statement()
@@ -268,18 +326,24 @@ class LocalMecuTests(SimpleTestCase):
 
     def test_all_files_open_none_is_refused_and_the_rows_match_the_owner_checked_file(self):
         files = sorted((SAMPLES / 'MECU').glob('*.pdf'))
-        items, rows = [], []
+        items, rows, pension = [], [], {}
         for path in files:
             outcome = sr.read_statement(path.read_bytes())
             self.assertEqual((outcome.reader_id, outcome.error), ('mecu_account', ''), path.name[:7])
             items.append((path.name[:7], outcome.result))
-            rows += [(r.data['payment_date'], r.data['gross_amount'], r.data['withholding_tax'], r.data['net_amount'], r.data['comment'].split(' (')[0])
-                     for r in outcome.result.rows]
+            for r in outcome.result.rows:
+                if r.data['category'] == 'Pension':
+                    pension[path.name[:4]] = pension.get(path.name[:4], 0) + 1          # counts only, no amounts
+                else:
+                    rows.append((r.data['payment_date'], r.data['gross_amount'], r.data['withholding_tax'], r.data['net_amount'],
+                                 r.data['comment'].split(' (')[0]))
         warnings = sr.reader_by_id('mecu_account').settle(items)
-        print(f'\nMECU: {len(files)} files opened, {len(rows)} rows, annual-summary warnings: {warnings}')
+        self.assertEqual(pension, {'2606': 1, '2607': 1, '2608': 1, '2609': 1})        # ADR 0044: one HUB24 pension credit each, none elsewhere
+        print(f'\nMECU: {len(files)} files opened, {len(rows)} interest rows, {sum(pension.values())} pension rows, annual-summary warnings: {warnings}')
         expected_file = SAMPLES / 'expected' / 'mecu.csv'
         if expected_file.is_file():
             expected = [tuple(l.split(',')) for l in expected_file.read_text().splitlines()[1:] if l.strip()]
-            self.assertEqual(sorted(rows), sorted(expected))
+            last = max(e[0] for e in expected)          # the owner-checked file may predate the newest statements
+            self.assertEqual(sorted(r for r in rows if r[0] <= last), sorted(expected))
         else:
             print('MECU: no expected file (local/samples/expected/mecu.csv); rows not compared')

@@ -1,4 +1,4 @@
-"""MECU account statements (AUD): interest, bonus interest and term-deposit interest with the overseas withholding tax shown
+"""MECU account statements (AUD): interest, bonus interest and term-deposit interest (and, since ADR 0044, HUB24 pension credits) with the overseas withholding tax shown
 in the memo lines (Phase 22, ADR 0022).
 
 Read in layout mode, after pdf_text has opened the file (the cross-reference repair is in pdf_text). Recognised by structure:
@@ -14,6 +14,8 @@ per account and a statement number. The bank's name, address and branch text are
 * Double appearance (M5): the receiving "Interest Credit ... Transfer" credit of a savings account is a transfer when it
   matches a term-deposit interest payment of the same date and amount in the same statement; interest is staged once, from
   the term-deposit section. A receiving credit without such a partner refuses the statement.
+* Pension (ADR 0044): a Direct Credit whose description contains "Hub24" is staged as one Pension row (net credit only, monthly);
+  every other Direct Credit and the BPAY debits to HUB24 stay skipped.
 * Any other booking text refuses the statement naming its first words (a fee, for example).
 """
 import datetime
@@ -42,6 +44,9 @@ MEMO_TAX = re.compile(r'^Overseas Withholding Tax$')
 MEMO_GROSS = re.compile(r'^Gross Interest\.?$')
 NOT_INCOME = ('Direct Credit', 'BPAY Payment', 'Osko Payment', 'Net Tfr', 'Transfer To', 'Transfer From', 'Received From', 'Internet', 'Member',
               'Visa', 'Deposit', 'POS', 'Ext Tfr', 'ATM')
+# Incoming pension credits are recognised by words (case-insensitive, spaces normalised): a description that starts with the
+# first word(s) AND contains the payer word. No reference or account number is ever matched or kept (ADR 0044).
+PENSION_PAYERS = {'starts': 'direct credit', 'contains': 'hub24', 'organisation': 'HUB24', 'category': 'Pension'}
 # Rows that only restate the balance (no amount moves): accepted only when the single figure equals the running balance.
 INFORMATION = ('Dormant Account', 'Balance Enquiry', 'Invalid Pin')
 SECTION = re.compile(r'^Account: (\d+)\b(.*)$')
@@ -61,6 +66,11 @@ def recognises(pages) -> bool:
 
 def _words(text, n=2):
     return ' '.join(re.sub(r'[\d$()]', '', text).split()[:n])[:30]
+
+
+def _is_pension(description):
+    text = description.lower()
+    return text.startswith(PENSION_PAYERS['starts']) and PENSION_PAYERS['contains'] in text
 
 
 def _statement_date(lines):
@@ -203,6 +213,11 @@ def parse(pages: list[str]) -> st.StatementResult:
                        'td': acc['td'], 'lines': list(entry['lines']), 'page': entry['page'], 'description': description}
                 interest.append(row)
                 previous = row
+            elif _is_pension(description):
+                if direction != 'credit':
+                    raise UnsupportedStatement(gettext('A pension row is a debit, which is not expected (%(kind)s).') % {'kind': _words(description)})
+                interest.append({'kind': 'pension', 'amount': amount, 'eff': eff, 'posted': posted, 'memos': {}, 'td': False,
+                                 'lines': list(entry['lines']), 'page': entry['page'], 'description': description})
             elif description.startswith(NOT_INCOME):
                 continue
             else:
@@ -226,6 +241,16 @@ def parse(pages: list[str]) -> st.StatementResult:
 
     out = []
     for r in rows_to_stage:
+        if r['kind'] == 'pension':
+            # the bank line shows the net credit only: gross = net, nothing attributed (ADR 0044)
+            amount = format(r['amount'], 'f')
+            comment = gettext('Net credit as shown on the bank statement; fund costs and tax are not attributed to this payment (PDF import).')
+            data = {c: '' for c in COLUMNS}
+            data.update(payment_date=r['eff'].isoformat(), organisation=PENSION_PAYERS['organisation'], category=PENSION_PAYERS['category'],
+                        currency='AUD', gross_amount=amount, net_amount=amount, withholding_tax='0', expenses='0', frequency='monthly', comment=comment)
+            evidence = (r['page'], ' / '.join(r['lines']))
+            out.append(st.StatementRow(data, {'payment_date': evidence, 'gross_amount': evidence, 'net_amount': evidence}))
+            continue
         memos, net = r['memos'], r['amount']
         withholding = memos.get('tax', Decimal(0))
         gross = memos.get('gross', net)
@@ -294,6 +319,8 @@ def settle(items):
         gross = withheld = Decimal(0)
         for _l, r in items:
             for row in r.rows:
+                if row.data['category'] != 'Interest':
+                    continue
                 d = datetime.date.fromisoformat(row.data['payment_date'])
                 if summary['start'] <= d <= summary['end']:
                     gross += Decimal(row.data['gross_amount'])
