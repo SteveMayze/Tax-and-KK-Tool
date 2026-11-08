@@ -65,7 +65,7 @@ def main(argv=None, out=None):
             settle = statement_readers.reader_by_id(reader_id).settle
             if settle:
                 settle(items)
-        rows = [r.data for _n, _i, res in results for r in res.rows]
+        rows = [r.data for _n, _i, res in results for r in res.rows if r.data['category'] == category]       # pension rows: pension_section
         organisations = {r['organisation'].lower() for r in rows}
         existing = list(Payment.objects.filter(organisation__name__in=[r['organisation'] for r in rows]).select_related('organisation', 'category'))
         existing_all = list(Payment.objects.filter(category__name=category, currency='AUD').select_related('organisation'))
@@ -101,12 +101,41 @@ def main(argv=None, out=None):
             close = sum(1 for p in unmatched_existing if any(abs(datetime.date.fromisoformat(d['payment_date']) - p.payment_date) <= three_days
                                                               and d['organisation'].lower() == p.organisation.name.lower() for d in rows))
             lines.append(f'    of those, with a staged row of the same organisation within 3 days (another gross or date): {close}')
+    lines += pension_section(Path(args.samples) / 'MECU')
     lines += joint_section(Path(args.samples) / 'RVB-joint')
     text = '\n'.join(lines)
     print(text, file=out or sys.stdout)
     target = Path('local/exports')
     if target.is_dir() and not args.no_file:
         (target / 'collision_report.txt').write_text(text + '\n')
+
+
+def pension_section(path):
+    """ADR 0044: staged HUB24 Pension rows (MECU folder) against the AUD Pension payments in the database. Counts only."""
+    from decimal import Decimal
+    from core.models import Payment
+    from core.services import statement_readers
+    label = 'MECU (HUB24 pension)'
+    if not path.is_dir():
+        return [f'{label}: folder not present']
+    rows = []
+    for f in sorted(path.glob('*.pdf')):
+        outcome = statement_readers.read_statement(f.read_bytes())
+        if outcome.result is not None:
+            rows += [r.data for r in outcome.result.rows if r.data['category'] == 'Pension']
+    existing = list(Payment.objects.filter(category__name='Pension', currency='AUD').select_related('organisation'))
+    three_days = datetime.timedelta(days=3)
+    exact = near = 0
+    for d in rows:
+        date, gross, org = datetime.date.fromisoformat(d['payment_date']), Decimal(d['gross_amount']), d['organisation'].lower()
+        if any(p.payment_date == date and p.gross_amount == gross and p.organisation.name.lower() == org for p in existing):
+            exact += 1
+        elif any(abs(p.payment_date - date) <= three_days and (p.gross_amount == gross or p.organisation.name.lower() == org) for p in existing):
+            near += 1
+    return [f'{label}: {len(rows)} staged Pension rows; AUD Pension payments in the database: {len(existing)}',
+            f'  exact collisions (the review would flag them as duplicates): {exact}',
+            f'  near collisions (within 3 days, same organisation or same gross): {near}',
+            f'  staged rows with no counterpart in the database: {len(rows) - exact - near}']
 
 
 def joint_section(path):
