@@ -134,6 +134,8 @@ Reader id `mecu_account` (AUD), layout mode, organisation `MECU` (fixed). **Reco
 
 **Annual summary (M6).** A June statement's "Payment Summary for Withholding Tax" (gross interest and non-resident withholding tax of the financial year) is compared, when the upload holds the statements of the whole financial year, with the staged rows: a difference is a warning and the rows still stage; a partial year is "not compared". **Fingerprint:** statement number, period end and the sum of the closing balances. A page without a text layer (barcode pages) does not refuse a file whose other pages have text.
 
+**Pension rows (ADR 0044).** A Direct Credit whose description contains "Hub24" (matched by words, never by reference number) is staged as one row: organisation `HUB24`, category `Pension`, AUD, payment date = Effective date, frequency monthly, gross = net = the credit, withholding and expenses 0. The statement shows only the net amount; the fund's costs and tax are not attributed to the payment. Correct gross, withholding or frequency (for example a back payment as one-off) in the review step before committing. Other Direct Credits and the BPAY debits to HUB24 are skipped, as before. The annual-summary cross-check compares interest rows only.
+
 ## Ord Minnett Cash Management Trust statements (Phase 23, ADR 0023)
 Reader ids `ordminnett_cmt` and `ordminnett_valuation` (AUD), layout mode, organisation `Ord Minnett` (fixed). **Recognised by structure:** a "Date / Description / Debit ($) / Credit ($) / Balance ($)" table that starts with a "Brought Forward" row; the broker's name and address are never used. The holdings snapshot ("Portfolio Valuation") has its own small recogniser and has nothing to import. The Australian dividend reader no longer claims account statements or valuations (a statement with a "Balance ($)" column or a "Portfolio Valuation" is not a dividend advice).
 
@@ -146,7 +148,7 @@ This section only consolidates; the details are in the three sections above.
 
 | | Rental agent (`hodges_rental`) | MECU (`mecu_account`) | Ord Minnett (`ordminnett_cmt`) |
 |---|---|---|---|
-| Rows | one per statement | one per interest credit, bonus interest and term-deposit interest | one per quarter's interest (batch step) |
+| Rows | one per statement | one per interest credit, bonus interest and term-deposit interest, plus one Pension row per HUB24 direct credit (net only, ADR 0044) | one per quarter's interest (batch step) |
 | Category / frequency | Rental / monthly | Interest / monthly | Interest / quarterly |
 | Organisation | setting `DJANGO_RENTAL_ORGANISATION` | `MECU` (fixed) | `Ord Minnett` (fixed) |
 | Gross / withholding / expenses | rent received / 0 / costs and sundry fees | Gross Interest memo / Overseas Withholding Tax memo / 0 | interest credit / paired withholding debit / 0 |

@@ -3631,3 +3631,16 @@ msgstr "Bei %(n)s Zahlung(en) ist kein Nettobetrag erfasst: Sie zählen bei Brut
 
 msgid "Unallocated = gross - net - withholding tax - expenses. A figure other than 0.00 means the recorded breakdown of a payment does not add up; it is shown, not corrected."
 msgstr "Nicht zugeordnet = Brutto - Netto - einbehaltene Steuer - Ausgaben. Ein anderer Wert als 0,00 bedeutet, dass die erfasste Aufteilung einer Zahlung nicht aufgeht; er wird gezeigt, nicht korrigiert."
+
+#: core/services/mecu_account.py
+#, python-format
+msgid "A pension row is a debit, which is not expected (%(kind)s)."
+msgstr "Eine Rentenzeile ist eine Belastung, das wird nicht erwartet (%(kind)s)."
+
+#: core/services/mecu_account.py
+msgid ""
+"Net credit as shown on the bank statement; fund costs and tax are not "
+"attributed to this payment (PDF import)."
+msgstr ""
+"Nettogutschrift laut Kontoauszug; Kosten und Steuern des Fonds werden dieser "
+"Zahlung nicht zugeordnet (PDF-Import)."
