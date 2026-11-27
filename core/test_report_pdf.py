@@ -1,5 +1,7 @@
 """PDF export of reports (Phase 33, ADR 0034). Inspected with pypdf; the dataset is the synthetic one of test_reports."""
+import datetime
 import io
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -136,6 +138,10 @@ class PdfRouteTests(PdfBase):
         self.assertEqual(r['Content-Disposition'], 'attachment; filename="report-tax_summary-2024.pdf"')
 
     def test_outputs_unchanged_and_nothing_stored(self):
+        # A fixed clock: two renders in different seconds differ only in their generation time (flaky before Phase 38).
+        clock = mock.patch('django.utils.timezone.now', return_value=datetime.datetime(2026, 1, 1, 9, 0, tzinfo=datetime.timezone.utc))
+        clock.start()
+        self.addCleanup(clock.stop)
         import tempfile
         from pathlib import Path
         from django.test import override_settings

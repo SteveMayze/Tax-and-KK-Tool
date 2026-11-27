@@ -418,8 +418,10 @@ class FingerprintTests(Workspace):
         archive = self.archive()
         with self.settings(BACKUP_DIR=str(self.backups), UPLOAD_DIR=str(self.uploads),
                            DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': str(self.db)}}):
-            from_archive = self.run_cmd(archive=archive.name)
-            live = self.run_cmd()
+            # This fake schema is not the app's models: the byte-level SQLite fingerprint (Phase 37 format, --raw-sqlite).
+            # The engine-neutral default is tested in core/test_postgres.py (ADR 0035).
+            from_archive = self.run_cmd(archive=archive.name, raw_sqlite=True)
+            live = self.run_cmd(raw_sqlite=True)
         self.assertEqual(from_archive, live)
         self.assertTrue(live[0].startswith('FINGERPRINT rows=3 content='))
         self.assertNotIn('20.50', '\n'.join(live))
