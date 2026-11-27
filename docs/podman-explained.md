@@ -80,7 +80,7 @@ make createsuperuser         # creates your login for the web page (asks for a n
 make changepassword USERNAME=name   # sets a new password for that login
 ```
 
-Development helpers on your Mac only: `make setup` installs the app's Python packages; `make test` runs the test suite; `make check` runs Django's own configuration check.
+Development helpers on your Mac only: `make setup` installs the app's Python packages; `make test` runs the test suite; `make test-pg` runs the same suite on a throw-away PostgreSQL 17 made from Postgres.app's programs (created in a temporary folder and removed afterwards; Postgres.app need not be running); `make check` runs Django's own configuration check.
 
 What normal output looks like:
 

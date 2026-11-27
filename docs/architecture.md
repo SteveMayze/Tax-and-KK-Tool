@@ -1,6 +1,6 @@
 # Architecture (through Phase 8)
 
-Single Django project (`config`) with one app (`core`), SQLite, server-rendered templates, no JavaScript.
+Single Django project (`config`) with one app (`core`), server-rendered templates, no JavaScript. Database: SQLite in development and tests, and until the cutover in production; afterwards the platform's shared PostgreSQL 17 (database `taxtool`), selected only by `DJANGO_DB_HOST` (ADR 0035). The code is engine-neutral: ORM only, no raw SQL outside the backup service, and every text order a user sees is sorted in Python (`core/ordering.py`), because PostgreSQL sorts text by locale and SQLite by bytes. Engine-specific code lives only in `core/services/backup.py` (SQLite copy or `pg_dump`), `core/services/sequences.py` and the settings.
 
 ## Layers
 - `core/models.py`: data and invariants (see data-model.md).
