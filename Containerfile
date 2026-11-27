@@ -16,6 +16,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN groupadd --gid 10001 app \
     && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin app
 
+# PostgreSQL client tools for the backups (ADR 0035): pg_dump/pg_restore 17 from Debian 13's own repository. They must
+# not be older than the server (PostgreSQL 17), because pg_dump refuses a newer server; the build fails otherwise.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-17 \
+    && rm -rf /var/lib/apt/lists/* \
+    && for tool in pg_dump pg_restore; do \
+         v="$($tool --version | sed -E 's/[^0-9]*([0-9]+).*/\1/')"; \
+         [ -n "$v" ] && [ "$v" -ge 17 ] || { echo "$tool missing or older than 17 (got: $v)" >&2; exit 1; }; \
+       done
+
 WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --no-compile -r requirements.txt
