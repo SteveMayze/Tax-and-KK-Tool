@@ -1,6 +1,6 @@
 # ADR 0035: Storage on /u01 and PostgreSQL
 
-Status: **storage part (decisions 1 to 4) final, implemented in Phase 36 (branch `feat/u01-storage`, 2026-11-27, not deployed); database part (5 to 12) proposed.** Drafted in Phase 35 (2026-11-27, branch `docs/phase-35-design`). Plan: `docs/prompts/PHASES_12.md`. Findings: `docs/u01-postgres-findings.md`. This ADR is accepted in stages. Phase 36/37 accept the storage decisions, and Phase 38/39 accept the database decisions.
+Status: **storage part (decisions 1 to 4) accepted: implemented in Phase 36 (PR #7) and carried out on the server in Phase 37 on 2026-11-27; database part (5 to 12) proposed.** Drafted in Phase 35 (2026-11-27, branch `docs/phase-35-design`). Plan: `docs/prompts/PHASES_12.md`. Findings: `docs/u01-postgres-findings.md`. This ADR is accepted in stages. Phase 36/37 accept the storage decisions, and Phase 38/39 accept the database decisions.
 
 ## Context
 The app runs as the rootless Quadlet container `tax-healthcare-tool-web` of `homeapps` (ADR 0007 to 0009). Its SQLite database, the stored original statements and its backups are in `~/tax-healthcare-tool/{data,uploads,backups}` on the eMMC. On 2026-11-27 these were 1.8 MB, 101 MB (30 files) and 1.8 GB (21 archives), with 15 GB of 27 GB free on the eMMC. A 1 TB disk is mounted at `/u01`. The platform repository runs a shared PostgreSQL 17.11 container `postgres` on the Podman network `db`, with the empty database `taxtool`, the role `taxtool` (not a superuser, `NOCREATEDB`) and the secret `taxtool-db-password`, plus nightly dumps, an offsite copy and disk-health checks (platform ADR 0005, contract v1). The parts-db app completed the same move as a pilot (Parts-DB ADR 0003), and this ADR follows it wherever it fits.
@@ -31,3 +31,12 @@ The app runs as the rootless Quadlet container `tax-healthcare-tool-web` of `hom
 - SQLite's 15-significant-digit limit on stored decimals no longer applies. No current value reaches it.
 - The image grows by the PostgreSQL client tools.
 - Until the owner adds `/u01/data/tax-healthcare-tool/backups` to the platform's offsite paths, this app's archives are not offsite. They are not offsite today either.
+
+## Phase 37 record (2026-11-27; counts and hashes only)
+- Gate: verified backup `backup-20261127-154258-manual` on the server and on the Mac. The fingerprint before the move was `rows=1396 content=bd54a32d… uploads=30:9c88b66a…`, and `stored_files_report` gave 0 unreferenced, 0 missing, 0 outside.
+- `make relocate-storage`: the old and new SHA-256 lists are identical (data 2, uploads 30, backups 24 files). The owner typed `SWITCH`. `use_u01=true` is set on the `tax-service` line, followed by a deploy.
+- After the move, the mounts are only `/u01/data/tax-healthcare-tool/*` and the secret file stays on the eMMC. The guard is active in both units: systemd reports `StartLimitIntervalUSec=0` with no "Unknown key" warning, which confirms the `[Unit]` placement. Fingerprint, row counts and uploads hash are unchanged. The one later difference is the interface-language field, which the owner changed in the browser check. `stored_files_report` again gave 0 / 0 / 0, and a new backup lands in `/u01/data/tax-healthcare-tool/backups`.
+- The owner's browser check passed. The reboot passed: `/u01` mounted by itself, all containers healthy, the gateway answers, the clock is synchronised, and `dmesg` shows 0 I/O, USB-reset or ext4 errors.
+- Offsite: the path was added on the platform side. Restic snapshot `778238b5` holds all 26 archives of the folder (1.9 GiB added).
+- `make rollback-storage` was rehearsed with `--check` (this found the check-mode health-wait bug, which is fixed on `fix/storage-check-mode`). The home-folder copies are kept, untouched, until Phase 39 is verified.
+- The live app still publishes `127.0.0.1:8890`, because the stale rootful copy holds 8889, so routine commands need `PORT=8890`.
