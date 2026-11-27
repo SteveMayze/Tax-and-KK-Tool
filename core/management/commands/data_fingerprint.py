@@ -37,7 +37,7 @@ class Command(BaseCommand):
                         return self._raw(backup.fingerprint(out / backup.DB_NAME, out / backup.UPLOADS))
                     return self._print(self._from_sqlite_file(out / backup.DB_NAME, out / backup.UPLOADS), opts)
             if opts['raw_sqlite']:
-                if settings.USING_POSTGRES:
+                if not settings.DATABASES['default']['ENGINE'].endswith('sqlite3'):
                     raise CommandError('--raw-sqlite needs the SQLite database; this instance uses PostgreSQL.')
                 return self._raw(backup.fingerprint(settings.DATABASES['default']['NAME'], settings.UPLOAD_DIR))
             return self._print(fp.fingerprint(settings.UPLOAD_DIR), opts)

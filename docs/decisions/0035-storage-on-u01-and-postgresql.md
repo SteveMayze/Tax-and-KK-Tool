@@ -51,4 +51,10 @@ The app runs as the rootless Quadlet container `tax-healthcare-tool-web` of `hom
 - **Backups and restores** (decision 11): as specified. The app never creates or drops a database. `--skip-if-empty` lets the pre-deploy backup pass on a database without tables.
 - **Units** (decision 7): as specified. One-off runs join only `db` (not `gateway`). The backup service also waits for `postgres.service`.
 - **SQLite limit found:** Django reads SQLite decimals with 15 significant digits. The golden data set therefore stays within 15 digits, and a PostgreSQL-only test proves the full field sizes (16/4, 20/10, 20/6) exactly.
+- **Test results (2026-11-27):** `make test` passed: 1106 tests, OK, 4 skipped (owner-only samples and Ansible-less paths). `make test-pg` against a throw-away PostgreSQL 17 (Postgres.app) also passed: 1106 tests, OK, 2 skipped (owner-only samples). On PostgreSQL the golden fingerprint, the golden report checksums, the exact-export round trip at full field sizes and the `pg_dump` archive tests all passed, with the same pinned values as on SQLite.
+- **Tests changed for PostgreSQL:**
+  - `test_prefix` used the hard-coded id 1; it now uses the created payment's id, because sequences do not restart between tests.
+  - `core.tests` SQLite-path tests now ignore an inherited `DJANGO_DB_*`.
+  - `test_report_package` K6 keeps the test connection open when it closes a streaming response inside the test transaction. This is a Django test-client effect; the app is not affected.
+  - The fingerprint, backup and restore commands now decide by the configured engine rather than the start-up flag.
 

@@ -15,7 +15,7 @@ class SetupTests(TestCase):
 
     def _db_name(self, **env):
         # Settings are evaluated in a fresh interpreter (the test runner swaps in an in-memory DB).
-        clean = {k: v for k, v in os.environ.items() if k != 'DJANGO_DB_PATH'}
+        clean = {k: v for k, v in os.environ.items() if k != 'DJANGO_DB_PATH' and not k.startswith('DJANGO_DB_')}
         clean.update(env)
         code = "from config import settings; print(settings.DATABASES['default']['NAME'])"
         out = subprocess.run(

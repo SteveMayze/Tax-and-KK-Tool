@@ -93,8 +93,10 @@ class UnderPrefixTests(TestCase):
         self.assertEqual(r.status_code, 302)
         self.assertEqual(r['Location'], f'{PREFIX}/years/2024/')    # follows ?next=, prefix kept
 
+        from core.models import Payment
+        pid = Payment.objects.order_by('pk').values_list('pk', flat=True).first()   # not 1: sequences differ by engine
         pages = ['/', '/years/2024/', '/years/2024/months/3/', '/reports/', '/imports/', '/organisations/',
-                 '/categories/', '/assessment/settings/', '/reconciliation/', '/payments/1/', '/payments/1/edit/',
+                 '/categories/', '/assessment/settings/', '/reconciliation/', f'/payments/{pid}/', f'/payments/{pid}/edit/',
                  f'/reports/{next(iter(REPORTS))}/']
         for path in pages:
             response = self.client.get(path)

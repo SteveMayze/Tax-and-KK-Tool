@@ -141,6 +141,14 @@ class PackageTests(PackageBase):
             f = real()
             created.append(f)
             return f
+        # Closing a streaming response sends request_finished, and Django then closes the connection because a test
+        # transaction looks "obsolete" to it. Harmless on SQLite's in-memory test database; on PostgreSQL every later
+        # test of this class would lose its connection. The app itself is unaffected (no test transaction there).
+        # (The test client reconnects that signal handler after each request, so the connection's own check is stubbed.)
+        from django.db import connection
+        keep = mock.patch.object(connection, 'close_if_unusable_or_obsolete', lambda: None)
+        keep.start()
+        self.addCleanup(keep.stop)
         with mock.patch.object(report_package.tempfile, 'TemporaryFile', spy):
             r = self.client.get(self.url())
             b''.join(r.streaming_content)

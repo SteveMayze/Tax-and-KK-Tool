@@ -42,7 +42,7 @@ class Command(BaseCommand):
             if not opts['target_uploads']:
                 raise CommandError('--target-uploads is required together with --target-db or --new-db.')
             if opts['new_db']:
-                if not settings.USING_POSTGRES:
+                if not settings.DATABASES['default']['ENGINE'].endswith('postgresql'):
                     raise CommandError('--new-db needs the PostgreSQL settings (DJANGO_DB_HOST).')
                 if opts['swap'] and opts['confirm_swap'] != 'SWAP':
                     raise CommandError('--swap replaces the live database; add --confirm-swap SWAP to do it.')

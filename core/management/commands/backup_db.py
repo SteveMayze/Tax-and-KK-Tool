@@ -23,12 +23,12 @@ class Command(BaseCommand):
         backup_dir = opts['backup_dir'] or settings.BACKUP_DIR
         uploads = opts['uploads'] or settings.UPLOAD_DIR
         try:
-            if settings.USING_POSTGRES and not opts['db'] and opts['skip_if_empty']:
+            if settings.DATABASES['default']['ENGINE'].endswith('postgresql') and not opts['db'] and opts['skip_if_empty']:
                 from django.db import connection
                 if 'django_migrations' not in connection.introspection.table_names():
                     self.stdout.write('BACKUP_SKIPPED the database has no tables yet')
                     return
-            if settings.USING_POSTGRES and not opts['db']:
+            if settings.DATABASES['default']['ENGINE'].endswith('postgresql') and not opts['db']:
                 path = backup.create_pg_backup(settings.DATABASES['default'], uploads, backup_dir,
                                                label=opts['label'], version=app_version())
             else:
