@@ -12,6 +12,7 @@ from django.utils.translation import gettext
 from core.countries import ISO_COUNTRIES
 from core.currencies import BASE_CURRENCY, CURRENCY_COUNTRY
 from core.models import Organisation
+from core.ordering import by_text
 
 from . import lookups
 
@@ -111,7 +112,7 @@ def organisation_proposals():
         currencies[org_id].add(currency)
         counts[org_id] += 1
     result = []
-    for org in Organisation.objects.filter(country='').order_by('name'):
+    for org in by_text(Organisation.objects.filter(country='')):
         ccys = currencies.get(org.pk)
         if ccys and len(ccys) == 1:
             ccy = next(iter(ccys))

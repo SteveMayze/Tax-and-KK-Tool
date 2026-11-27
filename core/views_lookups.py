@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import CategoryForm, OrganisationForm
+from .ordering import by_text
 from .models import IncomeCategory, Organisation
 from .services import org_countries
 
@@ -20,7 +21,7 @@ CONFIG = {
 @login_required
 def lookup_list(request, kind):
     cfg = CONFIG[kind]
-    rows = cfg['model'].objects.annotate(payment_count=Count('payments'))
+    rows = by_text(cfg['model'].objects.annotate(payment_count=Count('payments')))     # engine-independent order (ADR 0035)
     return render(request, 'core/lookup_list.html', {'kind': kind, 'cfg': cfg, 'rows': rows})
 
 

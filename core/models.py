@@ -243,6 +243,14 @@ class ImportRow(models.Model):
         constraints = [models.UniqueConstraint(fields=['batch', 'line_number'], name='unique_batch_line')]
 
     @property
+    def provenance_items(self):
+        """(field, evidence) pairs in the fixed column order of the import format, other fields after them by name.
+        Never the stored key order: PostgreSQL's jsonb does not keep it (ADR 0035)."""
+        from core.services.imports import COLUMNS
+        rank = {name: i for i, name in enumerate(COLUMNS)}
+        return sorted((self.provenance or {}).items(), key=lambda kv: (rank.get(kv[0], len(rank)), kv[0]))
+
+    @property
     def will_import(self):
         if self.excluded or self.status == self.Status.INVALID:
             return False
