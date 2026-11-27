@@ -1,0 +1,299 @@
+---
+# Moves this app's data (database, stored original statements, backups) from the home folder to the removable disk /u01
+# (ADR 0035).  make relocate-storage
+# Nothing is ever deleted: the data is COPIED and the old folders stay exactly as they are (kept for rollback). Steps:
+#   1. checks: the server still uses the home-folder layout, /u01 is mounted, the old folders exist, the new ones are
+#      empty or absent. If one fails, nothing was changed.
+#   2. stop the app and the daily backup timer, then take a verified backup (label pre-relocate) of the OLD folders
+#   3. copy data, uploads (all of it: imports/ and the zips of originals) and backups with cp -a (no option that deletes)
+#   4. compare the file lists and the SHA-256 of every file, old against new; keep both lists (file names of our own
+#      files and hashes only) on the server and on this Mac (local/relocation/), and SHOW the result
+#   5. only after the owner types SWITCH (or passes -e confirm_switch=SWITCH): write the marker, install the units for
+#      the new folders, start, wait until healthy.
+# On any failure, or without the confirmation, the app and the timer are started again on the OLD folders.
+- name: Relocate tax-healthcare-tool storage to /u01
+  hosts: taxtool
+  gather_facts: false
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ service_uid | default('') }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ service_uid | default('') }}/bus"
+  vars:
+    use_u01: true                                                           # this playbook renders the NEW layout
+    old_flags: "{{ podman_run_flags | replace(storage_root, legacy_root) }}"   # one-off runs against the OLD folders
+    folders: [data, uploads, backups]
+    report_dir: "{{ config_root }}/relocation-{{ stamp }}"                  # on the eMMC, next to the marker
+  tasks:
+    - name: Connected as the service user, with linger on and a running user systemd
+      ansible.builtin.include_tasks: tasks/service-session.yml
+
+    - name: One time stamp for this run (names the folder of hash lists)
+      ansible.builtin.set_fact:
+        stamp: "{{ lookup('pipe', 'date -u +%Y%m%d-%H%M%S') }}"
+
+    - name: Only this app's own folders (parts-db lives next to it)
+      ansible.builtin.assert:
+        that:
+          - app_name == 'tax-healthcare-tool'
+          - legacy_root == service_home ~ '/tax-healthcare-tool'
+          - storage_root == '/u01/data/tax-healthcare-tool'
+          - build_root == '/u01/apps/tax-healthcare-tool/build'
+        fail_msg: "legacy_root, storage_root and build_root must be this app's own folders. Nothing was changed."
+
+    - name: Which storage layout does the server use now?
+      ansible.builtin.slurp:
+        src: "{{ storage_marker }}"
+      register: marker
+      failed_when: false
+      check_mode: false
+
+    - name: Already relocated? Then there is nothing to do (nothing was changed)
+      ansible.builtin.assert:
+        that: ((marker.content | default('') | b64decode | trim) or 'legacy') == 'legacy'
+        fail_msg: "The marker says the data is already on {{ storage_root }}. Nothing was changed."
+
+    - name: Is the removable disk really mounted at {{ mount_guard_path }}?
+      ansible.builtin.command: "/usr/bin/mountpoint -q {{ mount_guard_path }}"
+      register: u01_mount
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: The disk must be mounted (nothing was changed)
+      ansible.builtin.assert:
+        that: u01_mount.rc == 0
+        fail_msg: "{{ mount_guard_path }} is not a mount point. Attach and mount the disk first. Nothing was changed."
+
+    - name: Look at the old folders
+      ansible.builtin.stat:
+        path: "{{ legacy_root }}/{{ item }}"
+        get_checksum: false
+      loop: "{{ folders }}"
+      register: old_dirs
+
+    - name: The old folders must exist (nothing was changed)
+      ansible.builtin.assert:
+        that: item.stat.exists and item.stat.isdir
+        fail_msg: "{{ legacy_root }}/{{ item.item }} does not exist; there is nothing to relocate. Nothing was changed."
+      loop: "{{ old_dirs.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Are the new folders empty? (a copy never overwrites what is already there)
+      ansible.builtin.shell:
+        cmd: "if [ -d {{ storage_root }}/{{ item }} ]; then ls -A {{ storage_root }}/{{ item }} | wc -l; else echo 0; fi"
+        executable: /bin/bash
+      loop: "{{ folders }}"
+      register: new_counts
+      changed_when: false
+      check_mode: false
+
+    - name: The new folders must be empty or absent (nothing was changed)
+      ansible.builtin.assert:
+        that: item.stdout | trim == '0'
+        fail_msg: >-
+          {{ storage_root }}/{{ item.item }} already holds files. This playbook never overwrites: move them aside by hand
+          and run again. Nothing was changed.
+      loop: "{{ new_counts.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Enough free space on the disk for the copy (with a margin of 1 GB)?
+      ansible.builtin.shell:
+        cmd: >-
+          need=$(du -sk {{ legacy_root }}/data {{ legacy_root }}/uploads {{ legacy_root }}/backups | awk '{s+=$1} END {print s}');
+          free=$(df -k --output=avail {{ mount_guard_path }} | tail -1);
+          echo "$need $free"; [ "$free" -gt $((need + 1048576)) ]
+        executable: /bin/bash
+      register: space
+      changed_when: false
+      check_mode: false
+
+    - name: Is the app image there? (needed for the verified backup)
+      ansible.builtin.command: "podman image exists {{ image_repo }}:current"
+      changed_when: false
+      check_mode: false
+
+    - name: Copy, verify and switch
+      block:
+        - name: Stop the daily backup timer (no backup may start during the copy)
+          ansible.builtin.systemd:
+            scope: user
+            name: "{{ app_name }}-backup.timer"
+            state: stopped
+
+        - name: Wait for a backup that may be running right now
+          ansible.builtin.command: "systemctl --user is-active {{ app_name }}-backup.service"
+          register: backup_running
+          until: backup_running.stdout | trim not in ['active', 'activating']
+          retries: 60
+          delay: 5
+          failed_when: false
+          changed_when: false
+
+        - name: Stop the app so the files do not change while they are copied
+          ansible.builtin.systemd:
+            scope: user
+            name: "{{ app_name }}.service"
+            state: stopped
+
+        - name: Verified backup of the OLD folders first (database and uploads together; it is copied along)
+          ansible.builtin.command: >-
+            podman run {{ old_flags }} {{ image_repo }}:current
+            python manage.py backup_db --label pre-relocate
+          register: pre_backup
+          changed_when: "'BACKUP_CREATED' in pre_backup.stdout"
+
+        - name: Create the new folders (private to the service user; existing ones are left as they are)
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: directory
+            mode: "0700"
+          loop:
+            - "{{ storage_root }}"
+            - "{{ storage_root }}/data"
+            - "{{ storage_root }}/uploads"
+            - "{{ storage_root }}/backups"
+            - "{{ build_root }}"
+            - "{{ build_root }}/tmp"
+            - "{{ report_dir }}"
+
+        - name: Copy the contents (cp -a keeps modes and times and has no option that deletes; the old folders stay untouched)
+          ansible.builtin.command: "cp -a {{ legacy_root }}/{{ item }}/. {{ storage_root }}/{{ item }}/"
+          loop: "{{ folders }}"
+          changed_when: true
+
+        - name: Compare file lists and the SHA-256 of every file, old against new (lists kept in {{ report_dir }})
+          ansible.builtin.shell:
+            cmd: |
+              set -o pipefail
+              list() { (cd "$1" && find . -type f -print0 | sort -z | xargs -0 -r sha256sum); }
+              dirs() { (cd "$1" && find . -type d | sort); }
+              list {{ legacy_root }}/{{ item }} > {{ report_dir }}/{{ item }}.old.sha256
+              list {{ storage_root }}/{{ item }} > {{ report_dir }}/{{ item }}.new.sha256
+              chmod 0600 {{ report_dir }}/{{ item }}.*.sha256
+              files=$(wc -l < {{ report_dir }}/{{ item }}.new.sha256)
+              bytes=$(du -sb {{ storage_root }}/{{ item }} | cut -f1)
+              if cmp -s {{ report_dir }}/{{ item }}.old.sha256 {{ report_dir }}/{{ item }}.new.sha256 \
+                 && diff <(dirs {{ legacy_root }}/{{ item }}) <(dirs {{ storage_root }}/{{ item }}) >/dev/null; then
+                echo "{{ item }}: IDENTICAL files=$files bytes=$bytes"
+              else
+                echo "{{ item }}: DIFFERENT files=$files bytes=$bytes"; exit 1
+              fi
+            executable: /bin/bash
+          loop: "{{ folders }}"
+          register: compared
+          changed_when: false
+
+        - name: The comparison (file counts and sizes only, never contents)
+          ansible.builtin.debug:
+            msg: "{{ compared.results | map(attribute='stdout') | list }}"
+
+        - name: Keep the hash lists on this Mac too (local/relocation/ is git-ignored)
+          ansible.builtin.fetch:
+            src: "{{ report_dir }}/{{ item.0 }}.{{ item.1 }}.sha256"
+            dest: "{{ playbook_dir }}/../local/relocation/relocation-{{ stamp }}/{{ item.0 }}.{{ item.1 }}.sha256"
+            flat: true
+          loop: "{{ folders | product(['old', 'new']) | list }}"
+
+        - name: Second confirmation, asked only after the comparison above (type SWITCH to continue)
+          ansible.builtin.pause:
+            prompt: "Everything was copied and is identical. Type SWITCH to point the app at {{ storage_root }}"
+          register: answer
+          when: confirm_switch is not defined
+
+        - name: Require the confirmation
+          ansible.builtin.assert:
+            that: (confirm_switch | default(answer.user_input | default(''))) == 'SWITCH'
+            fail_msg: "Not confirmed. The app is started again on the old folders; nothing was switched."
+
+        - name: Remember that the data is on the disk now (deploy and the other playbooks check this marker)
+          ansible.builtin.copy:
+            dest: "{{ storage_marker }}"
+            content: "u01\n"
+            mode: "0600"
+
+        - name: Install the units and the management wrapper for the new folders (with the /u01 guard)
+          ansible.builtin.template:
+            src: "{{ item.src }}"
+            dest: "{{ item.dest }}"
+            mode: "{{ item.mode }}"
+          loop: &u01_units
+            - {src: tax-healthcare-tool.container.j2, dest: "{{ quadlet_dir }}/{{ app_name }}.container", mode: "0644"}
+            - {src: tax-healthcare-tool-backup.service.j2, dest: "{{ unit_dir }}/{{ app_name }}-backup.service", mode: "0644"}
+            - {src: manage.sh.j2, dest: "{{ bin_dir }}/{{ app_name }}-manage", mode: "0750"}
+
+        - name: Reload systemd and start the app on the new folders
+          ansible.builtin.systemd:
+            scope: user
+            name: "{{ app_name }}.service"
+            state: restarted
+            daemon_reload: true
+
+        - name: Wait until the container reports healthy
+          ansible.builtin.command: "podman inspect --format {% raw %}'{{.State.Health.Status}}'{% endraw %} {{ container_name }}"
+          register: health
+          until: health.stdout == 'healthy'
+          retries: 45
+          delay: 4
+          changed_when: false
+
+        - name: The health endpoint answers on the loopback port
+          ansible.builtin.uri:
+            url: "http://127.0.0.1:{{ app_port }}/health/"
+            status_code: 200
+
+        - name: Start the daily backup timer again
+          ansible.builtin.systemd:
+            scope: user
+            name: "{{ app_name }}-backup.timer"
+            state: started
+      rescue:
+        - name: Something stopped the relocation. The marker says legacy again
+          ansible.builtin.copy:
+            dest: "{{ storage_marker }}"
+            content: "legacy\n"
+            mode: "0600"
+
+        - name: Reinstall the units and the wrapper for the OLD folders, so everything is exactly as before
+          ansible.builtin.template:
+            src: "{{ item.src }}"
+            dest: "{{ item.dest }}"
+            mode: "{{ item.mode }}"
+          loop: *u01_units
+          vars:
+            use_u01: false
+
+        - name: Reload and start the app on the old folders
+          ansible.builtin.systemd:
+            scope: user
+            name: "{{ app_name }}.service"
+            state: restarted
+            daemon_reload: true
+
+        - name: Start the daily backup timer again
+          ansible.builtin.systemd:
+            scope: user
+            name: "{{ app_name }}-backup.timer"
+            state: started
+
+        - name: Report the failure (the data in the old folders is untouched; the copy on the disk is left for inspection)
+          ansible.builtin.fail:
+            msg: >-
+              Relocation not completed; the app runs on the old folders again. Read the messages above. Nothing was deleted.
+              Before trying again, move the partial copy in {{ storage_root }} aside by hand (the new folders must be empty).
+
+    - name: How much space the old folders hold (kept for rollback; you decide when to remove them)
+      ansible.builtin.command: "du -sh {{ legacy_root }}/data {{ legacy_root }}/uploads {{ legacy_root }}/backups"
+      register: old_sizes
+      changed_when: false
+      check_mode: false
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg:
+          - "Relocated: the app now uses {{ storage_root }}/{data,uploads,backups}."
+          - "Pre-relocate backup: {{ (pre_backup.stdout | default('')).strip() }}"
+          - "Hash lists: {{ report_dir }} on the server and local/relocation/relocation-{{ stamp }}/ here."
+          - "KEPT FOR ROLLBACK, untouched, in the home folder: {{ old_sizes.stdout_lines }}"
+          - "Next: set use_u01=true on the tax-service line of infra/inventory.ini, or the next deploy refuses."
+          - "Rollback: make rollback-storage. Nothing was deleted."

@@ -55,6 +55,8 @@ Map your categories (Categories page), set your circumstances (Assessment settin
 ## Deployment
 The app deploys as its own Podman container on the server (plain HTTP on its own port, no reverse proxy), with daily verified backups. Steps, backup/restore and rollback: `docs/deployment.md`. In short: `make ansible-setup`, commit, `make deploy`, `make createsuperuser`; then open `http://<server>:8889/`. Production uses `config.settings_prod`, which takes everything from environment variables.
 
+Storage (ADR 0035): by default the data stays in the service user's home folder. `make relocate-storage` copies the database, the stored originals and the backups to the removable disk `/u01`, verifies every file and switches after you type `SWITCH`; `make rollback-storage` goes back. You then set `use_u01=true` as a host variable on the `tax-service` line of `infra/inventory.ini`. See `docs/deployment.md`, "Storage on the removable disk /u01".
+
 ## Test
 ```
 python manage.py check

@@ -49,7 +49,7 @@ browser --HTTP--> <server>:8889 --> container (gunicorn, 2 workers)
 | Container | name `tax-healthcare-tool-web`; non-root uid 10001 inside, which is the service user `homeapps` on the host (`UserNS=keep-id:uid=10001,gid=10001`); read-only root file system; all capabilities dropped; no-new-privileges; 512 MB memory and 256 process limits; health check (`python /app/healthcheck.py`, a script because Quadlet mangles inline commands) every 30 s with restart on failure |
 | Settings | `config.settings_prod`: everything from environment variables, start-up fails on a missing or weak value, `DEBUG` off, admin site off, `ALLOWED_HOSTS` and CSRF origins explicit, console logging at WARNING; `DJANGO_HTTPS=0` here (plain HTTP: cookies cannot be "secure"), default is HTTPS-hardened |
 | Secret | `DJANGO_SECRET_KEY` generated **on the server** on first deploy into `~homeapps/tax-healthcare-tool/config/env` (owned by the service user, mode 0600), passed with `EnvironmentFile`; never in the repository, on the Mac, or in the unit file; never overwritten by later deploys |
-| Data | `/home/homeapps/tax-healthcare-tool/{data,uploads,backups}` owned by `homeapps`, mode 0700 (inside the container that user is 10001); the database is `.../data/db.sqlite3` |
+| Data | `/home/homeapps/tax-healthcare-tool/{data,uploads,backups}` (home-folder layout, the default) or `/u01/data/tax-healthcare-tool/{data,uploads,backups}` (after `make relocate-storage`, see "Storage on the removable disk"), owned by `homeapps`, mode 0700 (inside the container that user is 10001); the database is `.../data/db.sqlite3`. The secret file, the storage marker and `DEPLOYED` always stay in `/home/homeapps/tax-healthcare-tool/config` and `.../DEPLOYED` on the eMMC |
 | Port | container 8000 published on `127.0.0.1:<app_port>` only (health probes; the LAN cannot reach it). The gateway reaches the app by name on the `gateway` network |
 | Service names | user services `tax-healthcare-tool.service` (from the Quadlet file `~/.config/containers/systemd/tax-healthcare-tool.container`), `tax-healthcare-tool-backup.service` and `.timer` (in `~/.config/systemd/user/`); manage with `systemctl --user` |
 | Wrapper | `~/bin/tax-healthcare-tool-manage` (as the service user, no sudo) runs a Django management command in a throw-away container with the real data (used for `createsuperuser`, `changepassword`, manual backups) |
@@ -205,3 +205,39 @@ Until you remove it, the old container keeps its files: unit `/etc/containers/sy
 
 ## Report package size limit (Phase 42)
 The tax summary's "PDF with source documents" builds its ZIP in an anonymous temporary file under `/tmp`, which the unit mounts as a tmpfs (`Tmpfs=/tmp`), so it uses memory counted against the container's 512 MB. `DJANGO_REPORT_PACKAGE_MAX_MB` (default 100) refuses larger packages and offers the report without sources; raise it only together with the memory limit. The file is removed when the download ends or is interrupted. Nothing is written under the upload directory.
+
+## Storage on the removable disk /u01 (Phase 36, ADR 0035)
+
+**What changes.** The database, the stored original statements and the backups can live on the 1 TB disk mounted at `/u01` instead of the small built-in eMMC: `/u01/data/tax-healthcare-tool/{data,uploads,backups}`. Image builds then use `/u01/apps/tax-healthcare-tool/build` (with their temporary files there too). The secret file `config/env`, the marker `config/storage_location` and the deploy record `DEPLOYED` always stay in `/home/homeapps/tax-healthcare-tool/` on the eMMC. Inside the container nothing changes: the app still sees `/data`, `/uploads` and `/backups`, and stored originals are recorded relative to `/uploads`, so the database itself does not change.
+
+**The switch.** `use_u01` is `false` by default: merging this code and deploying changes nothing (the rendered units are byte-for-byte the ones from before, which a test checks). You set it as a **host variable on the `tax-service` line** of the git-ignored `infra/inventory.ini`:
+
+```
+tax-service ansible_host=... ansible_user=homeapps use_u01=true
+```
+
+It does **not** work under `[taxtool:vars]`: a value in `infra/group_vars/all.yml` takes precedence over that section, while a host variable on the line takes precedence over both.
+
+**The marker.** `~/tax-healthcare-tool/config/storage_location` holds one word, `u01` or `legacy` (no file means `legacy`). Only `make relocate-storage` and `make rollback-storage` write it. `make deploy`, `restore`, `restore-drill`, `rollback`, `fetch-backup` and `verify-migration` first check, before they change anything, that the marker agrees with `use_u01`. In the `/u01` layout they also check that `/u01` is a real mount point (not just the empty folder) and that the three folders exist and belong to `homeapps`. If not, they stop with a message and nothing has changed. `make status` shows the marker and the disk.
+
+**The guard.** In the `/u01` layout the app's unit and the backup service start only when `/u01` is mounted (`ExecStartPre=/usr/bin/mountpoint -q /u01`). If the disk is missing, the start fails and is retried every 10 seconds, without a limit, until it is back (`Restart=on-failure`, `RestartSec=10`, `StartLimitIntervalSec=0`). The last one is in the `[Unit]` section: systemd ignores it in `[Service]` (it logs "Unknown key"). One side effect of the retry: a backup that fails for another reason is also retried every 10 seconds until it succeeds, so a failing backup shows up as many attempts in `journalctl --user -u tax-healthcare-tool-backup`.
+
+**Moving the data: `make relocate-storage`.** Run it in a quiet moment; the app is offline for a few minutes.
+
+```
+make relocate-storage        # checks, stops the app, backs up, copies to /u01, compares every file, asks you to type SWITCH
+```
+
+What it does, in order:
+1. Checks, and stops if one fails (nothing changed): the marker still says `legacy`, `/u01` is mounted, the old folders exist, the new folders are empty or absent, and there is enough free space.
+2. Stops the daily backup timer (and waits for a running backup), then stops the app.
+3. Takes a verified backup of the old folders (`backup-...-pre-relocate.tar.gz`; it lands in the old backups folder and is copied along).
+4. Copies `data`, `uploads` (everything, including `imports/` and the zips of originals) and `backups` with `cp -a`. Nothing is deleted anywhere, and the old folders are not touched.
+5. Writes a list of every file with its SHA-256, for old and new, to `~/tax-healthcare-tool/config/relocation-<time>/` on the server and to `local/relocation/relocation-<time>/` on your Mac (git-ignored; only our own file names and hashes). It shows a summary such as `uploads: IDENTICAL files=30 bytes=...`. Any difference stops here.
+6. Asks you to type `SWITCH`. Only then does it write the marker `u01`, install the units with the guard, start the app, wait until it is healthy and start the timer again.
+
+If anything fails, or you type something else, it puts back the marker `legacy` and the old units and starts the app and the timer on the old folders. The partial copy on `/u01` stays there for inspection. Move it aside before the next attempt, because the new folders must be empty.
+
+**Afterwards.** Set `use_u01=true` on the `tax-service` line (above), otherwise the next `make deploy` refuses. Then run `make status` and `make restore-drill`. Add `/u01/data/tax-healthcare-tool/backups` to the platform's offsite backup paths; until then, this app's archives are not copied offsite. The old folders in the home folder stay, untouched, as the rollback copy. Removing them is your decision, after the PostgreSQL phase is verified, and it ends the possibility of `make rollback-storage`.
+
+**Going back: `make rollback-storage`.** It checks that the server uses `/u01` (disk mounted) and that the old folders still exist, asks you to type `ROLLBACK`, takes a safety backup of the current state (`...-pre-rollback-storage`, stored on `/u01`), writes the marker `legacy`, installs the old units and starts the app on the old folders. Anything entered after the relocation exists only on `/u01`. To keep it, restore that safety backup (copy it into the home backups folder, then `make restore BACKUP=...`). Afterwards, set `use_u01=false` again (or remove it) on the `tax-service` line.

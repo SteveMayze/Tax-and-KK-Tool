@@ -207,3 +207,17 @@ sudo rm -r /etc/tax-healthcare-tool                                   # the old 
 
 ## Finding stored files nobody refers to (Phase 28)
 After deleting imports, or if a file removal ever failed, `stored_files_report` lists files in the uploads folder that no import refers to. It only counts and prints masked names unless you add `--apply`. Run it as any other one-off command through the `manage` wrapper (`bin/tax-healthcare-tool-manage stored_files_report`, then again with `--apply` once you have read the list). Backups are not changed by it.
+
+## Moving the data to the big disk (Phase 36)
+The server has a small built-in disk (the eMMC) and a large USB disk mounted at `/u01`. These commands move the app's database, stored originals and backups to the large disk and back. Details are in `docs/deployment.md`, "Storage on the removable disk /u01".
+
+```
+make relocate-storage        # stops the app, takes a backup, copies everything to /u01, compares every file, asks you to type SWITCH
+make rollback-storage        # points the app back at the copies in the home folder (asks you to type ROLLBACK)
+ssh homeapps@<server> cat ~/tax-healthcare-tool/config/storage_location   # shows which copy the app uses: u01 or legacy
+ssh homeapps@<server> mountpoint /u01                                     # says "is a mountpoint" when the big disk is attached
+```
+
+- **Mount point.** A folder where a disk appears. If the disk is missing, `/u01` is just an empty folder, and the app would start with no data and write into the wrong place. The **guard** in the unit (`mountpoint -q /u01`) stops it from starting until the disk is back, and retries every 10 seconds.
+- **Marker.** The one-word file `storage_location` tells every command which copy is in use. It is written only by the two commands above. If it disagrees with your setting `use_u01` in `infra/inventory.ini`, `make deploy` stops before changing anything.
+- Nothing is deleted by either command. The old copy stays until you remove it yourself.

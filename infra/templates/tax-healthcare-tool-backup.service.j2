@@ -1,7 +1,17 @@
 # Managed by Ansible (infra/deploy.yaml). A systemd USER service, run by the service user's own systemd.
 [Unit]
 Description=Tax and Healthcare Tool: database and uploads backup
+{% if use_u01 | bool %}
+# No limit on retries while the disk is missing (systemd reads this key only in [Unit]).
+StartLimitIntervalSec=0
+{% endif %}
 
 [Service]
 Type=oneshot
+{% if use_u01 | bool %}
+# Same guard as the web service: never write a backup into the empty mount point while the disk is missing.
+ExecStartPre=/usr/bin/mountpoint -q {{ mount_guard_path }}
+Restart=on-failure
+RestartSec=10
+{% endif %}
 ExecStart=/usr/bin/podman run {{ podman_run_flags }} {{ image_repo }}:current python manage.py backup_db --prune

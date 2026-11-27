@@ -15,7 +15,7 @@ MANAGE := bin/tax-healthcare-tool-manage
 
 .PHONY: setup test check ansible-setup syntax bootstrap-rootless deploy status backup-now \
         fetch-backup restore-drill restore rollback createsuperuser changepassword \
-        migrate-copy verify-migration
+        migrate-copy verify-migration relocate-storage rollback-storage
 
 setup:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -32,7 +32,7 @@ ansible-setup:
 	$(INFRA_PY)/pip install -r requirements-infra.txt
 
 syntax:
-	@for p in bootstrap-rootless.yml deploy.yaml rollback.yaml restore.yaml restore-drill.yaml fetch-backup.yaml status.yaml migrate-from-rootful.yaml verify-migration.yaml; do \
+	@for p in bootstrap-rootless.yml deploy.yaml rollback.yaml restore.yaml restore-drill.yaml fetch-backup.yaml status.yaml migrate-from-rootful.yaml verify-migration.yaml relocate-storage.yaml rollback-storage.yaml; do \
 	  ANSIBLE_CONFIG=infra/ansible.cfg $(INFRA_PY)/ansible-playbook -i infra/inventory.ini --syntax-check infra/$$p >/dev/null && echo "ok  $$p" || exit 1; done
 
 bootstrap-rootless:    ## ONCE: create the service user (asks for your sudo password); KEY=path to your public key
@@ -74,3 +74,10 @@ migrate-copy:          ## sudo: take a fresh backup of the OLD rootful instance 
 verify-migration:      ## BACKUP=name: prove the rootless data equals that backup (row counts and content hash)
 	@test -n "$(BACKUP)" || { echo "usage: make verify-migration BACKUP=backup-....tar.gz"; exit 2; }
 	$(ANSIBLE) infra/verify-migration.yaml $(BACKUP_ARG) $(PORT_ARG)
+
+# --- Storage on the removable disk /u01 (ADR 0035) --------------------------------------------------------
+relocate-storage:      ## copy data, uploads and backups to /u01, compare every file, switch after you type SWITCH
+	$(ANSIBLE) infra/relocate-storage.yaml $(PORT_ARG)
+
+rollback-storage:      ## point the app back at the home-folder copies (asks you to type ROLLBACK)
+	$(ANSIBLE) infra/rollback-storage.yaml $(PORT_ARG)

@@ -1,0 +1,72 @@
+---
+# Shared precondition (ADR 0035): the configured storage layout (use_u01) must be the one the server really uses, and in
+# the /u01 layout the disk must be mounted and the storage folders must exist and belong to the service user.
+# Included BEFORE the first change by every playbook that reads or writes the data. Nothing here changes anything.
+- name: Only this app's own folders (parts-db lives next to it, in the same home folder and on the same disk)
+  ansible.builtin.assert:
+    that:
+      - app_name == 'tax-healthcare-tool'
+      - config_root == service_home ~ '/tax-healthcare-tool'
+      - storage_root == '/u01/data/tax-healthcare-tool'
+      - build_root == '/u01/apps/tax-healthcare-tool/build'
+      - data_root in [storage_root, legacy_root]
+    fail_msg: "config_root, storage_root and build_root must be this app's own folders. Nothing was changed."
+
+- name: Which storage layout does the server use now? (one word written by relocate-storage / rollback-storage; none = legacy)
+  ansible.builtin.slurp:
+    src: "{{ storage_marker }}"
+  register: storage_marker_file
+  failed_when: false
+  check_mode: false
+
+- name: Remember the layout the server uses
+  ansible.builtin.set_fact:
+    storage_layout: "{{ (storage_marker_file.content | default('') | b64decode | trim) or 'legacy' }}"
+
+- name: The marker must be a known word (nothing was changed)
+  ansible.builtin.assert:
+    that: storage_layout in ['u01', 'legacy']
+    fail_msg: "{{ storage_marker }} must contain 'u01' or 'legacy'. Nothing was changed."
+
+- name: The configured layout must match the server (nothing was changed)
+  ansible.builtin.assert:
+    that: storage_layout == ('u01' if use_u01 | bool else 'legacy')
+    fail_msg: >-
+      The server uses the '{{ storage_layout }}' layout but use_u01 is {{ use_u01 | bool | lower }}.
+      Not relocated yet: run  make relocate-storage  first, or keep use_u01 false.
+      Relocated and use_u01 is false: set use_u01=true on the tax-service line of infra/inventory.ini
+      (or run  make rollback-storage  if you meant to go back). Nothing was changed.
+
+- name: Is the removable disk really mounted at {{ mount_guard_path }}? (the empty mount point alone is not enough)
+  ansible.builtin.command: "/usr/bin/mountpoint -q {{ mount_guard_path }}"
+  register: u01_mount
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: use_u01 | bool
+
+- name: The disk must be mounted (nothing was changed)
+  ansible.builtin.assert:
+    that: u01_mount.rc == 0
+    fail_msg: "{{ mount_guard_path }} is not a mount point, so the disk is not attached. Nothing was changed."
+  when: use_u01 | bool
+
+- name: Look at the storage folders
+  ansible.builtin.stat:
+    path: "{{ storage_root }}/{{ item }}"
+    get_checksum: false
+  loop: [data, uploads, backups]
+  register: storage_dirs
+  when: use_u01 | bool
+
+- name: The storage folders must exist and belong to the service user (created by relocate-storage, never here)
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isdir
+      - item.stat.pw_name == service_user
+    fail_msg: "{{ storage_root }}/{{ item.item }} is missing or not owned by {{ service_user }}. Run make relocate-storage first. Nothing was changed."
+  loop: "{{ storage_dirs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: use_u01 | bool
