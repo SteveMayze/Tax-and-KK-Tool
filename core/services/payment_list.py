@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 from django.utils.translation import gettext as _
 
 from core.models import Payment, ReportingYear
+from core.ordering import payments_by_date_and_organisation
 
 from . import aggregation, i18n, report_filter
 
@@ -59,7 +60,7 @@ def queryset(year, month, flt):
         qs = qs.filter(month__year__year=year)
         if month:
             qs = qs.filter(month__month=month)
-    return flt.apply(qs).order_by('payment_date', 'organisation__name', 'id')
+    return payments_by_date_and_organisation(flt.apply(qs))           # sorted in Python (ADR 0035); a list
 
 
 @dataclass
@@ -109,5 +110,5 @@ def basis(year, month, flt, ignored_month=False):
 
 def build(year, month, flt):
     """(payments list, original-currency totals, EUR totals, option lists). One pass over the same payments."""
-    payments = list(queryset(year, month, flt))
+    payments = queryset(year, month, flt)
     return payments, currency_totals(payments), aggregation.actual_totals(payments), report_filter.options(year, flt, month)

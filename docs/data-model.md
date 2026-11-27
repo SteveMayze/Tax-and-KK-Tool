@@ -39,3 +39,19 @@ Owner-edited matching rule for bank-statement credits (label, kind, direction, p
 
 ## Currencies
 `core/currencies.py`: EUR, GBP, AUD, USD. Currency is a validated 3-letter code on the row (not a table), so adding one needs no schema change.
+
+## Database engines (ADR 0035)
+The same models run on SQLite (development, tests, production until the cutover) and on PostgreSQL 17 (production
+afterwards). Differences that matter, and how the app handles them:
+
+| Topic | SQLite | PostgreSQL | Handling |
+|---|---|---|---|
+| Decimals | stored as REAL/INTEGER (numeric affinity); Django reads them back with 15 significant digits | `numeric`, exact | `decimal_check` counts values with 15 or more significant digits (0 in the live data on 2026-11-27); the fingerprint writes decimals as exact normalised strings |
+| Timestamps | text with microseconds | `timestamptz` with microseconds | `dump_exact` keeps microseconds (plain `dumpdata` cuts them to milliseconds) |
+| JSON fields (7: `ImportBatch.warnings`, `.organisation_countries`; `ImportRow.data`, `.original`, `.errors`, `.notes`, `.provenance`) | text, key order kept | `jsonb`, keys reordered | nothing depends on key order; the provenance list is shown in the fixed column order (`ImportRow.provenance_items`); the fingerprint uses canonical JSON |
+| Text order | bytes (code points) | locale `en_US.utf8` | displayed orders are sorted in Python with `core/ordering.py`, in code-point order, so nothing changed for the owner |
+| Case-insensitive lookups and the `Lower(name)` uniqueness | ASCII letters only | all letters (Ä = ä) | an improvement; the live data has no non-ASCII names and no pair that would collide |
+| Ids after a bulk load | taken from the table | sequences | `load_exact` resets them; `pg_sequences` checks them (behind=0) |
+
+Seed rows: migration 0002 creates seven default income categories in an empty database. `load_exact` removes exactly
+those (only when nothing else is there) before it loads a dump, so the owner's categories keep their ids.

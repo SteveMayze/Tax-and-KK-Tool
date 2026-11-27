@@ -12,6 +12,7 @@ from decimal import Decimal
 from django.utils.translation import gettext as _
 
 from core.models import IncomeCategory, Payment
+from core.ordering import by_text, payments_by_date_and_organisation
 
 from . import report_sources
 from .reports import ROUNDING_NOTE, Column, Table, _period, _rate_basis
@@ -215,7 +216,7 @@ def tables(payments, sources=None):
 
 def ordered(qs):
     """Payment date, then organisation, then id (the order of table 4)."""
-    return list(qs.select_related('organisation', 'category').order_by('payment_date', 'organisation__name', 'id'))
+    return payments_by_date_and_organisation(qs.select_related('organisation', 'category'))   # in Python (ADR 0035)
 
 
 def _source_line(payments, sources):
@@ -238,7 +239,7 @@ def basis_rows(payments, year, flt, sources=None):
     unconverted = (_('%(n)s unconverted payment(s) are listed but left out of every EUR figure (their original amounts are shown).')
                    % {'n': len(pending)}) if pending else _('None.')
     used = {p.category_id for p in payments}
-    empty = [c.name for c in IncomeCategory.objects.filter(active=True).order_by('name') if c.pk not in used]
+    empty = [c.name for c in by_text(IncomeCategory.objects.filter(active=True)) if c.pk not in used]
     rows += [
         (_('Basis'), _('Income as recorded; no tax classification, no country inference, no treaty or credit rules applied.')),
         (_('Gross/net'), _('Gross, withholding tax, expenses and net as recorded on each payment, with gross = net + withholding tax + '

@@ -241,3 +241,31 @@ If anything fails, or you type something else, it puts back the marker `legacy` 
 **Afterwards.** Set `use_u01=true` on the `tax-service` line (above), otherwise the next `make deploy` refuses. Then run `make status` and `make restore-drill`. Add `/u01/data/tax-healthcare-tool/backups` to the platform's offsite backup paths; until then, this app's archives are not copied offsite. The old folders in the home folder stay, untouched, as the rollback copy. Removing them is your decision, after the PostgreSQL phase is verified, and it ends the possibility of `make rollback-storage`.
 
 **Going back: `make rollback-storage`.** It checks that the server uses `/u01` (disk mounted) and that the old folders still exist, asks you to type `ROLLBACK`, takes a safety backup of the current state (`...-pre-rollback-storage`, stored on `/u01`), writes the marker `legacy`, installs the old units and starts the app on the old folders. Anything entered after the relocation exists only on `/u01`. To keep it, restore that safety backup (copy it into the home backups folder, then `make restore BACKUP=...`). Afterwards, set `use_u01=false` again (or remove it) on the `tax-service` line.
+
+## PostgreSQL (Phase 38, ADR 0035; switched on in Phase 39)
+
+**What it is.** The platform repository runs one shared PostgreSQL 17 container named `postgres` on its own Podman network `db`. It has a database `taxtool` with the role `taxtool`, whose password is the Podman secret `taxtool-db-password`. This app is only a client. It does not install, start or stop PostgreSQL, and it cannot create or drop databases (the role has no CREATEDB).
+
+**The switch.** `use_postgres` is `false` by default: with it false, the units are byte-for-byte those of Phase 36/37, and a test checks this. You set it as a host variable on the `tax-service` line of `infra/inventory.ini`, next to `use_u01=true`. Do that only during the Phase 39 cutover, after the data has been loaded into `taxtool`. With it true:
+- The unit joins `db.network` (as well as `gateway.network`) and starts after `postgres.service` (`Wants=`/`After=`, not `Requires=`, so a PostgreSQL restart does not restart the app).
+- The unit gets `Secret=taxtool-db-password,type=env,target=DJANGO_DB_PASSWORD` and `DJANGO_DB_HOST=postgres`, `_PORT=5432`, `_NAME=taxtool`, `_USER=taxtool`, and no `DJANGO_DB_PATH`. The password is never in a file, never in git and never printed.
+- One-off runs (backups, `manage` wrapper, migrate) get the matching `--network db --secret … -e …` flags.
+- `make deploy` first checks, by name only, that the `db.network` file and the secret exist. If not, it stops before changing anything.
+
+**Backups on PostgreSQL.** `backup_db` writes the same kind of archive, with the same names, labels and retention. Inside are `db.dump` (`pg_dump -Fc` from one exported snapshot in a REPEATABLE READ transaction), the uploads, and `MANIFEST.json`. The manifest holds the SHA-256 of every file, the row counts (counted through the ORM in the same snapshot), `engine: postgresql` and the app version. The archive is verified again after writing, with checksums and `pg_restore --list`. The image carries `pg_dump`/`pg_restore` 17 from Debian 13, and the build fails if they are missing or older than 17. Archives from before the switch have no `engine` field. They are SQLite archives, and they stay readable: `restore_backup <name>` verifies them, and `data_fingerprint --archive <name>` fingerprints them.
+
+**Restores and drills on PostgreSQL.** A PostgreSQL archive is restored only into a new, empty database that the platform created: `restore_backup <name> --new-db <name> --target-uploads <folder>`. The restore refuses a database that already holds tables, and it refuses the live database itself. Replacing the live database (`--swap --confirm-swap SWAP`) renames the live one aside (`taxtool_before_restore_<time>`) and never drops it. Renaming a database needs CREATEDB, which this role lacks, so in practice the swap is done with the platform's `make pg-restore`. The full restore drill is `make pg-restore-drill DB=taxtool` in the platform repository. `make restore-drill` here only verifies the archive (checksums and `pg_restore --list`). `make restore` and `make rollback BACKUP=…` restore SQLite only, and with `use_postgres` true they stop before changing anything.
+
+**Commands for the move (Phase 39).** All are read-only except `load_exact`, and all print counts and hashes only:
+
+| Command | What it does |
+|---|---|
+| `data_fingerprint` | Row count and content hash per model through the ORM. Equal on SQLite and PostgreSQL for the same data. `--archive <name>` does the same for a SQLite archive; `--raw-sqlite` gives the byte-level format recorded in Phase 37. |
+| `report_checksums` | One SHA-256 per CSV report and year (generation time fixed). |
+| `stored_files_check` | Each import batch's stored original: located, and the same SHA-256 as at import. |
+| `decimal_check` | Decimals that would not survive the export. Must give 0 / 0 / 0. |
+| `dump_exact -o <file>` | All data as JSON (mode 0600), with microseconds and exact decimals. Content types, permissions and sessions are left out; users with their password hashes and the admin log are kept. |
+| `load_exact <file>` | Into a freshly migrated, empty database only: removes migration 0002's seed categories, loads, resets the sequences, in one transaction. |
+| `pg_sequences` | Checks (or, with `--reset`, resets) the id sequences. Expect `behind=0`. |
+
+**Development.** `make test` runs the suite on SQLite, and `make test-pg` runs it on a throw-away PostgreSQL 17 made from Postgres.app's programs. That cluster lives in a temporary folder, listens on 127.0.0.1 only, uses a random password that exists only for the run, and is removed afterwards. Both must pass.

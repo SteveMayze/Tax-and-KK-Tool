@@ -58,6 +58,26 @@ memory_limit: 512m
 backup_time: "03:15:00"
 keep_images: 5
 
+# --- Database (ADR 0035, settings contract v1). false (the default) = SQLite in data_root/data, exactly as before; merging
+# and deploying this changes nothing. true = the platform's shared PostgreSQL container: the unit joins the platform's
+# Podman network `db` and reads its credential from the Podman secret (created by the platform; never in git, never in a
+# file, never printed). Set it like use_u01: as a HOST variable on the `tax-service` line of infra/inventory.ini.
+use_postgres: false
+db_host: postgres                    # the platform's container name on the `db` network
+db_port: 5432
+db_name: taxtool
+db_user: taxtool
+db_network_name: db                  # the network's real name (the platform's NetworkName), for one-off `podman run`
+db_network_file: db.network          # the Quadlet network file the platform installs in quadlet_dir
+db_secret_name: taxtool-db-password  # the Podman secret's NAME (its value is never read here)
+db_unit: postgres.service            # the platform's database service (Wants= and After=, not Requires=)
+db_run_flags: >-
+  {{ ('--network ' ~ db_network_name
+      ~ ' --secret ' ~ db_secret_name ~ ',type=env,target=DJANGO_DB_PASSWORD'
+      ~ ' -e DJANGO_DB_HOST=' ~ db_host ~ ' -e DJANGO_DB_PORT=' ~ db_port
+      ~ ' -e DJANGO_DB_NAME=' ~ db_name ~ ' -e DJANGO_DB_USER=' ~ db_user) if use_postgres | bool
+     else '-e DJANGO_DB_PATH=/data/db.sqlite3' }}
+
 # Optional app settings, written to the 0600 env file on every deploy (read by the service AND by every one-off run).
 # Set them in the git-ignored infra/inventory.ini under [taxtool:vars] (see inventory.ini.example); nothing personal is kept here.
 # An empty value removes the line again, so the app falls back to its own default.
@@ -73,7 +93,7 @@ podman_run_flags: >-
   --userns={{ container_userns }} --user {{ app_uid }}:{{ app_uid }}
   --env-file {{ etc_dir }}/env
   -e DJANGO_SETTINGS_MODULE=config.settings_prod
-  -e DJANGO_DB_PATH=/data/db.sqlite3 -e DJANGO_UPLOAD_DIR=/uploads -e DJANGO_BACKUP_DIR=/backups
+  {{ db_run_flags }} -e DJANGO_UPLOAD_DIR=/uploads -e DJANGO_BACKUP_DIR=/backups
   -e DJANGO_ALLOWED_HOSTS={{ allowed_hosts }}
   -e DJANGO_CSRF_TRUSTED_ORIGINS={{ csrf_trusted_origins }}
   -e DJANGO_HTTPS={{ '1' if use_https else '0' }}

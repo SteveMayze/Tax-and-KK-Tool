@@ -13,7 +13,7 @@ SSH_KEY_GUESS := $(shell ssh -G $(HOST) 2>/dev/null | awk '/^identityfile /{prin
 KEY_ARG := $(if $(KEY),-e key=$(KEY),$(if $(wildcard $(SSH_KEY_GUESS)),-e key=$(SSH_KEY_GUESS),))
 MANAGE := bin/tax-healthcare-tool-manage
 
-.PHONY: setup test check ansible-setup syntax bootstrap-rootless deploy status backup-now \
+.PHONY: setup test test-pg check ansible-setup syntax bootstrap-rootless deploy status backup-now \
         fetch-backup restore-drill restore rollback createsuperuser changepassword \
         migrate-copy verify-migration relocate-storage rollback-storage
 
@@ -22,6 +22,9 @@ setup:
 
 test:
 	$(PYTHON) manage.py test
+
+test-pg:               ## the whole suite on a throw-away PostgreSQL 17 (Postgres.app's programs; removed afterwards)
+	PYTHON=$(PYTHON) sh infra/test-pg.sh
 
 check:
 	$(PYTHON) manage.py check

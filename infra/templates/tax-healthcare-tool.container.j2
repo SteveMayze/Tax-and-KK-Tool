@@ -3,6 +3,12 @@
 # systemd (systemctl --user). Quadlet adds the user-level "wait for network" dependency by itself.
 [Unit]
 Description=Tax and Healthcare Tool web app (rootless Podman Quadlet)
+{% if use_postgres | bool %}
+# The platform's shared PostgreSQL (ADR 0035). Wants/After, not Requires: a restart of PostgreSQL does not restart the
+# app; Django reconnects by itself (CONN_HEALTH_CHECKS).
+Wants={{ db_unit }}
+After={{ db_unit }}
+{% endif %}
 {% if use_u01 | bool %}
 # No limit on start attempts while the disk is missing (see the guard in [Service]). systemd reads this key ONLY in
 # [Unit]: in [Service] it logs "Unknown key" and ignores it (seen with systemd 257 on the server, ADR 0035).
@@ -18,6 +24,11 @@ PublishPort={{ listen_address }}:{{ app_port }}:8000
 # Also joins the gateway network (created by the separate gateway repository), so the reverse proxy reaches this container by
 # name ({{ container_name }}:8000, the port INSIDE the container). Quadlet makes this unit wait for gateway.network.
 Network={{ gateway_network }}
+{% if use_postgres | bool %}
+# The platform's database network: only containers on it reach PostgreSQL (host {{ db_host }}, port {{ db_port }});
+# the database port is not published on the server.
+Network={{ db_network_file }}
+{% endif %}
 {% if use_u01 | bool %}
 # On the removable disk {{ mount_guard_path }} (ADR 0035); the secret env file below stays on the eMMC.
 {% endif %}
@@ -31,7 +42,16 @@ Group={{ app_uid }}
 # SECRET_KEY lives only in this 0600 file owned by the service user, never in this unit file.
 EnvironmentFile={{ etc_dir }}/env
 Environment=DJANGO_SETTINGS_MODULE=config.settings_prod
+{% if use_postgres | bool %}
+# The password comes from the platform's Podman secret, as an environment variable inside the container only.
+Secret={{ db_secret_name }},type=env,target=DJANGO_DB_PASSWORD
+Environment=DJANGO_DB_HOST={{ db_host }}
+Environment=DJANGO_DB_PORT={{ db_port }}
+Environment=DJANGO_DB_NAME={{ db_name }}
+Environment=DJANGO_DB_USER={{ db_user }}
+{% else %}
 Environment=DJANGO_DB_PATH=/data/db.sqlite3
+{% endif %}
 Environment=DJANGO_UPLOAD_DIR=/uploads
 Environment=DJANGO_BACKUP_DIR=/backups
 Environment=DJANGO_ALLOWED_HOSTS={{ allowed_hosts }}

@@ -59,7 +59,7 @@ class ContainerfileTests(SimpleTestCase):
         self.assertTrue(lines)
         self.assertTrue(all('==' in l for l in lines), lines)
         names = {l.split('==')[0].lower() for l in lines}
-        self.assertEqual(names, {'asgiref', 'cffi', 'charset-normalizer', 'cryptography', 'django', 'gunicorn', 'pillow', 'pycparser', 'pypdf', 'reportlab', 'sqlparse', 'whitenoise'})   # nothing unneeded; cryptography (+ cffi, pycparser) opens AES-encrypted bank PDFs; reportlab (+ pillow, charset-normalizer) builds the report PDFs, Phase 33 (owner decision, Phase 16)
+        self.assertEqual(names, {'asgiref', 'cffi', 'charset-normalizer', 'cryptography', 'django', 'gunicorn', 'pillow', 'pycparser', 'pypdf', 'reportlab', 'sqlparse', 'whitenoise', 'psycopg', 'psycopg-binary'})   # nothing unneeded; psycopg (+ its binary wheel) is the PostgreSQL driver, ADR 0035; cryptography (+ cffi, pycparser) opens AES-encrypted bank PDFs; reportlab (+ pillow, charset-normalizer) builds the report PDFs, Phase 33 (owner decision, Phase 16)
 
     def test_ignore_files_keep_private_data_out_of_the_build_context(self):
         for name in ('.containerignore', '.dockerignore'):
@@ -85,7 +85,8 @@ class QuadletTests(SimpleTestCase):
         self.assertIn('use_https: true', groups)
 
     def test_unit_joins_the_gateway_network_and_keeps_its_name_and_port(self):
-        self.assertEqual(re.findall(r'^Network=(.+)$', self.text, re.M), ['{{ gateway_network }}'])
+        self.assertEqual(re.findall(r'^Network=(.+)$', self.text, re.M), ['{{ gateway_network }}', '{{ db_network_file }}'])
+        self.assertLess(self.text.index('{% if use_postgres | bool %}\n# The platform'), self.text.index('Network={{ db_network_file }}'))
         self.assertEqual(re.findall(r'^ContainerName=(.+)$', self.text, re.M), ['{{ container_name }}'])
         groups = read('infra/group_vars/all.yml')
         self.assertIn('gateway_network: gateway.network', groups)
@@ -148,7 +149,10 @@ class QuadletTests(SimpleTestCase):
 class AnsibleFilesTests(SimpleTestCase):
     def test_group_vars_hold_no_secrets_or_personal_names(self):
         text = read('infra/group_vars/all.yml')
-        self.assertNotRegex(text.lower(), r'secret_key\s*:|password|token')
+        # Allowed: the NAME of the platform's Podman secret and the variable it fills inside the container (ADR 0035).
+        names_only = text.replace('target=DJANGO_DB_PASSWORD', '').replace('taxtool-db-password', '')
+        self.assertNotRegex(names_only.lower(), r'secret_key\s*:|password|token')
+        self.assertNotRegex(text, r'(?i)(db_)?password\s*[:=]\s*\S')
         self.assertIn('public_host: "{{ ansible_host | default(inventory_hostname) }}"', text)
 
     def test_one_off_container_runs_share_the_service_hardening(self):
@@ -426,10 +430,11 @@ INFRA_ANSIBLE = ROOT / '.venv-infra' / 'bin' / 'ansible-playbook'
 _RENDERED = {}
 
 
-def rendered(use_u01):
+def rendered(use_u01, use_postgres=False):
     """Every unit template rendered by Ansible's own engine with the real group_vars and an invented host name.
     Needs the infra virtualenv (make ansible-setup); the tests that use it are skipped without it."""
-    if use_u01 not in _RENDERED:
+    key = (use_u01, use_postgres)
+    if key not in _RENDERED:
         import tempfile
         out = Path(tempfile.mkdtemp())
         tasks = ''.join(f"    - ansible.builtin.template: {{src: '{ROOT}/infra/templates/{t}.j2', dest: '{out}/{t}'}}\n"
@@ -440,9 +445,9 @@ def rendered(use_u01):
             '  vars: {ansible_host: host.example.invalid}\n'
             f'  tasks:\n{tasks}')
         subprocess.run([str(INFRA_ANSIBLE), '-i', 'localhost,', '-c', 'local', '-e', f'use_u01={str(use_u01).lower()}',
-                        str(out / 'render.yaml')], check=True, capture_output=True)
-        _RENDERED[use_u01] = {t: (out / t).read_text() for t in UNIT_TEMPLATES}
-    return _RENDERED[use_u01]
+                        '-e', f'use_postgres={str(use_postgres).lower()}', str(out / 'render.yaml')], check=True, capture_output=True)
+        _RENDERED[key] = {t: (out / t).read_text() for t in UNIT_TEMPLATES}
+    return _RENDERED[key]
 
 
 def section(unit, name):
@@ -637,3 +642,59 @@ class StorageCheckBehaviourTests(SimpleTestCase):
         code, out = self.run_check('u01\n', True)
         self.assertNotEqual(code, 0)
         self.assertIn('is not a mount point', out)
+
+
+class PostgresUnitTests(SimpleTestCase):
+    """Phase 38 (ADR 0035): the units with use_postgres true (rendered by Ansible); false is the golden test above."""
+
+    def setUp(self):
+        if not INFRA_ANSIBLE.exists():
+            self.skipTest('the infra virtualenv (.venv-infra) is not installed')
+        self.units = rendered(True, use_postgres=True)
+        self.web = self.units['tax-healthcare-tool.container']
+
+    def test_web_unit_joins_the_db_network_and_waits_for_postgres_without_requiring_it(self):
+        self.assertEqual(re.findall(r'^Network=(.+)$', self.web, re.M), ['gateway.network', 'db.network'])
+        unit = section(self.web, 'Unit')
+        self.assertIn('Wants=postgres.service', unit.splitlines())
+        self.assertIn('After=postgres.service', unit.splitlines())
+        self.assertNotIn('Requires=', self.web)
+
+    def test_the_password_comes_only_from_the_secret(self):
+        self.assertIn('Secret=taxtool-db-password,type=env,target=DJANGO_DB_PASSWORD', self.web.splitlines())
+        env = re.findall(r'^Environment=(.+)$', self.web, re.M)
+        for line in ('DJANGO_DB_HOST=postgres', 'DJANGO_DB_PORT=5432', 'DJANGO_DB_NAME=taxtool', 'DJANGO_DB_USER=taxtool'):
+            self.assertIn(line, env)
+        self.assertFalse([e for e in env if e.startswith('DJANGO_DB_PASSWORD') or e.startswith('DJANGO_DB_PATH')])
+        for name, text in self.units.items():
+            self.assertNotRegex(text, r'DJANGO_DB_PASSWORD=|PGPASSWORD|POSTGRES_PASSWORD', name)
+
+    def test_no_database_port_is_published(self):
+        self.assertEqual(re.findall(r'^PublishPort=(.+)$', self.web, re.M), ['127.0.0.1:8889:8000'])
+        self.assertNotIn('5432:', self.web)
+
+    def test_one_off_runs_get_the_matching_network_secret_and_variables(self):
+        for name in ('tax-healthcare-tool-backup.service', 'manage.sh'):
+            text = self.units[name]
+            for needle in ('--network db ', '--secret taxtool-db-password,type=env,target=DJANGO_DB_PASSWORD',
+                           '-e DJANGO_DB_HOST=postgres', '-e DJANGO_DB_NAME=taxtool', '-e DJANGO_DB_USER=taxtool'):
+                self.assertIn(needle, text, f'{name}: {needle}')
+            self.assertNotIn('DJANGO_DB_PATH', text, name)
+        backup = section(self.units['tax-healthcare-tool-backup.service'], 'Unit')
+        self.assertIn('After=postgres.service', backup.splitlines())
+
+    def test_the_u01_guard_is_kept(self):
+        self.assertIn('ExecStartPre=/usr/bin/mountpoint -q /u01', self.web)
+        self.assertIn('StartLimitIntervalSec=0', section(self.web, 'Unit').splitlines())
+
+    def test_deploy_checks_network_and_secret_by_name_before_any_change(self):
+        deploy = read('infra/deploy.yaml')
+        for needle in ('{{ quadlet_dir }}/{{ db_network_file }}', 'podman secret exists {{ db_secret_name }}'):
+            self.assertLess(deploy.index(needle), deploy.index('Create the config and data directories'), needle)
+        self.assertNotRegex(active(deploy), r'secret inspect|--showsecret|cat .*secret')
+        self.assertIn('--skip-if-empty', deploy)
+
+    def test_switch_is_off_by_default_and_set_on_the_host_line(self):
+        self.assertRegex(read('infra/group_vars/all.yml'), r'(?m)^use_postgres: false\b')
+        self.assertRegex(read('infra/inventory.ini.example'), r'(?m)^# *use_postgres=true')
+

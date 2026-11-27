@@ -48,7 +48,14 @@ if not all(o.startswith(_schemes) for o in CSRF_TRUSTED_ORIGINS):
         'DJANGO_CSRF_TRUSTED_ORIGINS entries must start with ' + ' or '.join(_schemes) + '.')
 
 # Data lives outside the code tree, on dedicated paths (never repo-relative).
-DATABASES['default']['NAME'] = _absolute_path('DJANGO_DB_PATH')  # noqa: F405
+if USING_POSTGRES:  # noqa: F405  (DJANGO_DB_HOST is set: PostgreSQL, settings contract v1, ADR 0035)
+    # All five are required; the password arrives as a Podman secret. Its value is never part of a message.
+    _required('DJANGO_DB_PORT')
+    DATABASES['default']['NAME'] = _required('DJANGO_DB_NAME')  # noqa: F405
+    DATABASES['default']['USER'] = _required('DJANGO_DB_USER')  # noqa: F405
+    _required('DJANGO_DB_PASSWORD')
+else:
+    DATABASES['default']['NAME'] = _absolute_path('DJANGO_DB_PATH')  # noqa: F405
 UPLOAD_DIR = _absolute_path('DJANGO_UPLOAD_DIR')
 BACKUP_DIR = _absolute_path('DJANGO_BACKUP_DIR')
 

@@ -7,6 +7,8 @@ tax-service ansible_host=your-host.example.com ansible_user=homeapps
 # Storage on the removable disk /u01 (ADR 0035): only after  make relocate-storage , add  use_u01=true  to the END of the
 # tax-service line above (a host variable). It does NOT work under [taxtool:vars]: group_vars/all.yml (use_u01: false) wins there.
 # use_u01=true
+# PostgreSQL (ADR 0035): only at the cutover (Phase 39), add  use_postgres=true  to the END of the same line, the same way.
+# use_postgres=true
 
 [taxtool_bootstrap]
 tax-admin ansible_host=your-host.example.com ansible_user=your-admin-login

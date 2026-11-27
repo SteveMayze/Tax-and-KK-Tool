@@ -20,6 +20,14 @@
     - name: The storage layout matches the server, the disk is mounted, the folders exist (before anything else)
       ansible.builtin.include_tasks: tasks/storage-check.yml
 
+    - name: On PostgreSQL, restores go through an empty database prepared by the platform (nothing was changed)
+      ansible.builtin.fail:
+        msg: >-
+          use_postgres is true: this playbook restores SQLite only. A PostgreSQL archive is restored with the platform's
+          tools (make pg-restore in the platform repository), or into an empty database the platform created, with
+          restore_backup <archive> --new-db <name> --target-uploads ... (see docs/deployment.md). Nothing was changed.
+      when: use_postgres | bool
+
     - name: Require explicit confirmation and a backup name
       ansible.builtin.assert:
         that:

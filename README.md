@@ -22,6 +22,8 @@ pip install -r requirements.txt
 | `DJANGO_DEBUG` | `0` | `1` enables debug mode |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated |
 | `DJANGO_DB_PATH` | `local/db.sqlite3` | SQLite file; use an absolute path in production |
+| `DJANGO_DB_HOST` | unset | set it to use PostgreSQL instead of SQLite (ADR 0035); then `DJANGO_DB_PORT` (5432), `DJANGO_DB_NAME`, `DJANGO_DB_USER`, `DJANGO_DB_PASSWORD` |
+| `DJANGO_PG_BIN_DIR` | unset | folder of `pg_dump`/`pg_restore` when they are not on the PATH |
 | `DJANGO_RATE_PROVIDER` | Frankfurter/ECB | Set to `core.services.rates.ManualOnlyProvider` to work offline (manual rates only) |
 | `FRANKFURTER_BASE_URL` / `FRANKFURTER_TIMEOUT` | `https://api.frankfurter.dev` / `10` | Rate service URL (https) and timeout in seconds |
 | `DJANGO_UPLOAD_DIR` | `local/uploads` | Where uploaded import files are stored (git-ignored; use an absolute path in production) |
@@ -58,6 +60,8 @@ The app deploys as its own Podman container on the server (plain HTTP on its own
 Storage (ADR 0035): by default the data stays in the service user's home folder. `make relocate-storage` copies the database, the stored originals and the backups to the removable disk `/u01`, verifies every file and switches after you type `SWITCH`; `make rollback-storage` goes back. You then set `use_u01=true` as a host variable on the `tax-service` line of `infra/inventory.ini`. See `docs/deployment.md`, "Storage on the removable disk /u01".
 
 ## Test
+`make test` runs the suite on SQLite; `make test-pg` runs the same suite on a throw-away PostgreSQL 17 (Postgres.app's programs, a temporary cluster that is removed afterwards). Both must pass.
+
 ```
 python manage.py check
 python manage.py test

@@ -23,12 +23,12 @@ def summary(year, prefix):
     from core.models import Payment
     rows = {}
     qs = (Payment.objects.filter(month__year__year=year, organisation__name__istartswith=prefix)
-          .select_related('organisation', 'category').order_by('organisation__name', 'category__name', 'currency'))
+          .select_related('organisation', 'category'))
     for p in qs:
         key = (p.organisation.name, p.category.name, p.currency)
         count, gross, wh, net = rows.get(key, (0, Decimal(0), Decimal(0), Decimal(0)))
         rows[key] = (count + 1, gross + p.gross_amount, wh + p.withholding_tax, net + (p.net_amount if p.net_amount is not None else p.gross_amount - p.withholding_tax))
-    return [(*k, *v) for k, v in rows.items()]
+    return [(*k, *rows[k]) for k in sorted(rows)]          # sorted in Python: engine-independent (ADR 0035)
 
 
 def main(argv=None, out=None):

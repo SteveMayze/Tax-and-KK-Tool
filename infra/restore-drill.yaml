@@ -26,6 +26,22 @@
       ansible.builtin.set_fact:
         drill_file: "{{ backup_file | default((found.files | sort(attribute='mtime') | last).path | basename) }}"
 
+    - name: PostgreSQL archive - verify checksums and pg_restore --list here; the full drill is the platform's (ADR 0035)
+      ansible.builtin.command: >-
+        podman run {{ podman_run_flags }} {{ image_repo }}:current
+        python manage.py restore_backup {{ drill_file | quote }}
+      register: pg_verify
+      changed_when: false
+      when: use_postgres | bool
+
+    - name: Result (PostgreSQL)
+      ansible.builtin.debug:
+        msg:
+          - "{{ pg_verify.stdout_lines }}"
+          - "This app's database role cannot create a scratch database. For the full drill run, in the platform repository:"
+          - "make pg-restore-drill DB={{ db_name }}   (expect DRILL_OK with a table count above 0)"
+      when: use_postgres | bool
+
     - name: Verify and restore into a temporary directory, then check the restored database
       ansible.builtin.command:
         argv:
@@ -70,11 +86,14 @@
           - "{{ drill_file }}"
       register: drill
       changed_when: false
+      when: not use_postgres | bool
 
     - name: Result
       ansible.builtin.debug:
         msg: "{{ drill.stdout_lines }}"
+      when: not use_postgres | bool
 
     - name: The drill must end with DRILL_OK
       ansible.builtin.assert:
         that: "'DRILL_OK' in drill.stdout"
+      when: not use_postgres | bool

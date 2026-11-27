@@ -15,6 +15,7 @@ from django.utils.translation import gettext as _
 
 from core.currencies import SUPPORTED_CURRENCIES
 from core.models import IncomeCategory, Organisation, Payment
+from core.ordering import text_key
 
 ORGANISATION, CATEGORY, CURRENCY, CURRENCY_MODE = 'organisation', 'category', 'currency', 'currency_mode'
 INCLUDE, EXCLUDE = 'include', 'exclude'
@@ -122,7 +123,8 @@ def options(year=None, flt=NO_FILTER, month=None, currencies=False):
     result = {}
     for key, model, ticked in ((ORGANISATION, Organisation, flt.organisation_ids), (CATEGORY, IncomeCategory, flt.category_ids)):
         rows = (model.objects.annotate(total=Count('payments'), n=Count('payments', filter=in_period))
-                .filter(total__gt=0).order_by('name').values_list('pk', 'name', 'active', 'n'))
+                .filter(total__gt=0).values_list('pk', 'name', 'active', 'n'))
+        rows = sorted(rows, key=lambda r: (text_key(r[1]), r[0]))          # engine-independent order (ADR 0035)
         result[key] = [{'id': pk, 'name': name, 'active': active, 'count': n, 'checked': pk in ticked}
                        for pk, name, active, n in rows]
     if not currencies:

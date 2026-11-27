@@ -1,6 +1,8 @@
 ---
-# Proves the rootless instance holds exactly the data of a backup taken from the old rootful instance:
-# compares row counts and content hashes of (a) the backup archive and (b) the live rootless data. No sudo.
+# Proves the live instance holds exactly the data of a SQLite backup archive: compares row counts and content hashes of
+# (a) the archive and (b) the live data. Used for the move from the rootful instance (Phase 9A) and for the move to
+# PostgreSQL (Phase 39, ADR 0035): the fingerprint is engine-neutral, so a SQLite archive and a PostgreSQL database with
+# the same data give the same lines. No sudo.
 #   make verify-migration BACKUP=backup-YYYYMMDD-HHMMSS-migrate.tar.gz
 # Only counts and hashes are printed, never row contents.
 - name: Compare the rootless data with the backup taken from the rootful instance

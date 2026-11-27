@@ -99,12 +99,37 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.environ.get('DJANGO_DB_PATH', str(BASE_DIR / 'local' / 'db.sqlite3')),
+def _database():
+    """SQLite unless DJANGO_DB_HOST is set (settings contract v1, ADR 0035); then PostgreSQL.
+
+    The password comes only from DJANGO_DB_PASSWORD (a Podman secret in production). It is never logged or put in a
+    message: Django does not print DATABASES, and the backup code reports driver errors by type only.
+    """
+    host = os.environ.get('DJANGO_DB_HOST', '').strip()
+    if not host:
+        return {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': os.environ.get('DJANGO_DB_PATH', str(BASE_DIR / 'local' / 'db.sqlite3')),
+        }
+    return {
+        'ENGINE': 'django.db.backends.postgresql',
+        'HOST': host,
+        'PORT': os.environ.get('DJANGO_DB_PORT', '').strip() or '5432',
+        'NAME': os.environ.get('DJANGO_DB_NAME', '').strip(),
+        'USER': os.environ.get('DJANGO_DB_USER', '').strip(),
+        'PASSWORD': os.environ.get('DJANGO_DB_PASSWORD', ''),
+        # Reuse a connection for a minute (single user), but check it is alive first: a restart of PostgreSQL then
+        # costs a reconnect, not an error page. The server is on the same host, so fail fast.
+        'CONN_MAX_AGE': 60,
+        'CONN_HEALTH_CHECKS': True,
+        'OPTIONS': {'connect_timeout': 5},
     }
-}
+
+
+DATABASES = {'default': _database()}
+USING_POSTGRES = DATABASES['default']['ENGINE'].endswith('postgresql')
+# Folder of the PostgreSQL client tools (pg_dump, pg_restore) when they are not on the PATH (development, make test-pg).
+PG_BIN_DIR = os.environ.get('DJANGO_PG_BIN_DIR', '').strip()
 
 
 # Password validation

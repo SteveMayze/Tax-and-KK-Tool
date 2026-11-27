@@ -1,10 +1,12 @@
 """Phase 42 (ADR 0038): the report package (ZIP with the report PDF, the original statements, index.csv, README.txt).
 Synthetic data and files only (see test_report_sources)."""
 import csv
+import datetime
 import hashlib
 import io
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 from django.conf import settings
 from django.test import override_settings
@@ -98,6 +100,10 @@ class PackageTests(PackageBase):
         self.assertEqual(sorted(s.split(' ')[0] for s in states.values()), ['not', 'removed', 'removed', 'stored'])
 
     def test_K4_filter_applied_and_pdf_equals_the_route(self):
+        # A fixed clock: two renders in different seconds differ only in their generation time (flaky before Phase 38).
+        clock = mock.patch('django.utils.timezone.now', return_value=datetime.datetime(2026, 1, 1, 9, 0, tzinfo=datetime.timezone.utc))
+        clock.start()
+        self.addCleanup(clock.stop)
         org = Organisation.objects.get(name='EXAMPLE ONE ORG').pk
         r, z = self.package(organisation=org)
         self.assertEqual(len([n for n in z.namelist() if n.startswith('sources/')]), 1)
@@ -135,6 +141,14 @@ class PackageTests(PackageBase):
             f = real()
             created.append(f)
             return f
+        # Closing a streaming response sends request_finished, and Django then closes the connection because a test
+        # transaction looks "obsolete" to it. Harmless on SQLite's in-memory test database; on PostgreSQL every later
+        # test of this class would lose its connection. The app itself is unaffected (no test transaction there).
+        # (The test client reconnects that signal handler after each request, so the connection's own check is stubbed.)
+        from django.db import connection
+        keep = mock.patch.object(connection, 'close_if_unusable_or_obsolete', lambda: None)
+        keep.start()
+        self.addCleanup(keep.stop)
         with mock.patch.object(report_package.tempfile, 'TemporaryFile', spy):
             r = self.client.get(self.url())
             b''.join(r.streaming_content)
