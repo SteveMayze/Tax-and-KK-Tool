@@ -236,11 +236,13 @@
           retries: 45
           delay: 4
           changed_when: false
+          when: not ansible_check_mode      # --check rehearsal: nothing was restarted, so there is nothing to wait for
 
         - name: The health endpoint answers on the loopback port
           ansible.builtin.uri:
             url: "http://127.0.0.1:{{ app_port }}/health/"
             status_code: 200
+          when: not ansible_check_mode      # --check rehearsal: nothing was restarted, so there is nothing to wait for
 
         - name: Start the daily backup timer again
           ansible.builtin.systemd:
