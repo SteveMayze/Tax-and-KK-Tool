@@ -52,6 +52,32 @@
           {{ quadlet_dir }}/{{ gateway_network }} does not exist. The app joins the network that the separate gateway
           repository creates; deploy the gateway first (nothing was changed here). See docs/deployment.md, "Gateway network".
 
+    - name: Look for the platform's database network file (use_postgres; created by the platform repository)
+      ansible.builtin.stat:
+        path: "{{ quadlet_dir }}/{{ db_network_file }}"
+      register: db_network_stat
+      when: use_postgres | bool
+
+    - name: The database network must exist before the app can join it (nothing was changed)
+      ansible.builtin.assert:
+        that: db_network_stat.stat.exists
+        fail_msg: "{{ quadlet_dir }}/{{ db_network_file }} does not exist. It belongs to the platform repository. Nothing was changed."
+      when: use_postgres | bool
+
+    - name: Does the database secret exist? (checked by NAME only; its value is never read)
+      ansible.builtin.command: "podman secret exists {{ db_secret_name }}"
+      register: db_secret_exists
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: use_postgres | bool
+
+    - name: The database secret must exist (nothing was changed)
+      ansible.builtin.assert:
+        that: db_secret_exists.rc == 0
+        fail_msg: "The Podman secret {{ db_secret_name }} does not exist. The platform creates it. Nothing was changed."
+      when: use_postgres | bool
+
     - name: Check that Podman is installed (nothing is installed or upgraded by this playbook)
       ansible.builtin.command: podman --version
       changed_when: false
@@ -164,9 +190,9 @@
     - name: Back up before changing anything (database and uploads, verified; uses the newly built image)
       ansible.builtin.command: >-
         podman run {{ podman_run_flags }} {{ image_new }}
-        python manage.py backup_db --label pre-deploy
+        python manage.py backup_db --label pre-deploy --skip-if-empty
       register: pre_backup
-      when: db_file.stat.exists
+      when: db_file.stat.exists or use_postgres | bool
       changed_when: "'BACKUP_CREATED' in pre_backup.stdout"
 
     - name: Keep the live image as 'previous' (for rollback) unless it is the same image

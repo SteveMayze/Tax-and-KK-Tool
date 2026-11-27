@@ -17,6 +17,11 @@
     - name: The storage layout matches the server, the disk is mounted, the folders exist (before anything else)
       ansible.builtin.include_tasks: tasks/storage-check.yml
 
+    - name: Restoring data during a rollback is SQLite only (nothing was changed)
+      ansible.builtin.fail:
+        msg: "use_postgres is true: roll back the code without BACKUP=, and restore the data with the platform's tools (docs/deployment.md)."
+      when: use_postgres | bool and restore_backup | length > 0
+
     - name: A previous image must exist
       ansible.builtin.command: "podman image exists {{ image_repo }}:previous"
       changed_when: false
@@ -38,7 +43,7 @@
       ansible.builtin.command: >-
         podman run {{ podman_run_flags }} {{ image_repo }}:current
         python manage.py backup_db --label pre-rollback
-      when: db_file.stat.exists
+      when: db_file.stat.exists or use_postgres | bool
       changed_when: true
 
     - name: Keep the image being rolled back under its own tag

@@ -1,6 +1,10 @@
 # Managed by Ansible (infra/deploy.yaml). A systemd USER service, run by the service user's own systemd.
 [Unit]
 Description=Tax and Healthcare Tool: database and uploads backup
+{% if use_postgres | bool %}
+Wants={{ db_unit }}
+After={{ db_unit }}
+{% endif %}
 {% if use_u01 | bool %}
 # No limit on retries while the disk is missing (systemd reads this key only in [Unit]).
 StartLimitIntervalSec=0
