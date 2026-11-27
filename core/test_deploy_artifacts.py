@@ -572,6 +572,15 @@ class StorageChecksTests(SimpleTestCase):
         self.assertIn('use_u01: false', text[text.index('Install the units and the wrapper for the old folders'):])
         self.assertIn('tasks/storage-check.yml', text)
 
+    def test_health_waits_are_skipped_in_a_check_rehearsal(self):
+        # Regression (Phase 37): under --check the podman inspect is skipped, so the wait never saw "healthy" and failed.
+        for name in ('relocate-storage', 'rollback-storage'):
+            text = read(f'infra/{name}.yaml')
+            for task in ('Wait until the container reports healthy', 'The health endpoint answers on the loopback port'):
+                start = text.index(f'- name: {task}')
+                block = text[start:text.index('- name:', start + 10)]
+                self.assertIn('when: not ansible_check_mode', block, f'{name}: {task}')
+
     def test_make_targets_and_syntax_list(self):
         make = read('Makefile')
         for target in ('relocate-storage', 'rollback-storage'):
