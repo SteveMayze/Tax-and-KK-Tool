@@ -16,7 +16,7 @@ Phase 35 of `docs/prompts/PHASES_12.md`, done on 2026-11-27. It was read-only. N
 
 Other server observations:
 - The live container is the rootless `tax-healthcare-tool-web` on image revision `2e02a5376891`, which equals `main`. The stale rootful copy was not looked at (standing rule 13).
-- There was no daily backup on 2026-11-25. The journal and `/proc/uptime` show that the server was suspended from about 2026-11-24 to 2026-11-26 14:31. The timer caught up after resume (`Persistent=true`) with `backup-20261126-134045`. This is not a gate failure. A server that suspends does misses backup slots and soak time, though, and this matters for the Phase 37 and 39 windows. **Question for the owner:** was the suspend deliberate?
+- There was no daily backup on 2026-11-25. **Cause (owner, 2026-11-27): the server lost power by accident and was down for about two days.** After the restart the clock started from the last saved time (the journal shows the boot, and the containers' start, at 2026-11-24 13:24) until time sync corrected it, so `/proc/uptime` dates the real boot to 2026-11-26 14:31. The backup timer caught up (`Persistent=true`) with `backup-20261126-134045`. Not a gate failure. Two lessons for Phases 37 and 39: check that the server's clock is synchronised before the window (backup names and timestamps come from it), and remember that a power loss leaves the copies on `/u01` and on the eMMC equally exposed, which is why the copy on the Mac (`make fetch-backup`) is part of the data-safety gate.
 - `~/tax-healthcare-tool/DEPLOYED` says `deployed_utc=2026-11-08`, but the commit it records is the newest one. The file gives the date of the first deploy of that commit's image, or it is out of date. This does not matter here.
 
 ## 2. Current state on the server (as `homeapps`, read-only)
@@ -109,6 +109,7 @@ Keep **one verified archive per backup that holds the database and the uploads t
 | 5 | Retention of the SQLite copy and of the home-folder copies | Default: the SQLite copy is kept until the next tax return and SBK assessment that use the migrated data are filed. The home-folder copies are kept until Phase 39 is verified. The owner removes both. |
 | 6 | Maintenance windows | Default: any evening, with the app not in use. |
 | 7 | Other readers of the SQLite file or uploads? | **No** (owner). |
+| 9 | Was the server suspend deliberate? | **No: an accidental power loss, about two days** (owner, 2026-11-27). |
 | 8 | Stale rootful copy on port 8889 | Default: untouched. Removal is a separate owner step after Phase 39. |
 
 ## 9. Discrepancies between documents
