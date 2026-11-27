@@ -4,6 +4,9 @@
 # [taxtool_bootstrap] your own admin login with sudo: used only by `make bootstrap-rootless` and `make migrate-copy`.
 [taxtool]
 tax-service ansible_host=your-host.example.com ansible_user=homeapps
+# Storage on the removable disk /u01 (ADR 0035): only after  make relocate-storage , add  use_u01=true  to the END of the
+# tax-service line above (a host variable). It does NOT work under [taxtool:vars]: group_vars/all.yml (use_u01: false) wins there.
+# use_u01=true
 
 [taxtool_bootstrap]
 tax-admin ansible_host=your-host.example.com ansible_user=your-admin-login

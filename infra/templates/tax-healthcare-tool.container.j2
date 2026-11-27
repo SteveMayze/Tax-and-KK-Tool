@@ -3,6 +3,11 @@
 # systemd (systemctl --user). Quadlet adds the user-level "wait for network" dependency by itself.
 [Unit]
 Description=Tax and Healthcare Tool web app (rootless Podman Quadlet)
+{% if use_u01 | bool %}
+# No limit on start attempts while the disk is missing (see the guard in [Service]). systemd reads this key ONLY in
+# [Unit]: in [Service] it logs "Unknown key" and ignores it (seen with systemd 257 on the server, ADR 0035).
+StartLimitIntervalSec=0
+{% endif %}
 
 [Container]
 Image={{ image_repo }}:current
@@ -13,6 +18,9 @@ PublishPort={{ listen_address }}:{{ app_port }}:8000
 # Also joins the gateway network (created by the separate gateway repository), so the reverse proxy reaches this container by
 # name ({{ container_name }}:8000, the port INSIDE the container). Quadlet makes this unit wait for gateway.network.
 Network={{ gateway_network }}
+{% if use_u01 | bool %}
+# On the removable disk {{ mount_guard_path }} (ADR 0035); the secret env file below stays on the eMMC.
+{% endif %}
 Volume={{ data_root }}/data:/data
 Volume={{ data_root }}/uploads:/uploads
 Volume={{ data_root }}/backups:/backups
@@ -46,8 +54,17 @@ HealthStartPeriod=20s
 HealthOnFailure=restart
 
 [Service]
+{% if use_u01 | bool %}
+# The guard: never start (and so never write data into the empty mount point) while {{ mount_guard_path }} is not a real
+# mount point. A failed start is retried every 10 s, without a limit, until the disk is there. systemd's mount dependency only
+# orders a start in a user unit and never blocks one, so it is not used (proven on the server, gateway ADR 0006).
+ExecStartPre=/usr/bin/mountpoint -q {{ mount_guard_path }}
+Restart=on-failure
+RestartSec=10
+{% else %}
 Restart=always
 RestartSec=5
+{% endif %}
 TimeoutStartSec=180
 
 [Install]

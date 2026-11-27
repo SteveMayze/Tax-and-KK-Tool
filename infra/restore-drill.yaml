@@ -12,6 +12,9 @@
     - name: Connected as the service user, with linger on and a running user systemd
       ansible.builtin.include_tasks: tasks/service-session.yml
 
+    - name: The storage layout matches the server, the disk is mounted, the folders exist (before anything else)
+      ansible.builtin.include_tasks: tasks/storage-check.yml
+
     - name: Find the newest backup
       ansible.builtin.find:
         paths: "{{ data_root }}/backups"

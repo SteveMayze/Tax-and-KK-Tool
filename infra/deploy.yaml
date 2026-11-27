@@ -3,6 +3,9 @@
 # ROOTLESS Podman + Quadlet, run as the ordinary service user (Phase 9A): no sudo, no -K. The container has its own
 # image, name, data folder and port, secrets in a file only the service user can read, a non-root user inside the
 # container, a read-only root file system and dropped capabilities.
+# Storage (ADR 0035): the data is in the home folder (use_u01 false, the default) or on the removable disk /u01. The
+# storage check below refuses, before anything is changed, when use_u01 does not match the server's marker, when /u01 is
+# not mounted, or when the /u01 folders are missing. Data folders are only ever created, never removed or emptied.
 # Run with:  make deploy            (trial port:  make deploy PORT=8890)
 - name: Deploy tax-healthcare-tool
   hosts: taxtool
@@ -16,7 +19,7 @@
     dirty_tree: "{{ lookup('pipe', 'git -C ' ~ repo_root ~ ' status --porcelain --untracked-files=no') }}"
     allow_dirty: false
     image_new: "{{ image_repo }}:{{ app_commit }}"
-    build_dir: "{{ data_root }}/build/{{ app_commit }}"
+    build_dir: "{{ build_base }}/{{ app_commit }}"
     archive_local: "/tmp/{{ app_name }}-{{ app_commit }}.tar.gz"
     quadlet_file: "{{ quadlet_dir }}/{{ app_name }}.container"
 
@@ -33,6 +36,9 @@
 
     - name: Connected as the service user, with linger on and a running user systemd
       ansible.builtin.include_tasks: tasks/service-session.yml
+
+    - name: The storage layout matches the server, the disk is mounted, the folders exist (before any change)
+      ansible.builtin.include_tasks: tasks/storage-check.yml
 
     - name: Look for the gateway network file (created by the separate gateway repository, in the same Quadlet folder)
       ansible.builtin.stat:
@@ -57,15 +63,8 @@
         path: "{{ item }}"
         state: directory
         mode: "0700"
-      loop:
-        - "{{ etc_dir }}"
-        - "{{ data_root }}/build"
-        - "{{ data_root }}/data"
-        - "{{ data_root }}/uploads"
-        - "{{ data_root }}/backups"
-        - "{{ bin_dir }}"
-        - "{{ quadlet_dir }}"
-        - "{{ unit_dir }}"
+      loop: "{{ ([etc_dir, build_base] + ([build_base ~ '/tmp'] if use_u01 | bool else [])
+              + [data_root ~ '/data', data_root ~ '/uploads', data_root ~ '/backups', bin_dir, quadlet_dir, unit_dir]) }}"
 
     - name: Generate the Django SECRET_KEY on the server (only if it does not exist yet; never overwritten)
       ansible.builtin.shell:
@@ -145,6 +144,7 @@
           podman build --build-arg GIT_COMMIT={{ app_commit }}
           -t {{ image_new }} -f Containerfile .
         chdir: "{{ build_dir }}/src"
+      environment: "{{ {'TMPDIR': build_base ~ '/tmp'} if use_u01 | bool else {} }}"    # /u01: build scratch space on the big disk
       changed_when: true
 
     - name: Remember the image that is live now
@@ -247,7 +247,7 @@
 
     - name: Record this deployment
       ansible.builtin.copy:
-        dest: "{{ data_root }}/DEPLOYED"
+        dest: "{{ config_root }}/DEPLOYED"
         mode: "0644"
         content: |
           commit={{ app_commit }}

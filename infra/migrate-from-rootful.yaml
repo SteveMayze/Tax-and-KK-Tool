@@ -10,6 +10,9 @@
   gather_facts: false
   become: true
   tasks:
+    - name: The storage layout matches the server and the target folder exists (before anything else; read-only)
+      ansible.builtin.include_tasks: tasks/storage-check.yml
+
     - name: The old rootful wrapper must exist
       ansible.builtin.stat:
         path: "{{ rootful_manage }}"

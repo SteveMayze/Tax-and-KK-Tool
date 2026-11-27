@@ -278,7 +278,8 @@ class RootlessTests(SimpleTestCase):
             self.assertIn('become: true', read(name))
 
     def test_routine_playbooks_connect_as_the_service_user_and_check_the_session_first(self):
-        for name in ('deploy', 'rollback', 'restore', 'restore-drill', 'fetch-backup', 'status', 'verify-migration'):
+        for name in ('deploy', 'rollback', 'restore', 'restore-drill', 'fetch-backup', 'status', 'verify-migration',
+                     'relocate-storage', 'rollback-storage'):
             text = read(f'infra/{name}.yaml')
             self.assertIn('hosts: taxtool\n', text, name)
             self.assertIn('tasks/service-session.yml', text, name)
@@ -416,3 +417,214 @@ class RepositoryHygieneTests(SimpleTestCase):
     def test_no_database_backup_or_secret_file_would_be_committed(self):
         bad = [f for f in self.tracked_and_new() if re.search(r'\.sqlite3|\.tar\.gz$|\.env$|inventory\.ini$|\.pem$|\.key$', f)]
         self.assertEqual(bad, [])
+
+
+# --- Phase 36 (ADR 0035): storage on the removable disk /u01 -------------------------------------------------------------
+UNIT_TEMPLATES = ('tax-healthcare-tool.container', 'tax-healthcare-tool-backup.service', 'tax-healthcare-tool-backup.timer',
+                  'manage.sh')
+INFRA_ANSIBLE = ROOT / '.venv-infra' / 'bin' / 'ansible-playbook'
+_RENDERED = {}
+
+
+def rendered(use_u01):
+    """Every unit template rendered by Ansible's own engine with the real group_vars and an invented host name.
+    Needs the infra virtualenv (make ansible-setup); the tests that use it are skipped without it."""
+    if use_u01 not in _RENDERED:
+        import tempfile
+        out = Path(tempfile.mkdtemp())
+        tasks = ''.join(f"    - ansible.builtin.template: {{src: '{ROOT}/infra/templates/{t}.j2', dest: '{out}/{t}'}}\n"
+                        for t in UNIT_TEMPLATES)
+        (out / 'render.yaml').write_text(
+            '- hosts: localhost\n  gather_facts: false\n'
+            f"  vars_files: ['{ROOT}/infra/group_vars/all.yml']\n"
+            '  vars: {ansible_host: host.example.invalid}\n'
+            f'  tasks:\n{tasks}')
+        subprocess.run([str(INFRA_ANSIBLE), '-i', 'localhost,', '-c', 'local', '-e', f'use_u01={str(use_u01).lower()}',
+                        str(out / 'render.yaml')], check=True, capture_output=True)
+        _RENDERED[use_u01] = {t: (out / t).read_text() for t in UNIT_TEMPLATES}
+    return _RENDERED[use_u01]
+
+
+def section(unit, name):
+    """The lines of one [Section] of a unit file (headers only count at the start of a line, not inside comments)."""
+    parts = re.split(r'(?m)^\[(\w+)\]$', unit)
+    return dict(zip(parts[1::2], parts[2::2]))[name]
+
+
+def active(text):
+    return '\n'.join(l for l in text.splitlines() if l.strip() and not l.lstrip().startswith('#'))
+
+
+class U01StorageTests(SimpleTestCase):
+    GUARD = ('ExecStartPre=/usr/bin/mountpoint -q /u01', 'Restart=on-failure', 'RestartSec=10')
+
+    def setUp(self):
+        if not INFRA_ANSIBLE.exists():
+            self.skipTest('the infra virtualenv (.venv-infra) is not installed')
+
+    def test_use_u01_is_off_by_default_so_merging_and_deploying_changes_nothing(self):
+        groups = read('infra/group_vars/all.yml')
+        self.assertRegex(groups, r'(?m)^use_u01: false\b')
+        self.assertIn('data_root: "{{ storage_root if use_u01 | bool else legacy_root }}"', groups)
+        self.assertIn('etc_dir: "{{ config_root }}/config"', groups)
+
+    def test_false_renders_exactly_the_units_of_today(self):
+        for name in UNIT_TEMPLATES:
+            self.assertEqual(rendered(False)[name], read(f'core/testdata/legacy-units/{name}'), name)
+
+    def test_guard_is_in_both_units_when_true(self):
+        for name in ('tax-healthcare-tool.container', 'tax-healthcare-tool-backup.service'):
+            unit = rendered(True)[name]
+            service = section(unit, 'Service').splitlines()
+            for line in self.GUARD:
+                self.assertIn(line, service, f'{name}: {line}')
+            # systemd reads StartLimitIntervalSec only in [Unit]; in [Service] it is ignored with "Unknown key" (systemd 257)
+            self.assertIn('StartLimitIntervalSec=0', section(unit, 'Unit').splitlines(), name)
+            self.assertNotIn('StartLimitIntervalSec', section(unit, 'Service'), name)
+        self.assertNotIn('Restart=always', rendered(True)['tax-healthcare-tool.container'])
+
+    def test_guard_is_absent_when_false(self):
+        for name in ('tax-healthcare-tool.container', 'tax-healthcare-tool-backup.service'):
+            unit = rendered(False)[name]
+            for needle in ('mountpoint', 'StartLimitIntervalSec', 'Restart=on-failure', '/u01'):
+                self.assertNotIn(needle, unit, f'{name}: {needle}')
+        self.assertIn('Restart=always', rendered(False)['tax-healthcare-tool.container'])
+
+    def test_true_mounts_only_the_disk_folders_plus_the_config_on_the_emmc(self):
+        unit = rendered(True)['tax-healthcare-tool.container']
+        self.assertEqual(re.findall(r'^Volume=(.+)$', unit, re.M), [
+            '/u01/data/tax-healthcare-tool/data:/data', '/u01/data/tax-healthcare-tool/uploads:/uploads',
+            '/u01/data/tax-healthcare-tool/backups:/backups'])
+        self.assertEqual(re.findall(r'^EnvironmentFile=(.+)$', unit, re.M), ['/home/homeapps/tax-healthcare-tool/config/env'])
+        for name in ('tax-healthcare-tool-backup.service', 'manage.sh'):
+            text = rendered(True)[name]
+            self.assertEqual(re.findall(r'-v (\S+)', text), [
+                '/u01/data/tax-healthcare-tool/data:/data', '/u01/data/tax-healthcare-tool/uploads:/uploads',
+                '/u01/data/tax-healthcare-tool/backups:/backups'], name)
+            self.assertIn('--env-file /home/homeapps/tax-healthcare-tool/config/env', text, name)
+        self.assertIn('DJANGO_DB_PATH=/data/db.sqlite3', unit)       # the container-side paths never change
+
+    def test_no_path_contains_a_parts_db_name(self):
+        for use_u01 in (True, False):
+            for name, text in rendered(use_u01).items():
+                self.assertNotRegex(active(text).lower(), r'parts[-_]?db', name)
+        groups = read('infra/group_vars/all.yml')
+        for var in ('config_root', 'legacy_root', 'storage_root', 'build_root', 'storage_marker'):
+            value = re.search(rf'(?m)^{var}: *(\S+)', groups).group(1)
+            self.assertNotRegex(value.lower(), r'parts', var)
+        self.assertIn('storage_root: /u01/data/tax-healthcare-tool', groups)
+        self.assertIn('build_root: /u01/apps/tax-healthcare-tool/build', groups)
+
+
+class StorageChecksTests(SimpleTestCase):
+    """The precondition and the two storage playbooks (static: they run only on the server)."""
+    DELETING = r'state:\s*absent|\brsync\b|--delete|\brm\s|\bprune\b|\bmv\s|\brmdir\b|\bunlink\b|shutil|\bfind\b.*-delete'
+
+    def test_storage_check_compares_the_marker_the_mount_and_the_owner(self):
+        text = read('infra/tasks/storage-check.yml')
+        for needle in ('{{ storage_marker }}', "'u01' if use_u01 | bool else 'legacy'", '/usr/bin/mountpoint -q {{ mount_guard_path }}',
+                       'item.stat.pw_name == service_user', "storage_root == '/u01/data/tax-healthcare-tool'"):
+            self.assertIn(needle, text)
+        self.assertNotRegex(active(text), self.DELETING)
+        self.assertNotRegex(active(text), r'ansible\.builtin\.(file|copy|template|systemd)|\bcommand: (?!"/usr/bin/mountpoint)')
+
+    def test_preconditions_run_before_the_first_change(self):
+        deploy = read('infra/deploy.yaml')
+        check = deploy.index('tasks/storage-check.yml')
+        for first_change in ('Create the config and data directories', 'Generate the Django SECRET_KEY', 'podman build',
+                             'Package the committed revision'):
+            self.assertLess(check, deploy.index(first_change), first_change)
+        for name in ('restore', 'restore-drill', 'rollback', 'fetch-backup', 'verify-migration', 'migrate-from-rootful'):
+            text = read(f'infra/{name}.yaml')
+            self.assertIn('tasks/storage-check.yml', text, name)
+            check = text.index('tasks/storage-check.yml')
+            for change in ('podman run', 'podman tag', 'ansible.builtin.systemd', 'ansible.builtin.fetch', 'ansible.builtin.copy',
+                           'ansible.builtin.find', 'podman", "run', '- podman\n'):
+                if change in text:
+                    self.assertLess(check, text.index(change), f'{name}: {change}')
+
+    def test_relocation_never_deletes_and_needs_no_root(self):
+        for name in ('relocate-storage', 'rollback-storage'):
+            body = active(read(f'infra/{name}.yaml'))
+            self.assertNotRegex(body, self.DELETING, name)
+            self.assertNotRegex(body, r'\bbecome\b|\bsudo\b|(^|\s)-K\b', name)
+            self.assertIn('hosts: taxtool\n', body, name)
+            self.assertIn('tasks/service-session.yml', body, name)
+
+    def test_relocation_copies_compares_and_switches_only_after_the_confirmation(self):
+        text = read('infra/relocate-storage.yaml')
+        order = ['The new folders must be empty or absent', 'Stop the daily backup timer', 'Stop the app so the files do not change',
+                 '--label pre-relocate', 'cp -a {{ legacy_root }}/{{ item }}/. {{ storage_root }}/{{ item }}/', 'sha256sum',
+                 "== 'SWITCH'", 'content: "u01\\n"', 'Reload systemd and start the app on the new folders']
+        positions = [text.index(o) for o in order]
+        self.assertEqual(positions, sorted(positions), order)
+        rescue = text[text.index('      rescue:'):]
+        for needle in ('content: "legacy\\n"', 'use_u01: false', 'state: restarted', '-backup.timer'):
+            self.assertIn(needle, rescue)
+        self.assertIn('use_u01: true', text)
+        self.assertIn('local/relocation/', text)
+        self.assertIn('mountpoint -q {{ mount_guard_path }}', text)
+
+    def test_rollback_storage_is_confirmed_backs_up_first_and_renders_the_old_units(self):
+        text = read('infra/rollback-storage.yaml')
+        self.assertLess(text.index("== 'ROLLBACK'"), text.index('--label pre-rollback-storage'))
+        self.assertLess(text.index('--label pre-rollback-storage'), text.index('content: "legacy\\n"'))
+        self.assertIn('use_u01: false', text[text.index('Install the units and the wrapper for the old folders'):])
+        self.assertIn('tasks/storage-check.yml', text)
+
+    def test_make_targets_and_syntax_list(self):
+        make = read('Makefile')
+        for target in ('relocate-storage', 'rollback-storage'):
+            self.assertRegex(make, rf'(?m)^{target}:')
+            self.assertIn(f'{target}.yaml', make.split('syntax:')[1].split('\n\n')[0])
+
+    def test_owner_switches_use_u01_on_the_host_line(self):
+        example = read('infra/inventory.ini.example')
+        self.assertRegex(example, r'(?m)^# *use_u01')
+        self.assertIn('tax-service', example)
+
+
+class StorageCheckBehaviourTests(SimpleTestCase):
+    """Runs the real tasks/storage-check.yml with Ansible on this machine against a scratch marker file."""
+
+    def setUp(self):
+        if not INFRA_ANSIBLE.exists():
+            self.skipTest('the infra virtualenv (.venv-infra) is not installed')
+
+    def run_check(self, marker, use_u01):
+        import tempfile
+        tmp = Path(tempfile.mkdtemp())
+        if marker is not None:
+            (tmp / 'storage_location').write_text(marker)
+        (tmp / 'play.yaml').write_text(
+            '- hosts: localhost\n  gather_facts: false\n'
+            f"  vars_files: ['{ROOT}/infra/group_vars/all.yml']\n"
+            '  vars: {ansible_host: host.example.invalid}\n'
+            f"  tasks:\n    - ansible.builtin.include_tasks: '{ROOT}/infra/tasks/storage-check.yml'\n")
+        r = subprocess.run([str(INFRA_ANSIBLE), '-i', 'localhost,', '-c', 'local', '-e', f'use_u01={str(use_u01).lower()}',
+                            '-e', f'storage_marker={tmp}/storage_location', str(tmp / 'play.yaml')], capture_output=True, text=True)
+        return r.returncode, r.stdout
+
+    def test_legacy_without_a_marker_passes(self):
+        self.assertEqual(self.run_check(None, False)[0], 0)
+        self.assertEqual(self.run_check('legacy\n', False)[0], 0)
+
+    def test_marker_that_disagrees_with_the_setting_refuses(self):
+        code, out = self.run_check('u01\n', False)
+        self.assertNotEqual(code, 0)
+        self.assertIn("uses the 'u01' layout but use_u01 is false", out)
+        code, out = self.run_check(None, True)
+        self.assertNotEqual(code, 0)
+        self.assertIn("uses the 'legacy' layout but use_u01 is true", out)
+
+    def test_unknown_marker_refuses(self):
+        code, out = self.run_check('somewhere\n', False)
+        self.assertNotEqual(code, 0)
+        self.assertIn("must contain 'u01' or 'legacy'", out)
+
+    def test_u01_layout_refuses_without_a_mounted_disk_or_folders(self):
+        if subprocess.run(['sh', '-c', 'command -v mountpoint && mountpoint -q /u01'], capture_output=True).returncode == 0:
+            self.skipTest('/u01 is mounted on this machine')
+        code, out = self.run_check('u01\n', True)
+        self.assertNotEqual(code, 0)
+        self.assertIn('is not a mount point', out)

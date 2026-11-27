@@ -13,7 +13,8 @@
     - name: Gather facts about the service, the container, the timer, the backups and the rootless set-up
       ansible.builtin.shell:
         cmd: |
-          echo "--- deployed"; cat {{ data_root }}/DEPLOYED 2>&1
+          echo "--- deployed"; cat {{ config_root }}/DEPLOYED 2>&1
+          echo "--- storage layout (marker; none = legacy)"; cat {{ storage_marker }} 2>/dev/null || echo "legacy (no marker)"; echo "configured: use_u01={{ use_u01 | bool | lower }}, data in {{ data_root }}"
           echo "--- who runs it (must be the service user, not root)"; id -un; podman info --format {% raw %}'rootless={{.Host.Security.Rootless}} graphroot={{.Store.GraphRoot}}'{% endraw %} 2>&1
           echo "--- service";  systemctl --user is-active {{ app_name }}.service
           echo "--- container health"; podman inspect --format {% raw %}'{{.State.Health.Status}}'{% endraw %} {{ container_name }} 2>&1
@@ -25,6 +26,7 @@
           echo "--- backup timer"; systemctl --user list-timers {{ app_name }}-backup.timer --no-pager 2>&1 | head -3
           echo "--- last backup run"; systemctl --user show {{ app_name }}-backup.service -p Result -p ExecMainExitTimestamp 2>&1
           echo "--- backups (newest first)"; ls -lt {{ data_root }}/backups 2>&1 | head -8
+          echo "--- removable disk"; mountpoint {{ mount_guard_path }} 2>&1; df -h {{ mount_guard_path }} 2>&1 | tail -1
           echo "--- disk"; du -sh {{ data_root }}/data {{ data_root }}/uploads {{ data_root }}/backups 2>&1
           echo "--- http probe"; curl -s -m 5 -w " [http=%{http_code}]" http://127.0.0.1:{{ app_port }}/health/ 2>&1; echo
           echo "--- images"; podman images {{ image_repo }} --format {% raw %}'{{.Tag}}  {{.CreatedAt}}  {{.Size}}'{% endraw %} 2>&1

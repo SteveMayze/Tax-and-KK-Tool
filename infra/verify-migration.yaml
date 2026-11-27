@@ -13,6 +13,9 @@
     - name: Connected as the service user, with linger on and a running user systemd
       ansible.builtin.include_tasks: tasks/service-session.yml
 
+    - name: The storage layout matches the server, the disk is mounted, the folders exist (before anything else)
+      ansible.builtin.include_tasks: tasks/storage-check.yml
+
     - name: A backup name is required
       ansible.builtin.assert:
         that: backup_file is defined and backup_file is match('^backup-[0-9]{8}-[0-9]{6}(-[a-z0-9-]+)?\\.tar\\.gz$')
